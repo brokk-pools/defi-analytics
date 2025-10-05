@@ -22,9 +22,9 @@ export default function PositionsList({ wallet, positions, onPositionClick }: Po
       <div className="positions-container">
         <h2>Positions for {formatAddress(wallet)}</h2>
         <div className="empty-state">
-          <p>No Orca Whirlpool positions found for this wallet on devnet.</p>
+          <p>No Orca Whirlpool positions found for this wallet on mainnet.</p>
           <p>
-            Make sure the wallet has created positions on Orca Whirlpools devnet.
+            Make sure the wallet has created positions on Orca Whirlpools mainnet.
           </p>
         </div>
       </div>

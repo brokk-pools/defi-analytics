@@ -6,8 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:prod": "NODE_ENV=production tsc -b && vite build --mode production",
+    "build:analyze": "npm run build:prod && npx vite-bundle-analyzer dist",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "preview:prod": "vite preview --mode production",
+    "clean": "rm -rf dist node_modules/.vite",
+    "test:build": "npm run typecheck && npm run lint && npm run build:prod"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.0",

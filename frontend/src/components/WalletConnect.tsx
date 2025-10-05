@@ -29,7 +29,7 @@ export default function WalletConnect({ onWalletSelect, loading }: WalletConnect
   };
 
   const handleExampleClick = () => {
-    // Example devnet wallet for testing
+    // Example mainnet wallet for testing
     const exampleKey = '11111111111111111111111111111112';
     setPublicKeyInput(exampleKey);
     setError(null);
@@ -38,7 +38,7 @@ export default function WalletConnect({ onWalletSelect, loading }: WalletConnect
   return (
     <div className="wallet-connect">
       <h2>Enter Wallet Public Key</h2>
-      <p>Enter a Solana wallet public key to view Orca Whirlpool positions on devnet:</p>
+      <p>Enter a Solana wallet public key to view Orca Whirlpool positions on mainnet:</p>
       
       <form onSubmit={handleSubmit}>
         <div className="input-group">
@@ -80,8 +80,8 @@ export default function WalletConnect({ onWalletSelect, loading }: WalletConnect
       <div className="info-box">
         <h3>Note:</h3>
         <p>
-          This MVP is configured for Solana Devnet. Make sure the wallet you're checking has 
-          interacted with Orca Whirlpools on devnet.
+          This MVP is configured for Solana Mainnet. Make sure the wallet you're checking has 
+          interacted with Orca Whirlpools on mainnet.
         </p>
       </div>
     </div>

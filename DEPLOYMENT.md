@@ -1,19 +1,54 @@
-# Deployment Guide
+# Orca MVP Production Deployment Guide
 
-This guide covers deploying the Orca Whirlpools MVP to a VPS.
+This comprehensive guide covers deploying the Orca Whirlpools MVP to a production environment with enterprise-grade security, monitoring, and performance optimizations.
 
-## VPS Requirements
+## 📋 System Requirements
 
-- Ubuntu 20.04+ or Debian 11+
-- 2GB RAM minimum (4GB recommended)
-- 20GB storage
-- Public IP address
-- Domain name (optional but recommended)
+### Minimum Requirements
+- **OS**: Ubuntu 20.04+ or Debian 11+
+- **RAM**: 4GB minimum (8GB recommended)
+- **Storage**: 50GB SSD (100GB+ recommended)
+- **CPU**: 2 cores minimum (4 cores recommended)
+- **Network**: Public IP address with 1Gbps connection
+- **Domain**: Registered domain name (required for SSL)
 
-## Step-by-Step Deployment
+### Recommended Production Setup
+- **RAM**: 16GB for high-traffic scenarios
+- **Storage**: 200GB+ NVMe SSD with backup storage
+- **CPU**: 8 cores for optimal performance
+- **Network**: Load balancer + CDN (Cloudflare recommended)
+- **Monitoring**: External monitoring service (Datadog, New Relic, etc.)
 
-### 1. Server Setup
+## 🚀 Quick Start (Automated)
 
+Use our automated scripts for rapid deployment:
+
+```bash
+# 1. Clone the repository
+git clone <your-repo-url>
+cd orca-mvp
+
+# 2. Setup the server (run as root)
+sudo ./scripts/server-setup.sh
+
+# 3. Configure environment variables
+cp .env.secrets.example .env.secrets
+# Edit .env.secrets with your production values
+
+# 4. Deploy the application
+sudo ./scripts/deploy.sh production
+```
+
+That's it! Your Orca MVP will be running with production-grade configuration.
+
+## 📖 Manual Deployment (Advanced Users)
+
+#### Option A: Automated Setup
+```bash
+sudo ./scripts/server-setup.sh
+```
+
+#### Option B: Manual Setup
 ```bash
 # Update system
 sudo apt update && sudo apt upgrade -y
@@ -31,254 +66,341 @@ sudo chmod +x /usr/local/bin/docker-compose
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Install Nginx (for frontend serving)
+# Install Nginx
 sudo apt install nginx -y
+
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx -y
 ```
 
-### 2. Clone and Setup Project
+### 2. Environment Configuration
 
 ```bash
 # Clone repository
 git clone <your-repo-url>
 cd orca-mvp
 
-# Set up environment files
-cp backend/.env.example backend/.env
-# Edit backend/.env with your settings
+# Copy and configure production secrets
+cp .env.secrets.example .env.secrets
+
+# Generate secure passwords
+openssl rand -base64 32  # For database passwords
+openssl rand -hex 32     # For session secrets
+
+# Edit .env.secrets with your production values:
+# - POSTGRES_PASSWORD
+# - REDIS_PASSWORD  
+# - HELIUS_API_KEY
+# - SESSION_SECRET
+# - WEBHOOK_SECRET
 ```
 
-### 3. Database Setup
+### 3. Production Deployment
 
+#### Option A: Automated Deployment
 ```bash
-# Start PostgreSQL with Docker Compose
+sudo ./scripts/deploy.sh production
+```
+
+#### Option B: Manual Deployment
+```bash
+# Deploy with Docker Compose
 cd infra
-docker compose up -d
+docker-compose -f docker-compose.production.yml up -d --build
 
-# Verify database is running
-docker compose ps
+# Verify all services are healthy
+docker-compose -f docker-compose.production.yml ps
 ```
 
-### 4. Backend Deployment
+### 4. SSL/TLS Configuration
 
 ```bash
-cd ../backend
+# Automated SSL setup (included in deploy script)
+sudo ./scripts/deploy.sh production
 
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-
-# Install PM2 for process management
-sudo npm install -g pm2
-
-# Start backend with PM2
-pm2 start dist/index.js --name "orca-backend"
-pm2 startup
-pm2 save
-```
-
-### 5. Frontend Deployment
-
-```bash
-cd ../frontend
-
-# Install dependencies
-npm install
-
-# Build for production
-npm run build
-
-# Copy build files to nginx directory
-sudo cp -r dist/* /var/www/html/
-
-# Configure Nginx
-sudo tee /etc/nginx/sites-available/orca-mvp > /dev/null <<EOF
-server {
-    listen 80;
-    server_name your-domain.com;  # Replace with your domain
-
-    root /var/www/html;
-    index index.html;
-
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    location /api {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
-
-# Enable site
-sudo ln -s /etc/nginx/sites-available/orca-mvp /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-### 6. SSL Configuration (Optional but Recommended)
-
-```bash
-# Install Certbot
-sudo apt install certbot python3-certbot-nginx -y
-
-# Get SSL certificate
+# Manual SSL setup
 sudo certbot --nginx -d your-domain.com
-
-# Auto-renewal
 sudo systemctl enable certbot.timer
 ```
 
-### 7. Firewall Configuration
-
-```bash
-# Configure UFW
-sudo ufw allow ssh
-sudo ufw allow 'Nginx Full'
-sudo ufw allow 5432  # PostgreSQL (if needed externally)
-sudo ufw enable
-```
-
-### 8. Configure Helius Webhook
+### 5. Configure Helius Webhook
 
 1. Go to [Helius Dashboard](https://dev.helius.xyz)
 2. Create webhook with URL: `https://your-domain.com/webhook/helius`
 3. Add filters for Orca program: `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc`
+4. Configure webhook secret in your `.env.secrets` file
 
-## Environment Variables for Production
+### 6. Backup Configuration
 
-### Backend (.env)
 ```bash
-PORT=3001
-NODE_ENV=production
-HELIUS_API_KEY=your_production_helius_key
-HELIUS_RPC=https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
-DATABASE_URL=postgres://orca:orca@localhost:5432/orcadata
-ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
+# Setup automated backups
+sudo crontab -e
+
+# Add backup schedule (daily at 2 AM)
+0 2 * * * /opt/orca-mvp/scripts/backup.sh
+
+# Test backup manually
+sudo ./scripts/backup.sh
 ```
 
-### Frontend (.env)
+## 🔐 Environment Variables
+
+### Production Secrets (.env.secrets)
 ```bash
-VITE_API_URL=https://your-domain.com
+# Database Passwords (generate with: openssl rand -base64 32)
+POSTGRES_PASSWORD=your_secure_postgres_password_here
+REDIS_PASSWORD=your_secure_redis_password_here
+
+# Application Secrets (generate with: openssl rand -hex 32)
+SESSION_SECRET=your_session_secret_64_chars_minimum
+WEBHOOK_SECRET=your_webhook_signature_secret_32_chars
+
+# API Keys
+HELIUS_API_KEY=your_production_helius_api_key_from_dashboard
+
+# Optional: Analytics & Monitoring
+ANALYTICS_ID=your_google_analytics_id
+SENTRY_DSN=your_sentry_project_dsn
+
+# Optional: Backup Encryption
+BACKUP_ENCRYPTION_KEY=your_backup_encryption_key_here
 ```
 
-## Monitoring and Maintenance
+### Backend Configuration (Automatic)
+The backend automatically loads production settings from:
+- `.env.production` (included in repo)
+- `.env.secrets` (you create this)
+
+### Frontend Configuration (Automatic)
+The frontend uses:
+- `.env.production` (included in repo)
+- Environment-specific build optimizations
+
+## 📊 Monitoring and Maintenance
 
 ### Check Application Status
 ```bash
-# Backend status
-pm2 status
-pm2 logs orca-backend
+# Overall system health
+sudo ./scripts/health-check.sh
 
-# Database status
-docker compose ps
-docker compose logs db
+# Container status
+docker-compose -f infra/docker-compose.production.yml ps
+
+# Service logs
+docker-compose -f infra/docker-compose.production.yml logs -f
+
+# Individual service logs
+docker logs orca-backend-prod
+docker logs orca-postgres-prod
+docker logs orca-redis-prod
+docker logs orca-nginx-prod
 
 # Nginx status
 sudo systemctl status nginx
 sudo nginx -t
+
+# Resource usage
+docker stats
+htop
 ```
 
-### Update Application
+### Application Updates
 ```bash
-# Pull latest changes
+# Automated update and deployment
 git pull
+sudo ./scripts/deploy.sh production
 
-# Update backend
-cd backend
-npm install
-npm run build
-pm2 restart orca-backend
-
-# Update frontend
-cd ../frontend
-npm install
-npm run build
-sudo cp -r dist/* /var/www/html/
+# Manual update process
+git pull
+cd infra
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d --build
 ```
 
-### Backup Database
+### Backup and Restore
 ```bash
-# Create backup
-docker exec -t orca-mvp-db-1 pg_dump -c -U orca orcadata > backup_$(date +%Y%m%d_%H%M%S).sql
+# Create backup (automated)
+sudo ./scripts/backup.sh
 
-# Restore backup
-docker exec -i orca-mvp-db-1 psql -U orca orcadata < backup_file.sql
+# Manual database backup
+docker exec orca-postgres-prod pg_dump -U orca_user orcadata_prod > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restore from backup
+docker exec -i orca-postgres-prod psql -U orca_user orcadata_prod < backup_file.sql
 ```
 
-## Troubleshooting
-
-### Backend Issues
+### Performance Monitoring
 ```bash
-# Check logs
-pm2 logs orca-backend
+# Application metrics (production only)
+curl https://your-domain.com/metrics
 
-# Restart backend
-pm2 restart orca-backend
+# Database performance
+docker exec orca-postgres-prod psql -U orca_user -d orcadata_prod -c "SELECT * FROM pg_stat_activity;"
 
-# Check if port is in use
-sudo netstat -tlnp | grep :3001
+# Redis statistics
+docker exec orca-redis-prod redis-cli info stats
+
+# System performance
+iostat -x 1
+vmstat 1
+free -h
+df -h
 ```
 
-### Database Issues
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Application Won't Start
+```bash
+# Check container status
+docker-compose -f infra/docker-compose.production.yml ps
+
+# Check logs for errors
+docker-compose -f infra/docker-compose.production.yml logs
+
+# Check environment variables
+sudo cat .env.secrets
+
+# Restart all services
+sudo ./scripts/deploy.sh production
+```
+
+#### Database Connection Issues
 ```bash
 # Check database container
-docker compose logs db
+docker logs orca-postgres-prod
+
+# Test database connection
+docker exec orca-postgres-prod pg_isready -U orca_user
 
 # Access database directly
-docker exec -it orca-mvp-db-1 psql -U orca orcadata
+docker exec -it orca-postgres-prod psql -U orca_user orcadata_prod
 
 # Restart database
-cd infra
-docker compose restart db
+docker restart orca-postgres-prod
 ```
 
-### Frontend Issues
+#### Performance Issues
 ```bash
-# Check Nginx configuration
-sudo nginx -t
+# Check resource usage
+docker stats
+htop
+iostat -x 1
 
-# Check Nginx logs
-sudo tail -f /var/log/nginx/error.log
+# Check application metrics
+curl https://your-domain.com/metrics
 
-# Restart Nginx
-sudo systemctl restart nginx
+# Analyze slow queries
+docker exec orca-postgres-prod psql -U orca_user -d orcadata_prod -c "SELECT query, mean_time, calls FROM pg_stat_statements ORDER BY mean_time DESC LIMIT 10;"
 ```
 
-### Webhook Issues
+#### SSL/HTTPS Issues
+```bash
+# Check SSL certificate
+sudo certbot certificates
+
+# Test SSL configuration
+sudo nginx -t
+ssl-cert-check -c /etc/letsencrypt/live/your-domain.com/fullchain.pem
+
+# Renew SSL certificate
+sudo certbot renew
+```
+
+#### Webhook Issues
 ```bash
 # Test webhook endpoint
 curl -X POST https://your-domain.com/webhook/helius \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: test" \
   -d '{"test": "data"}'
 
-# Check backend logs for webhook events
-pm2 logs orca-backend | grep webhook
+# Check webhook logs
+docker logs orca-backend-prod | grep webhook
+sudo tail -f /var/log/nginx/webhook_access.log
 ```
 
-## Security Considerations
+## 🔒 Security Best Practices
 
-1. **Environment Variables**: Never commit sensitive data to git
-2. **Database**: Use strong passwords and restrict access
-3. **Firewall**: Only open necessary ports
-4. **SSL**: Always use HTTPS in production
-5. **Updates**: Keep system and dependencies updated
-6. **Backups**: Regular database backups
-7. **Monitoring**: Set up log monitoring and alerts
+### Implemented Security Features
+- ✅ **Rate Limiting**: API and webhook endpoints protected
+- ✅ **CORS Configuration**: Proper cross-origin resource sharing
+- ✅ **Security Headers**: Helmet.js with comprehensive security headers
+- ✅ **SSL/TLS**: Automatic HTTPS with Let's Encrypt
+- ✅ **Firewall**: UFW configured with minimal attack surface
+- ✅ **Container Security**: Non-root users, read-only filesystems
+- ✅ **Input Validation**: Request size limits and validation
+- ✅ **Logging**: Comprehensive audit trails
 
-## Performance Optimization
+### Additional Recommendations
+1. **Secrets Management**: Use environment variables, never commit secrets
+2. **Database Security**: Strong passwords, connection encryption
+3. **Network Security**: VPC, private subnets, security groups
+4. **Monitoring**: Set up intrusion detection and log analysis
+5. **Updates**: Automated security updates for OS and dependencies
+6. **Backups**: Encrypted, tested backup and restore procedures
+7. **Access Control**: SSH key authentication, disable root login
 
-1. **Backend**: Use connection pooling for database
-2. **Frontend**: Enable gzip compression in Nginx
-3. **Database**: Add indexes for frequently queried fields
-4. **Caching**: Implement Redis for API caching
-5. **CDN**: Use CDN for static assets
+## ⚡ Performance Optimizations
+
+### Implemented Optimizations
+- ✅ **Database**: Connection pooling, optimized PostgreSQL config
+- ✅ **Caching**: Redis for session storage and API caching
+- ✅ **Compression**: Gzip compression in Nginx
+- ✅ **Frontend**: Code splitting, asset optimization, CDN-ready
+- ✅ **Backend**: Clustered processes, graceful shutdowns
+- ✅ **Monitoring**: Health checks, metrics endpoints
+
+### Additional Optimizations
+1. **CDN**: CloudFlare or AWS CloudFront for static assets
+2. **Load Balancing**: Multiple application instances
+3. **Database**: Read replicas for scaling reads
+4. **Monitoring**: APM tools (New Relic, Datadog)
+5. **Caching**: Application-level caching strategies
+
+## 📞 Support and Maintenance
+
+### Automated Tasks
+- **Daily Backups**: Automated database and application backups
+- **Log Rotation**: Automatic log cleanup and archival
+- **Health Monitoring**: Continuous application health checks
+- **SSL Renewal**: Automatic certificate renewal
+- **Security Updates**: Automated OS security patches
+
+### Manual Tasks
+- **Dependency Updates**: Monthly review and update of npm packages
+- **Performance Review**: Quarterly performance analysis
+- **Security Audit**: Annual security review and penetration testing
+- **Disaster Recovery**: Quarterly backup restore testing
+
+### Getting Help
+- **Application Logs**: `/var/log/orca/`
+- **System Logs**: `/var/log/`
+- **Health Check**: `https://your-domain.com/health`
+- **Metrics**: `https://your-domain.com/metrics` (internal networks only)
+
+---
+
+## 🎉 Deployment Complete!
+
+Your Orca MVP is now running in production with:
+- 🔒 Enterprise-grade security
+- 📊 Comprehensive monitoring
+- 🚀 High-performance configuration
+- 🔄 Automated backups and updates
+- 📝 Complete audit trails
+
+**Next Steps:**
+1. Configure monitoring alerts
+2. Set up external monitoring
+3. Test disaster recovery procedures
+4. Configure CI/CD pipeline
+5. Plan for scaling
+
+**Remember to:**
+- Monitor application performance
+- Keep dependencies updated
+- Review logs regularly
+- Test backup procedures
+- Plan for growth and scaling

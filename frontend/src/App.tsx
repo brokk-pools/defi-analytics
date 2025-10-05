@@ -49,7 +49,7 @@ function App() {
       <header className="app-header">
         <h1>Orca Whirlpools MVP</h1>
         <p>
-          Track your liquidity positions and fees on Solana Devnet
+          Track your liquidity positions and fees on Solana Mainnet
         </p>
         
         <div className={`status-indicator ${apiStatus}`}>
@@ -96,7 +96,7 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>Orca Whirlpools MVP - Built for Solana Devnet</p>
+        <p>Orca Whirlpools MVP - Built for Solana Mainnet</p>
         <p>
           Backend endpoints: /wallet/:publicKey | /position/:nftMint | /webhook/helius
         </p>

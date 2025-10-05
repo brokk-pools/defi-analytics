@@ -1,0 +1,93 @@
+# ===========================================
+# PRODUCTION DOCKERFILE FOR ORCA BACKEND
+# ===========================================
+
+# Multi-stage build for optimized production image
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    pkgconfig \
+    cairo-dev \
+    pango-dev \
+    libjpeg-turbo-dev \
+    giflib-dev
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci --include=dev
+
+# Copy source code
+COPY src/ ./src/
+
+# Build TypeScript to JavaScript
+RUN npm run build
+
+# Remove dev dependencies and install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# ===========================================
+# PRODUCTION STAGE
+# ===========================================
+FROM node:20-alpine AS production
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S -D -H -u 1001 -s /sbin/nologin nodejs nodejs
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    curl \
+    tini \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
+
+# Set working directory
+WORKDIR /app
+
+# Create necessary directories
+RUN mkdir -p logs tmp && \
+    chown -R nodejs:nodejs /app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+
+# Copy production configuration files
+COPY --chown=nodejs:nodejs .env.production ./.env
+
+# Set proper permissions
+RUN chown -R nodejs:nodejs /app && \
+    chmod -R 755 /app && \
+    chmod 744 /app/dist/index.js
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Set environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=512" \
+    PORT=3001
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start the application
+CMD ["node", "dist/index.js"]
