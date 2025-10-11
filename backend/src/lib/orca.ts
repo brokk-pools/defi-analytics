@@ -1,9 +1,18 @@
 import { Connection, PublicKey, ParsedAccountData } from '@solana/web3.js';
-import { setWhirlpoolsConfig } from '@orca-so/whirlpools';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import fetch from 'node-fetch';
 import { resolveVaultPositions } from './vault.js';
-// Removido import problemático do whirlpools-sdk devido a conflito com @coral-xyz/anchor
+import {
+  WhirlpoolContext,
+  buildWhirlpoolClient,
+  ORCA_WHIRLPOOL_PROGRAM_ID,
+  PDAUtil,
+  PositionData,
+  WhirlpoolData,
+  TickArrayData,
+  PriceMath,
+} from "@orca-so/whirlpools-sdk";
+import { AnchorProvider } from "@coral-xyz/anchor";
 
 export function makeConnection(): Connection {
   let url = process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
@@ -23,20 +32,31 @@ export function makeConnection(): Connection {
   return new Connection(url, 'confirmed');
 }
 
-export function getProgramId(): PublicKey {
-  const pid = process.env.ORCA_WHIRLPOOLS_PROGRAM_ID || 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
-  return new PublicKey(pid);
+export function makeWhirlpoolContext(): WhirlpoolContext {
+  const connection = makeConnection();
+  // Create a dummy wallet for read-only operations
+  const dummyWallet = {
+    publicKey: new PublicKey("11111111111111111111111111111111"),
+    signTransaction: async () => { throw new Error("Read-only mode"); },
+    signAllTransactions: async () => { throw new Error("Read-only mode"); }
+  };
+  const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: 'confirmed' });
+  return WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
 }
 
-export async function initializeOrcaConfig() {
-  const network = process.env.ORCA_NETWORK || (process.env.NODE_ENV === 'production' ? 'mainnet' : 'devnet');
-  const configName = network.toLowerCase() === 'mainnet' ? 'solanaMainnet' : 'solanaDevnet';
-  await setWhirlpoolsConfig(configName);
+export function makeWhirlpoolClient() {
+  const ctx = makeWhirlpoolContext();
+  return buildWhirlpoolClient(ctx);
+}
+
+export function getProgramId(): PublicKey {
+  return ORCA_WHIRLPOOL_PROGRAM_ID;
 }
 
 export async function getPositionsByOwner(connection: Connection, owner: string): Promise<any[]> {
   try {
     const ownerPubkey = new PublicKey(owner);
+    const client = makeWhirlpoolClient();
     
     console.log(`🔍 Searching for positions for wallet: ${owner}`);
     
@@ -57,28 +77,40 @@ export async function getPositionsByOwner(connection: Connection, owner: string)
     
     const positions = [];
     
-    // Check each NFT to see if it's an Orca Whirlpool position
+    // Check each NFT to see if it's an Orca Whirlpool position using SDK
     for (const account of nftAccounts.slice(0, 10)) { // Limit to first 10 for performance
       try {
         const mint = account.account.data.parsed.info.mint;
         const mintPubkey = new PublicKey(mint);
         
-        // Try to derive the position account address
-        const whirlpoolsProgramId = getProgramId();
-        const [positionPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from('position'), mintPubkey.toBuffer()],
-          whirlpoolsProgramId
-        );
+        // Use SDK to derive position PDA
+        const positionPda = PDAUtil.getPosition(mintPubkey, ORCA_WHIRLPOOL_PROGRAM_ID);
         
-        // Check if this position account exists
-        const positionAccount = await connection.getAccountInfo(positionPda);
+        // Try to get position data using SDK
+        const position = await client.getPosition(positionPda.publicKey);
         
-        if (positionAccount && positionAccount.data.length > 0) {
+        if (position) {
+          const positionData = position.getData();
           console.log(`✅ Found Orca position: ${mint}`);
           positions.push({
             mint: mint,
             tokenAccount: account.pubkey.toString(),
-            positionAddress: positionPda.toString()
+            positionAddress: positionPda.publicKey.toString(),
+            whirlpool: positionData.whirlpool.toString(),
+            tickLowerIndex: positionData.tickLowerIndex,
+            tickUpperIndex: positionData.tickUpperIndex,
+            liquidity: positionData.liquidity.toString(),
+            feeGrowthCheckpointA: positionData.feeGrowthCheckpointA.toString(),
+            feeGrowthCheckpointB: positionData.feeGrowthCheckpointB.toString(),
+            feeOwedA: positionData.feeOwedA.toString(),
+            feeOwedB: positionData.feeOwedB.toString(),
+            rewardInfos: positionData.rewardInfos.map((reward, index) => ({
+              index,
+              // Simplified reward info to avoid type errors
+              rewardMint: "unknown",
+              rewardVault: "unknown", 
+              authority: "unknown",
+            }))
           });
         }
       } catch (error) {
@@ -101,87 +133,67 @@ export async function getPositionsByOwner(connection: Connection, owner: string)
 export async function getPositionData(connection: Connection, positionMint: string): Promise<any> {
   try {
     const mintPubkey = new PublicKey(positionMint);
+    const client = makeWhirlpoolClient();
     
     console.log(`📍 Fetching position data for: ${positionMint}`);
     
-    // Derive the position account address
-    const whirlpoolsProgramId = getProgramId();
-    const [positionPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('position'), mintPubkey.toBuffer()],
-      whirlpoolsProgramId
-    );
+    // Use SDK to derive position PDA
+    const positionPda = PDAUtil.getPosition(mintPubkey, ORCA_WHIRLPOOL_PROGRAM_ID);
     
-    // Get the position account data
-    const positionAccount = await connection.getAccountInfo(positionPda);
+    // Get position data using SDK
+    const position = await client.getPosition(positionPda.publicKey);
     
-    if (!positionAccount || positionAccount.data.length === 0) {
-      throw new Error('Position account not found');
+    if (!position) {
+      throw new Error('Position not found');
     }
     
-    // Parse position data (simplified version)
-    // In a full implementation, you would use the Orca SDK's deserializer
-    const data = positionAccount.data;
+    const positionData = position.getData();
     
-    // Extract basic data from the account (this is simplified)
-    // Real implementation would use proper borsh deserialization
-    const whirlpoolOffset = 8; // Skip discriminator
-    const whirlpoolBuffer = data.slice(whirlpoolOffset, whirlpoolOffset + 32);
-    const whirlpoolAddress = new PublicKey(whirlpoolBuffer).toString();
+    // Get whirlpool data using SDK
+    const whirlpool = await client.getPool(positionData.whirlpool);
+    const whirlpoolData = whirlpool.getData();
     
-    // Get whirlpool data
-    const whirlpoolPubkey = new PublicKey(whirlpoolAddress);
-    const whirlpoolAccount = await connection.getAccountInfo(whirlpoolPubkey);
+    console.log(`🪙 Token A: ${whirlpoolData.tokenMintA.toString()}`);
+    console.log(`🪙 Token B: ${whirlpoolData.tokenMintB.toString()}`);
+    console.log(`📊 Position: ticks [${positionData.tickLowerIndex}, ${positionData.tickUpperIndex}], liquidity: ${positionData.liquidity.toString()}`);
     
-    let tokenMintA = 'So11111111111111111111111111111111111111112'; // Default to SOL
-    let tokenMintB = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // Default to USDC
-    let tickCurrentIndex = 0;
-    let sqrtPrice = '79228162514264337593543950336';
-    let feeRate = 300;
-    
-    if (whirlpoolAccount && whirlpoolAccount.data.length > 0) {
-      // Extract token mints from whirlpool data (simplified)
-      const whirlpoolData = whirlpoolAccount.data;
-      const tokenMintAOffset = 8; // Skip discriminator 
-      const tokenMintBOffset = 8 + 32; // After tokenMintA
-      
-      tokenMintA = new PublicKey(whirlpoolData.slice(tokenMintAOffset, tokenMintAOffset + 32)).toString();
-      tokenMintB = new PublicKey(whirlpoolData.slice(tokenMintBOffset, tokenMintBOffset + 32)).toString();
-      
-      console.log(`🪙 Token A: ${tokenMintA}`);
-      console.log(`🪙 Token B: ${tokenMintB}`);
-    }
-    
-    // Extract position-specific data (simplified)
-    const tickLowerOffset = 8 + 32; // After whirlpool address
-    const tickUpperOffset = tickLowerOffset + 4;
-    const liquidityOffset = tickUpperOffset + 4;
-    
-    // Read as little-endian integers (simplified)
-    const tickLower = data.readInt32LE(tickLowerOffset);
-    const tickUpper = data.readInt32LE(tickUpperOffset);
-    
-    // Liquidity is u128, but we'll read as BigInt for simplicity
-    const liquidityBuffer = data.slice(liquidityOffset, liquidityOffset + 16);
-    const liquidity = Buffer.from(liquidityBuffer).readBigUInt64LE(0).toString();
-    
-    console.log(`📊 Position: ticks [${tickLower}, ${tickUpper}], liquidity: ${liquidity}`);
+    // Calculate current price using SDK (simplified for now)
+    // const currentPrice = PriceMath.sqrtPriceX64ToPrice(
+    //   whirlpoolData.sqrtPrice,
+    //   whirlpoolData.tokenMintA,
+    //   whirlpoolData.tokenMintB
+    // );
     
     return {
       mint: positionMint,
-      poolAddress: whirlpoolAddress,
-      tickLower,
-      tickUpper,
-      liquidity,
-      feeGrowthInside: {
-        tokenA: '0', // Would need proper parsing
-        tokenB: '0'
-      },
+      positionAddress: positionPda.publicKey.toString(),
+      poolAddress: positionData.whirlpool.toString(),
+      tickLower: positionData.tickLowerIndex,
+      tickUpper: positionData.tickUpperIndex,
+      liquidity: positionData.liquidity.toString(),
+      feeGrowthCheckpointA: positionData.feeGrowthCheckpointA.toString(),
+      feeGrowthCheckpointB: positionData.feeGrowthCheckpointB.toString(),
+      feeOwedA: positionData.feeOwedA.toString(),
+      feeOwedB: positionData.feeOwedB.toString(),
+      rewardInfos: positionData.rewardInfos.map((reward, index) => ({
+        index,
+        // Simplified reward info to avoid type errors
+        rewardMint: "unknown",
+        rewardVault: "unknown",
+        authority: "unknown",
+      })),
       whirlpoolData: {
-        tokenMintA,
-        tokenMintB,
-        tickCurrentIndex,
-        sqrtPrice,
-        feeRate
+        tokenMintA: whirlpoolData.tokenMintA.toString(),
+        tokenMintB: whirlpoolData.tokenMintB.toString(),
+        tickCurrentIndex: whirlpoolData.tickCurrentIndex,
+        sqrtPrice: whirlpoolData.sqrtPrice.toString(),
+        feeRate: whirlpoolData.feeRate,
+        protocolFeeRate: whirlpoolData.protocolFeeRate,
+        liquidity: whirlpoolData.liquidity.toString(),
+        tickSpacing: whirlpoolData.tickSpacing,
+        // currentPrice: currentPrice.toString(),
+        protocolFeeOwedA: whirlpoolData.protocolFeeOwedA.toString(),
+        protocolFeeOwedB: whirlpoolData.protocolFeeOwedB.toString(),
       }
     };
     
@@ -193,7 +205,15 @@ export async function getPositionData(connection: Connection, positionMint: stri
 
 export function calculateEstimatedFees(position: any): { tokenA: string; tokenB: string } {
   try {
-    // Simplified fee calculation based on position data
+    // Use actual fee data from position if available
+    if (position.feeOwedA && position.feeOwedB) {
+      return {
+        tokenA: position.feeOwedA,
+        tokenB: position.feeOwedB
+      };
+    }
+    
+    // Fallback to simplified calculation if fee data not available
     const liquidity = BigInt(position.liquidity || '0');
     
     // Basic estimation: assume some fees have accrued based on liquidity
@@ -399,77 +419,306 @@ export async function detectClassicLpPositions(tokens: SplTokenAccount[]): Promi
 }
 
 export async function getLiquidityOverview(connection: Connection, owner: string) {
-  const whirlpoolNfts = await getPositionsByOwner(connection, owner);
-  const splTokens = await listSplTokensByOwner(connection, owner);
-  const classicLps = await detectClassicLpPositions(splTokens);
-  const vaultPositions = await resolveVaultPositions(connection, owner);
+  try {
+    console.log(`🌊 Getting liquidity overview for wallet: ${owner}`);
+    
+    // Get all position types using SDK-enhanced functions
+    const whirlpoolNfts = await getPositionsByOwner(connection, owner);
+    const splTokens = await listSplTokensByOwner(connection, owner);
+    const classicLps = await detectClassicLpPositions(splTokens);
+    const vaultPositions = await resolveVaultPositions(connection, owner);
 
-  return {
-    whirlpools_positions: whirlpoolNfts,
-    classic_pools_positions: classicLps,
-    vault_positions: vaultPositions
-  };
+    // Calculate total value and fees for whirlpool positions
+    let totalWhirlpoolFeesA = '0';
+    let totalWhirlpoolFeesB = '0';
+    let totalWhirlpoolLiquidity = '0';
+
+    for (const position of whirlpoolNfts) {
+      if (position.feeOwedA) {
+        totalWhirlpoolFeesA = (BigInt(totalWhirlpoolFeesA) + BigInt(position.feeOwedA)).toString();
+      }
+      if (position.feeOwedB) {
+        totalWhirlpoolFeesB = (BigInt(totalWhirlpoolFeesB) + BigInt(position.feeOwedB)).toString();
+      }
+      if (position.liquidity) {
+        totalWhirlpoolLiquidity = (BigInt(totalWhirlpoolLiquidity) + BigInt(position.liquidity)).toString();
+      }
+    }
+
+    const overview = {
+      timestamp: new Date().toISOString(),
+      wallet: owner,
+      whirlpools_positions: whirlpoolNfts,
+      classic_pools_positions: classicLps,
+      vault_positions: vaultPositions,
+      summary: {
+        total_whirlpool_positions: whirlpoolNfts.length,
+        total_classic_lp_positions: classicLps.length,
+        total_vault_positions: vaultPositions.length,
+        total_whirlpool_fees: {
+          tokenA: totalWhirlpoolFeesA,
+          tokenB: totalWhirlpoolFeesB
+        },
+        total_whirlpool_liquidity: totalWhirlpoolLiquidity
+      }
+    };
+
+    console.log(`✅ Liquidity overview completed: ${whirlpoolNfts.length} whirlpools, ${classicLps.length} classic LPs, ${vaultPositions.length} vaults`);
+    return overview;
+
+  } catch (error) {
+    console.error('Error getting liquidity overview:', error);
+    throw new Error(`Failed to get liquidity overview: ${(error as Error).message}`);
+  }
 }
 
-// Função para obter dados completos de uma pool usando RPC básico
-export async function getFullPoolData(poolAddressStr: string) {
+const TICKS_PER_ARRAY = 88;
+
+// Função auxiliar para calcular preço ajustado baseado nos tokens
+function calculateAdjustedPrice(tickIndex: number, tokenMintA: string, tokenMintB: string): number {
+  const basePrice = Math.pow(1.0001, tickIndex);
+  
+  // Mapeamento de decimais para tokens conhecidos
+  const tokenDecimals: Record<string, number> = {
+    'So11111111111111111111111111111111111111112': 9, // SOL
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6, // USDC
+    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 6, // USDT
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 6, // RAY
+    'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 9, // mSOL
+    '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 6, // ORCA
+  };
+  
+  const decimalsA = tokenDecimals[tokenMintA] || 9;
+  const decimalsB = tokenDecimals[tokenMintB] || 9;
+  
+  // Ajustar preço baseado na diferença de decimais
+  const decimalAdjustment = Math.pow(10, decimalsB - decimalsA);
+  return basePrice * decimalAdjustment;
+}
+
+// Função para obter dados completos de uma pool usando Orca SDK
+export async function getFullPoolData(poolAddressStr: string, includePositions: boolean = true) {
   const connection = makeConnection();
   const POOL_ADDRESS = new PublicKey(poolAddressStr);
-  const WHIRLPOOL_PROGRAM_ID = getProgramId();
 
   console.log("🔍 Buscando dados da pool:", POOL_ADDRESS.toBase58());
   
-  // Buscar dados da pool diretamente via RPC
-  const poolAccount = await connection.getAccountInfo(POOL_ADDRESS);
-  if (!poolAccount) {
-    throw new Error('Pool not found');
+  try {
+    // Configurar contexto e cliente do Orca SDK
+    const ctx = makeWhirlpoolContext();
+    const client = buildWhirlpoolClient(ctx);
+    
+    const pool = await client.getPool(POOL_ADDRESS);
+    const poolData = pool.getData();
+
+    // --- Dados principais ---
+    const main = {
+      address: POOL_ADDRESS.toBase58(),
+      tokenA: poolData.tokenMintA.toBase58(),
+      tokenB: poolData.tokenMintB.toBase58(),
+      liquidity: poolData.liquidity.toString(),
+      tickSpacing: poolData.tickSpacing,
+      feeRate: poolData.feeRate,
+      protocolFeeRate: poolData.protocolFeeRate,
+      sqrtPrice: poolData.sqrtPrice.toString(),
+      tickCurrentIndex: poolData.tickCurrentIndex,
+    };
+
+    // --- Tick Arrays com dados detalhados ---
+    const tickSpacing = poolData.tickSpacing;
+    const currentTick = poolData.tickCurrentIndex;
+    const arraySpan = tickSpacing * TICKS_PER_ARRAY;
+    const start0 = Math.floor(currentTick / arraySpan) * arraySpan;
+
+    const starts = [start0 - arraySpan, start0, start0 + arraySpan];
+    const tickArrays = [];
+    const allTicks = [];
+
+    for (const start of starts) {
+      const pda = PDAUtil.getTickArrayFromTickIndex(
+        start,
+        tickSpacing,
+        POOL_ADDRESS,
+        ORCA_WHIRLPOOL_PROGRAM_ID
+      );
+
+      const ta = await client.getFetcher().getTickArray(pda.publicKey);
+      
+      if (ta) {
+        const initializedTicks = ta.ticks.filter((t) => t.initialized);
+        
+        // Adicionar dados detalhados de cada tick inicializado
+        const detailedTicks = initializedTicks.map((tick, index) => {
+          // Calcular o tickIndex baseado no start do array e índice
+          const tickIndex = start + (index * tickSpacing);
+          return {
+            tickIndex,
+            liquidityNet: tick.liquidityNet.toString(),
+            liquidityGross: tick.liquidityGross.toString(),
+            feeGrowthOutsideA: tick.feeGrowthOutsideA.toString(),
+            feeGrowthOutsideB: tick.feeGrowthOutsideB.toString(),
+            rewardGrowthsOutside: tick.rewardGrowthsOutside.map(rg => rg.toString()),
+            // Calcular preço do tick
+            price: Math.pow(1.0001, tickIndex),
+            // Calcular preço ajustado baseado nos tokens da pool
+            priceAdjusted: calculateAdjustedPrice(tickIndex, poolData.tokenMintA.toString(), poolData.tokenMintB.toString()),
+          };
+        });
+
+        allTicks.push(...detailedTicks);
+
+        tickArrays.push({
+          startTickIndex: start,
+          pubkey: pda.publicKey.toBase58(),
+          exists: true,
+          initializedTicks: initializedTicks.length,
+          totalTicks: ta.ticks.length,
+          ticks: detailedTicks,
+        });
+      } else {
+        tickArrays.push({
+          startTickIndex: start,
+          pubkey: pda.publicKey.toBase58(),
+          exists: false,
+          initializedTicks: 0,
+          totalTicks: 0,
+          ticks: [],
+        });
+      }
+    }
+
+    // Ordenar todos os ticks por índice
+    allTicks.sort((a, b) => a.tickIndex - b.tickIndex);
+
+    // Calcular estatísticas dos ticks
+    const tickStats = {
+      totalInitializedTicks: allTicks.length,
+      currentTickIndex: currentTick,
+      tickSpacing,
+      minTickIndex: allTicks.length > 0 ? allTicks[0]?.tickIndex : null,
+      maxTickIndex: allTicks.length > 0 ? allTicks[allTicks.length - 1]?.tickIndex : null,
+      currentPrice: calculateAdjustedPrice(currentTick, poolData.tokenMintA.toString(), poolData.tokenMintB.toString()),
+      liquidityDistribution: {
+        totalLiquidityGross: allTicks.reduce((sum, tick) => sum + BigInt(tick.liquidityGross), BigInt(0)).toString(),
+        averageLiquidityGross: allTicks.length > 0 ? 
+          (allTicks.reduce((sum, tick) => sum + BigInt(tick.liquidityGross), BigInt(0)) / BigInt(allTicks.length)).toString() : '0',
+        maxLiquidityGross: allTicks.length > 0 ? 
+          Math.max(...allTicks.map(tick => Number(tick.liquidityGross))).toString() : '0',
+        minLiquidityGross: allTicks.length > 0 ? 
+          Math.min(...allTicks.map(tick => Number(tick.liquidityGross))).toString() : '0',
+      },
+      // Dados para visualização de range
+      rangeAnalysis: {
+        ticksAroundCurrent: allTicks.filter(tick => 
+          Math.abs(tick.tickIndex - currentTick) <= tickSpacing * 10
+        ).map(tick => ({
+          tickIndex: tick.tickIndex,
+          price: tick.price,
+          priceAdjusted: tick.priceAdjusted,
+          liquidityGross: tick.liquidityGross,
+          distanceFromCurrent: Math.abs(tick.tickIndex - currentTick),
+        })),
+        liquidityConcentration: allTicks.map(tick => ({
+          tickIndex: tick.tickIndex,
+          priceAdjusted: tick.priceAdjusted,
+          liquidityGross: tick.liquidityGross,
+          isActive: tick.tickIndex <= currentTick && tick.tickIndex >= currentTick - tickSpacing,
+        }))
+      }
+    };
+
+    // --- Fees ---
+    const fees = {
+      protocolFeeOwedA: poolData.protocolFeeOwedA.toString(),
+      protocolFeeOwedB: poolData.protocolFeeOwedB.toString(),
+    };
+
+    // --- Posições ---
+    let positions: any[] = [];
+    let totalPositions = 0;
+    
+    if (includePositions) {
+      // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
+      const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+        filters: [
+          { dataSize: 216 }, // tamanho PositionAccount
+          { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
+        ],
+      });
+
+      positions = positionAccounts.map((acc) => ({
+        pubkey: acc.pubkey.toBase58(),
+        dataLength: acc.account.data.length,
+      }));
+      
+      totalPositions = positions.length;
+    }
+
+    // --- JSON Final ---
+    const json = { 
+      timestamp: new Date().toISOString(),
+      method: 'getFullPoolData',
+      includePositions,
+      main, 
+      tickArrays, 
+      allTicks, // Todos os ticks consolidados e ordenados
+      tickStats, // Estatísticas dos ticks
+      fees, 
+      positions: includePositions ? positions : undefined,
+      totalPositions
+    };
+
+    console.log("✅ Dados da pool obtidos com sucesso usando Orca SDK");
+    return json;
+
+  } catch (error) {
+    console.error("❌ Erro ao usar Orca SDK, tentando fallback RPC:", error);
+    
+    // Fallback para RPC básico se o SDK falhar
+    const poolAccount = await connection.getAccountInfo(POOL_ADDRESS);
+    if (!poolAccount) {
+      throw new Error('Pool not found');
+    }
+
+    const main = {
+      address: POOL_ADDRESS.toBase58(),
+      accountExists: true,
+      dataLength: poolAccount.data.length,
+      lamports: poolAccount.lamports,
+      owner: poolAccount.owner.toBase58(),
+      executable: poolAccount.executable,
+      rentEpoch: poolAccount.rentEpoch,
+      programId: ORCA_WHIRLPOOL_PROGRAM_ID.toBase58(),
+      fallback: true,
+    };
+
+    let positions: any[] = [];
+    let totalPositions = 0;
+    
+    if (includePositions) {
+      const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+        filters: [
+          { dataSize: 216 },
+          { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
+        ],
+      });
+
+      positions = positionAccounts.map((acc) => ({
+        pubkey: acc.pubkey.toBase58(),
+        dataLength: acc.account.data.length,
+      }));
+      
+      totalPositions = positions.length;
+    }
+
+    return { 
+      timestamp: new Date().toISOString(),
+      method: 'getFullPoolData_fallback',
+      includePositions,
+      main, 
+      positions: includePositions ? positions : undefined,
+      totalPositions,
+      error: 'SDK failed, used RPC fallback'
+    };
   }
-
-  // --- Dados principais ---
-  const main = {
-    address: POOL_ADDRESS.toBase58(),
-    accountExists: true,
-    dataLength: poolAccount.data.length,
-    lamports: poolAccount.lamports,
-    owner: poolAccount.owner.toBase58(),
-    executable: poolAccount.executable,
-    rentEpoch: poolAccount.rentEpoch,
-    programId: WHIRLPOOL_PROGRAM_ID.toBase58(),
-  };
-
-  // --- Posições ---
-  // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
-  const positionAccounts = await connection.getProgramAccounts(WHIRLPOOL_PROGRAM_ID, {
-    filters: [
-      { dataSize: 216 }, // tamanho PositionAccount
-      { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
-    ],
-  });
-
-  const positions = positionAccounts.map((acc) => ({
-    pubkey: acc.pubkey.toBase58(),
-    dataLength: acc.account.data.length,
-    lamports: acc.account.lamports,
-    owner: acc.account.owner.toBase58(),
-  }));
-
-  // --- Informações adicionais ---
-  const additionalInfo = {
-    programId: WHIRLPOOL_PROGRAM_ID.toBase58(),
-    totalAccountsScanned: positionAccounts.length,
-    searchMethod: 'getProgramAccounts',
-  };
-
-  // --- JSON Final ---
-  const json = { 
-    timestamp: new Date().toISOString(),
-    method: 'getFullPoolData',
-    main, 
-    positions,
-    additionalInfo,
-    totalPositions: positions.length
-  };
-
-  console.log("✅ Dados da pool obtidos com sucesso");
-  return json;
 }

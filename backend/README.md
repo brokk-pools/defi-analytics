@@ -1,307 +1,302 @@
 # Orca Whirlpools MVP Backend
 
-A comprehensive backend API for Orca Whirlpools analytics and position management on Solana. This project provides powerful endpoints to fetch, analyze, and manage liquidity positions across Orca's Whirlpools ecosystem.
+Backend para análise e visualização de dados de pools do Orca Whirlpools na rede Solana.
 
-## 🚀 Features
+## 🚀 Funcionalidades
 
-### Core Functionality
-- **Position Analytics**: Fetch and analyze Whirlpool positions by owner
-- **Pool Information**: Get comprehensive data about Orca Whirlpools
-- **Top Positions**: Find the highest liquidity positions across all pools
-- **Unified Liquidity View**: Aggregate all position types (Whirlpools, Classic LPs, Vault positions)
-- **Real-time Data**: Live data from Solana blockchain via Helius RPC
-- **File Export**: Export position data to JSON files
+### 📊 Análise de Pools
+- **Dados completos de pools** com informações detalhadas de ticks e liquidez
+- **Análise de range** para visualizações de concentração de liquidez
+- **Estatísticas de liquidez** com métricas de distribuição
+- **Cálculo de preços precisos** ajustados para diferentes tokens
 
-### Supported Position Types
-- **Whirlpool NFTs**: Concentrated liquidity positions
-- **Classic LP Tokens**: Traditional liquidity pool positions
-- **Vault Positions**: Custodied positions in farming programs
+### 🎯 Posições e Liquidez
+- **Busca de posições por proprietário** usando SDK oficial do Orca
+- **Dados detalhados de posições** com informações de fees e rewards
+- **Overview de liquidez** consolidando diferentes tipos de posições
+- **Detecção de classic LPs** e vaults
 
-## 📋 API Endpoints
+### 🔍 APIs e Endpoints
 
-### Health & Status
-- `GET /health` - Health check endpoint
-- `GET /` - API information and available endpoints
-
-### Position Management
-- `GET /position/:nftMint` - Get specific position by NFT mint
-- `GET /positionsByOwner/:owner` - Get all positions for a wallet owner
-- `GET /positionsByOwner/:owner?saveFile=true` - Get positions and save to JSON file
-
-### Pool Analytics
-- `GET /pools` - Get all Orca Whirlpools
-- `GET /pools/:poolId` - Get specific pool by ID
-- `GET /pools?sortBy=volume&sortDirection=desc` - Get pools with sorting
-
-### Advanced Analytics
-- `GET /top-positions?limit=10` - Get top N positions by liquidity
-- `GET /liquidity/:owner` - Get unified liquidity overview for owner
-
-### Wallet & Webhook
-- `GET /wallet/:publicKey` - Get wallet information
-- `POST /webhook/helius` - Helius webhook endpoint
-
-## 🛠️ Installation
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- PostgreSQL (optional, for vault tracking)
-- Helius API key (recommended)
-
-### Setup
-
-1. **Clone the repository**
+#### Health Check
 ```bash
-git clone https://github.com/brokk-pools/defi-analytics.git
-cd defi-analytics/backend
+GET /health
+```
+Retorna status do serviço e métricas do sistema.
+
+#### Pools Details
+```bash
+GET /poolsdetails/:poolid?showpositions=true&saveFile=true
 ```
 
-2. **Install dependencies**
+**Parâmetros:**
+- `poolid` (obrigatório): Endereço da pool
+- `showpositions` (opcional): `true` para incluir posições, qualquer outro valor para omitir
+- `saveFile` (opcional): `true` para salvar resultado em arquivo JSON
+
+**Dados retornados:**
+- `allTicks`: Array de todos os ticks com dados detalhados
+- `tickStats`: Estatísticas dos ticks e análise de range
+- `tickStats.rangeAnalysis.ticksAroundCurrent`: Ticks próximos ao preço atual
+- `tickStats.rangeAnalysis.liquidityConcentration`: Distribuição de liquidez
+- `tickStats.currentPrice`: Preço atual ajustado
+- `tickStats.liquidityDistribution`: Estatísticas de distribuição
+
+**Exemplo de resposta:**
+```json
+{
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "method": "getFullPoolData",
+  "poolId": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "showPositions": true,
+  "success": true,
+  "data": {
+    "includePositions": true,
+    "main": {
+      "address": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+      "tokenA": "So11111111111111111111111111111111111111112",
+      "tokenB": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "liquidity": "1000000000",
+      "tickSpacing": 64,
+      "feeRate": 300,
+      "sqrtPrice": "79228162514264337593543950336",
+      "tickCurrentIndex": -443636
+    },
+    "allTicks": [
+      {
+        "tickIndex": -443636,
+        "liquidityNet": "1000000",
+        "liquidityGross": "2000000",
+        "price": 0.0001,
+        "priceAdjusted": 100.0,
+        "feeGrowthOutsideA": "0",
+        "feeGrowthOutsideB": "0"
+      }
+    ],
+    "tickStats": {
+      "currentTickIndex": -443636,
+      "currentPrice": 100.0,
+      "totalInitializedTicks": 150,
+      "liquidityDistribution": {
+        "totalLiquidityGross": "300000000",
+        "averageLiquidityGross": "2000000",
+        "maxLiquidityGross": "10000000",
+        "minLiquidityGross": "100000"
+      },
+      "rangeAnalysis": {
+        "ticksAroundCurrent": [
+          {
+            "tickIndex": -443636,
+            "priceAdjusted": 100.0,
+            "liquidityGross": "2000000",
+            "distanceFromCurrent": 0
+          }
+        ],
+        "liquidityConcentration": [
+          {
+            "tickIndex": -443636,
+            "priceAdjusted": 100.0,
+            "liquidityGross": "2000000",
+            "isActive": true
+          }
+        ]
+      }
+    },
+    "positions": [...],
+    "totalPositions": 150
+  }
+}
+```
+
+#### Posições por Proprietário
 ```bash
+GET /positionsByOwner/:owner?saveFile=true
+```
+
+**Parâmetros:**
+- `owner` (obrigatório): Endereço da carteira
+- `saveFile` (opcional): `true` para salvar resultado em arquivo
+
+#### Overview de Liquidez
+```bash
+GET /liquidity/:owner
+```
+
+Retorna overview consolidado de todas as posições de liquidez do proprietário.
+
+#### Pools (API Orca)
+```bash
+GET /pools?sortBy=volume&sortDirection=desc
+GET /pools/:poolId
+```
+
+Busca dados de pools usando a API oficial da Orca.
+
+#### Top Posições
+```bash
+GET /top-positions?limit=10
+```
+
+Retorna as principais posições por volume ou liquidez.
+
+## 🛠️ Instalação e Configuração
+
+### Pré-requisitos
+- Node.js >= 20.17.0
+- npm ou yarn
+- Chave de API da Helius (opcional, mas recomendada)
+
+### Instalação
+```bash
+# Clonar o repositório
+git clone <repository-url>
+cd orca-whirlpools-mvp/backend
+
+# Instalar dependências
 npm install
+
+# Configurar variáveis de ambiente
+cp .env.example .env
 ```
 
-3. **Environment Configuration**
-Create a `.env` file in the root directory:
+### Variáveis de Ambiente
+```bash
+# RPC Configuration
+HELIUS_RPC=https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
+HELIUS_API_KEY=your_helius_api_key
 
-```env
-# Required
-HELIUS_API_KEY=your_helius_api_key_here
-ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
-
-# Optional
+# Server Configuration
 PORT=3001
 HOST=localhost
 NODE_ENV=development
-RPC_PROVIDER=helius
 
-# Database (optional)
-DATABASE_URL=postgresql://user:password@localhost:5432/orca_analytics
-
-# Helius RPC (optional, will use API key if provided)
-HELIUS_RPC=https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
+# Orca Configuration
+ORCA_NETWORK=mainnet
+ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 ```
 
-4. **Start the development server**
+### Execução
 ```bash
-npm run dev
-```
-
-The server will start on `http://localhost:3001` by default.
-
-## 🔧 Development
-
-### Available Scripts
-
-```bash
-# Development with hot reload
+# Desenvolvimento
 npm run dev
 
-# Build TypeScript
+# Produção
 npm run build
-
-# Start production server
 npm start
 
-# Debug mode
+# Debug
 npm run dev:debug
 ```
 
-### Project Structure
+## 📦 Dependências Principais
 
+### Core
+- **@orca-so/whirlpools-sdk**: SDK oficial do Orca para interação com pools
+- **@orca-so/common-sdk**: SDK comum do Orca
+- **@coral-xyz/anchor**: Framework Anchor para Solana
+- **@solana/web3.js**: SDK oficial da Solana
+- **@solana/spl-token**: Tokens SPL da Solana
+
+### Backend
+- **express**: Framework web
+- **winston**: Sistema de logging
+- **helmet**: Segurança HTTP
+- **cors**: Cross-Origin Resource Sharing
+- **compression**: Compressão de respostas
+- **express-rate-limit**: Rate limiting
+
+### Desenvolvimento
+- **typescript**: Tipagem estática
+- **tsx**: Execução de TypeScript
+- **@types/***: Definições de tipos
+
+## 🎯 Casos de Uso para Frontend
+
+### 1. Gráfico de Liquidez por Preço
+Use `allTicks` com `priceAdjusted` e `liquidityGross` para criar visualizações de distribuição de liquidez.
+
+### 2. Análise de Range Atual
+Use `ticksAroundCurrent` para mostrar range próximo ao preço atual, destacando ticks ativos.
+
+### 3. Estatísticas de Pool
+Use `liquidityDistribution` para métricas gerais e concentração de liquidez.
+
+### 4. Análise de Preços
+Use `currentPrice` para preço atual e compare com `priceAdjusted` dos ticks.
+
+## 🔧 Arquitetura
+
+### Estrutura de Arquivos
 ```
 src/
-├── index.ts                 # Main server entry point
 ├── lib/
-│   ├── orca.ts             # Orca SDK integration
-│   ├── vault.ts            # Vault position handling
-│   ├── migrations.ts       # Database migrations
-│   ├── validation.ts       # Environment validation
-│   ├── logger.ts           # Winston logging
-│   ├── security.ts         # Security middleware
-│   └── types.ts            # TypeScript definitions
-└── routes/
-    ├── position.ts         # Position endpoints
-    ├── positions-by-owner.ts # Owner position queries
-    ├── pools.ts            # Pool information
-    ├── top-positions.ts    # Top positions analytics
-    ├── liquidity.ts        # Unified liquidity view
-    ├── wallet.ts           # Wallet endpoints
-    └── webhook.ts          # Webhook handlers
+│   ├── orca.ts          # Funções principais do Orca SDK
+│   ├── logger.ts        # Sistema de logging
+│   ├── security.ts      # Middleware de segurança
+│   └── errors.ts        # Tratamento de erros
+├── routes/
+│   ├── pools-details.ts # Rota de detalhes de pools
+│   ├── positions-by-owner.ts # Rota de posições
+│   ├── liquidity.ts     # Rota de liquidez
+│   └── pools.ts         # Rota de pools (API Orca)
+└── index.ts             # Servidor principal
 ```
 
-## 📊 Usage Examples
+### Fluxo de Dados
+1. **Requisição** → Middleware de segurança e rate limiting
+2. **Validação** → Parâmetros e endereços
+3. **SDK Orca** → Busca dados usando SDK oficial
+4. **Processamento** → Cálculos de preços e estatísticas
+5. **Resposta** → Dados estruturados para frontend
 
-### Get All Positions for a Wallet
+## 🚀 Performance
 
-```bash
-curl "http://localhost:3001/positionsByOwner/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
-```
+### Otimizações Implementadas
+- **Rate limiting** para evitar sobrecarga
+- **Compressão** de respostas HTTP
+- **Cache** de dados de pools quando possível
+- **Paralelização** de consultas quando apropriado
+- **Fallback** para RPC básico se SDK falhar
 
-### Get Top 10 Positions by Liquidity
+### Monitoramento
+- **Health check** com métricas do sistema
+- **Logging** estruturado com Winston
+- **Error tracking** com contexto detalhado
 
-```bash
-curl "http://localhost:3001/top-positions?limit=10"
-```
+## 📝 Logs
 
-### Get All Pools with Volume Sorting
+O sistema usa Winston para logging estruturado:
+- **Info**: Operações normais
+- **Warn**: Situações de atenção
+- **Error**: Erros e exceções
+- **Debug**: Informações detalhadas (desenvolvimento)
 
-```bash
-curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc"
-```
+## 🤝 Contribuição
 
-### Export Positions to File
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
-```bash
-curl "http://localhost:3001/positionsByOwner/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?saveFile=true"
-```
+## 📄 Licença
 
-## 🔍 Data Models
+Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalhes.
 
-### Position Response
-```json
-{
-  "timestamp": "2025-10-11T03:31:31.231Z",
-  "method": "fetchPositionsForOwner",
-  "rpcProvider": "helius",
-  "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
-  "totalPositions": 1,
-  "positions": [
-    {
-      "address": "APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83",
-      "whirlpool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
-      "liquidity": "768138776",
-      "tickLowerIndex": -14644,
-      "tickUpperIndex": -14392,
-      "feeOwedA": "0",
-      "feeOwedB": "0"
-    }
-  ]
-}
-```
+## 🆘 Suporte
 
-### Pool Response
-```json
-{
-  "timestamp": "2025-10-11T03:31:31.231Z",
-  "method": "Orca API",
-  "source": "https://api.orca.so/v2/solana/pools",
-  "totalPools": 50,
-  "hasMore": true,
-  "data": [
-    {
-      "address": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
-      "tokenA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "tokenB": "So11111111111111111111111111111111111111112",
-      "tvl": "1250000.50",
-      "volume24h": "45000.25"
-    }
-  ]
-}
-```
+- **Documentação Orca**: https://docs.orca.so/
+- **Discord Orca**: https://discord.gg/orcaprotocol
+- **Issues**: Use o sistema de issues do GitHub
 
-## 🏗️ Architecture
+## 🔄 Changelog
 
-### Technology Stack
-- **Runtime**: Node.js with TypeScript
-- **Framework**: Express.js
-- **Blockchain**: Solana Web3.js
-- **Orca Integration**: @orca-so/whirlpools SDK
-- **RPC Provider**: Helius (with fallback to public RPC)
-- **Database**: PostgreSQL (optional)
-- **Logging**: Winston
-- **Security**: Helmet, CORS, Rate Limiting
-
-### Key Components
-
-1. **Orca Integration** (`src/lib/orca.ts`)
-   - RPC connection management
-   - Position fetching and parsing
-   - Classic LP detection
-   - Vault position resolution
-
-2. **Vault System** (`src/lib/vault.ts`)
-   - Custodied position tracking
-   - Multi-program support
-   - Share mint resolution
-
-3. **Security Layer** (`src/lib/security.ts`)
-   - Rate limiting
-   - Request validation
-   - Webhook signature verification
-
-## 🔒 Security
-
-- **Rate Limiting**: Prevents API abuse
-- **CORS**: Configurable cross-origin requests
-- **Helmet**: Security headers
-- **Input Validation**: Parameter sanitization
-- **Webhook Verification**: Signature validation for webhooks
-
-## 📈 Performance
-
-- **RPC Optimization**: Uses Helius for better performance
-- **Batch Processing**: Efficient token metadata fetching
-- **Caching**: Database caching for vault configurations
-- **Compression**: Response compression enabled
-
-## 🐳 Docker Support
-
-### Development
-```bash
-docker build -f Dockerfile -t orca-backend-dev .
-docker run -p 3001:3001 orca-backend-dev
-```
-
-### Production
-```bash
-docker build -f Dockerfile.prod -t orca-backend-prod .
-docker run -p 3001:3001 orca-backend-prod
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [Orca Documentation](https://docs.orca.so/)
-- **Discord**: [Orca Protocol Discord](https://discord.gg/orcaprotocol)
-- **Issues**: [GitHub Issues](https://github.com/brokk-pools/defi-analytics/issues)
-
-## 🔗 Related Projects
-
-- [Orca Protocol](https://orca.so/)
-- [Helius](https://helius.xyz/)
-- [Solana Web3.js](https://solana-labs.github.io/solana-web3.js/)
-
-## 📊 API Status
-
-The API provides real-time data from the Solana blockchain. All endpoints return JSON responses with proper error handling and status codes.
-
-### Rate Limits
-- Default: 100 requests per 15 minutes per IP
-- Webhook endpoints: 10 requests per minute per IP
-
-### Error Handling
-All endpoints return consistent error responses:
-```json
-{
-  "error": "Error type",
-  "message": "Detailed error message",
-  "timestamp": "2025-10-11T03:31:31.231Z"
-}
-```
-
----
-
-**Built with ❤️ for the Orca ecosystem**
+### v1.0.0
+- ✅ Integração completa com @orca-so/whirlpools-sdk
+- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
+- ✅ Dados detalhados para visualizações de range
+- ✅ Parâmetro `showpositions` para controle de performance
+- ✅ Cálculo de preços ajustados para diferentes tokens
+- ✅ Estatísticas de liquidez e concentração
+- ✅ Sistema de logging e monitoramento
+- ✅ Rate limiting e segurança

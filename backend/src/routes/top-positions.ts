@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { setWhirlpoolsConfig } from '@orca-so/whirlpools';
+import { setWhirlpoolsConfig} from '@orca-so/whirlpools';
 import { makeConnection } from '../lib/orca.js';
 
 const router = Router();
