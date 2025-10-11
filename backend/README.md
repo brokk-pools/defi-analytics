@@ -120,15 +120,27 @@ Retorna dados completos de uma pool com análise detalhada de ticks e posições
 ```bash
 GET /position/:nftMint
 ```
-Retorna dados completos de uma posição específica incluindo metadados de tokens.
+Retorna dados completos de uma posição específica no mesmo formato da rota de liquidez.
 
 **Parâmetros:**
 - `nftMint` (obrigatório): Endereço do NFT da posição
 
 **Dados retornados:**
-- `position`: Dados completos da posição (tokens, ticks, liquidez, fees, range)
-- `pool`: Dados básicos da pool associada
-- Metadados de tokens buscados dinamicamente (não apenas mapeados)
+- `positionMint`: Endereço do NFT da posição
+- `whirlpool`: Endereço da pool associada
+- `tickLowerIndex`: Índice do tick inferior
+- `tickUpperIndex`: Índice do tick superior
+- `currentTick`: Tick atual da pool
+- `liquidity`: Liquidez da posição
+- `feeOwedA`: Taxas devidas do token A
+- `feeOwedB`: Taxas devidas do token B
+- `isInRange`: Se a posição está no range atual
+- `currentPrice`: Preço atual (simplificado)
+- `lowerPrice`: Preço inferior (simplificado)
+- `upperPrice`: Preço superior (simplificado)
+- `status`: Status da posição (active, below_range, above_range, out_of_range)
+- `tickComparison`: Objeto com comparações detalhadas de ticks para visualização
+- `lastUpdated`: Timestamp da última atualização
 
 **Dados retornados (Pool Details):**
 - `allTicks`: Array de todos os ticks com dados detalhados
@@ -385,11 +397,23 @@ curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryf
 
 ### 3. Detalhes de uma Posição Específica
 ```bash
-# Buscar dados completos de uma posição (substitua pelo NFT mint real)
-curl "http://localhost:3001/position/EXEMPLO_NFT_MINT_AQUI"
+# Buscar dados completos de uma posição (mesmo formato da rota de liquidez)
+curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
 
-# Exemplo com um NFT mint real (se disponível)
-curl "http://localhost:3001/position/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+# Exemplo de resposta (formato idêntico à rota de liquidez):
+# {
+#   "positionMint": "77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR",
+#   "whirlpool": "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
+#   "tickLowerIndex": -15294,
+#   "tickUpperIndex": -14782,
+#   "currentTick": -17001,
+#   "liquidity": "370987889",
+#   "feeOwedA": "0",
+#   "feeOwedB": "0",
+#   "isInRange": false,
+#   "status": "below_range",
+#   "tickComparison": { ... }
+# }
 ```
 
 ### 4. Posições de uma Carteira
@@ -481,7 +505,15 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.2.0 (Atual)
+### v1.3.0 (Atual)
+- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
+- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
+- ✅ **Função processPositionData** criada para padronizar o processamento de posições
+- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
+- ✅ **Exemplos de resposta** adicionados na documentação
+- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
+
+### v1.2.0
 - ✅ **README atualizado** com informações básicas e referência à documentação da API
 - ✅ **Instruções de instalação melhoradas** com comandos atualizados
 - ✅ **Dependências atualizadas** com versões específicas

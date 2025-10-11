@@ -51,6 +51,29 @@ router.get('/:nftMint', async (req: Request, res: Response) => {
         'Verifique se o endereço do NFT está correto',
         'O endereço deve ser uma chave pública Solana válida'
       ];
+    } else if (error.message?.includes('Mint account not found')) {
+      errorResponse.statusCode = 404;
+      errorResponse.suggestions = [
+        'O endereço fornecido não existe na rede Solana',
+        'Verifique se o endereço do NFT está correto',
+        'Confirme se está usando a rede Mainnet'
+      ];
+    } else if (error.message?.includes('No token accounts found for mint')) {
+      errorResponse.statusCode = 404;
+      errorResponse.suggestions = [
+        'Este NFT pode ter sido queimado ou transferido',
+        'Verifique se o endereço do NFT está correto',
+        'O NFT pode não existir mais na rede',
+        'Use um NFT mint de uma posição Orca Whirlpools válida e ativa'
+      ];
+    } else if (error.message?.includes('Position account not found at PDA') || error.message?.includes('not be a valid Orca Whirlpool position NFT')) {
+      errorResponse.statusCode = 404;
+      errorResponse.suggestions = [
+        'Este NFT não é uma posição válida do Orca Whirlpools',
+        'Verifique se o endereço é realmente um NFT de posição do Orca',
+        'O NFT pode ser de outro protocolo ou não existir',
+        'Use um NFT mint de uma posição Orca Whirlpools válida'
+      ];
     } else if (error.message?.includes('Position not found')) {
       errorResponse.statusCode = 404;
       errorResponse.suggestions = [
