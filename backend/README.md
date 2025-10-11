@@ -475,11 +475,43 @@ curl "http://localhost:3001/top-positions?limit=50"
 
 ### 5. Posições de uma Carteira
 ```bash
-# Buscar posições de uma carteira específica
+# Buscar posições de uma carteira específica (mesmo formato das outras rotas)
 curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+
+# Exemplo de resposta (formato idêntico à rota de liquidez):
+# {
+#   "timestamp": "2025-01-11T...",
+#   "method": "getLiquidityOverview",
+#   "rpcProvider": "mainnet",
+#   "owner": "6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+#   "success": true,
+#   "data": {
+#     "positions": [
+#       {
+#         "positionMint": "77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR",
+#         "whirlpool": "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
+#         "tickLowerIndex": -15294,
+#         "tickUpperIndex": -14782,
+#         "currentTick": -17001,
+#         "liquidity": "370987889",
+#         "feeOwedA": "0",
+#         "feeOwedB": "0",
+#         "isInRange": false,
+#         "status": "below_range",
+#         "tickComparison": { ... }
+#       }
+#     ],
+#     "summary": {
+#       "totalPositions": 1,
+#       "activePositions": 0,
+#       "outOfRangePositions": 1,
+#       "totalLiquidity": "370987889"
+#     }
+#   }
+# }
 ```
 
-### 4. Detalhes de uma Posição Específica
+### 6. Detalhes de uma Posição Específica
 ```bash
 # Buscar detalhes de uma posição usando o NFT mint
 curl "http://localhost:3001/position/3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
@@ -562,7 +594,14 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.4.0 (Atual)
+### v1.5.0 (Atual)
+- ✅ **Rota wallet refatorada** para usar getLiquidityOverview e retornar formato padronizado
+- ✅ **Consistência total** entre todas as rotas de posição: `/wallet`, `/liquidity`, `/position`, `/top-positions`
+- ✅ **Simplificação da rota wallet** de 116 para 76 linhas com lógica centralizada
+- ✅ **Documentação atualizada** com exemplo de resposta da rota wallet
+- ✅ **Tratamento de erros melhorado** com mensagens específicas para carteiras
+
+### v1.4.0
 - ✅ **Rota top-positions refatorada** com toda lógica de negócio migrada para orca.ts
 - ✅ **Consistência de dados** entre rotas `/top-positions`, `/position/:nftMint` e `/liquidity/:owner`
 - ✅ **Função getTopPositionsData** criada para centralizar lógica de busca de top positions

@@ -1,116 +1,76 @@
 import { Router, Request, Response } from 'express';
-import { makeConnection, getPositionsByOwner, getPositionData, calculateEstimatedFees, getTokenMetadata, isPositionInRange, calculatePriceFromSqrtPrice } from '../lib/orca.js';
-import { query } from '../lib/db.js';
-import { WalletPositionsResponse, PositionInfo } from '../lib/types.js';
-import { asyncHandler, NotFoundError, ExternalServiceError, ValidationError } from '../lib/errors.js';
-import { validatePublicKey } from '../lib/validation.js';
+import { getLiquidityOverview } from '../lib/orca.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
-router.get('/:publicKey', asyncHandler(async (req: Request, res: Response) => {
-  const { publicKey } = req.params;
-  
-  if (!publicKey) {
-    throw new ValidationError('Public key parameter is required');
-  }
-  
-  // Validate public key format
-  const validatedPubkey = validatePublicKey(publicKey);
-    
-  const connection = makeConnection();
-  
+/**
+ * Rota para buscar posições de uma carteira específica
+ * GET /wallet/:publicKey
+ * 
+ * Retorna as posições da carteira no mesmo formato das outras rotas de posição
+ */
+router.get('/:publicKey', async (req: Request, res: Response) => {
   try {
-    console.log(`🔍 Starting wallet search for: ${validatedPubkey.toString()}`);
+    const { publicKey } = req.params;
     
-    // Get positions owned by this wallet
-    const positions = await getPositionsByOwner(connection, validatedPubkey.toString());
+    logger.info(`🔍 Buscando posições da carteira: ${publicKey}`);
     
-    console.log(`🌊 Found ${positions.length} Orca positions to process`);
-    
-    const positionInfos: PositionInfo[] = [];
-    
-    // Only process if we have positions
-    if (positions.length > 0) {
-      for (const position of positions) {
-        try {
-          console.log(`📍 Processing position: ${position.mint}`);
-          
-          // Get detailed position data
-          const positionData = await getPositionData(connection, position.mint);
-          
-          if (positionData && positionData.whirlpoolData) {
-            console.log(`✅ Position data retrieved for ${position.mint}`);
-            
-            // Get token metadata
-            const tokenAMeta = await getTokenMetadata(connection, positionData.whirlpoolData.tokenMintA);
-            const tokenBMeta = await getTokenMetadata(connection, positionData.whirlpoolData.tokenMintB);
-            
-            console.log(`🪙 Tokens: ${tokenAMeta.symbol}/${tokenBMeta.symbol}`);
-            
-            // Calculate estimated fees
-            const fees = calculateEstimatedFees(positionData);
-            
-            // Check if position is in range
-            const inRange = isPositionInRange(positionData);
-            
-            // Calculate current price from sqrt price
-            const price = calculatePriceFromSqrtPrice(
-              positionData.whirlpoolData.sqrtPrice,
-              tokenAMeta.decimals,
-              tokenBMeta.decimals
-            );
-            
-            console.log(`💰 Price: ${price.toFixed(6)}, In Range: ${inRange}`);
-            
-            positionInfos.push({
-              nftMint: position.mint,
-              poolAddress: positionData.poolAddress,
-              tokenA: tokenAMeta.symbol,
-              tokenB: tokenBMeta.symbol,
-              tickLower: positionData.tickLower,
-              tickUpper: positionData.tickUpper,
-              liquidity: positionData.liquidity,
-              currentPrice: price,
-              inRange,
-              estimatedFeesA: fees.tokenA,
-              estimatedFeesB: fees.tokenB
-            });
-            
-            console.log(`✅ Position ${position.mint} processed successfully`);
-          } else {
-            console.log(`⚠️ No whirlpool data for position ${position.mint}`);
-          }
-        } catch (error) {
-          console.error(`❌ Error processing position ${position.mint}:`, error);
-          // Continue processing other positions
-        }
-      }
+    if (!publicKey || publicKey.length < 32) {
+      return res.status(400).json({
+        error: 'Invalid public key',
+        message: 'Public key must be a valid Solana public key'
+      });
     }
     
-    console.log(`🎉 Processed ${positionInfos.length} positions successfully`);
+    // Usar função centralizada do orca.ts para toda a lógica de negócio
+    const response = await getLiquidityOverview(publicKey);
     
-    if (positionInfos.length === 0) {
-      console.log(`💭 No Orca positions found for wallet ${validatedPubkey.toString()}`);
-    }
-    
-    const response: WalletPositionsResponse = {
-      wallet: validatedPubkey.toString(),
-      positions: positionInfos
-    };
-    
+    logger.info(`✅ Posições da carteira obtidas com sucesso: ${publicKey}`);
     res.json(response);
-  } catch (error) {
-    console.error('❌ Error in wallet route:', error);
     
-    // Return empty positions instead of throwing error
-    const response: WalletPositionsResponse = {
-      wallet: validatedPubkey.toString(),
-      positions: []
+  } catch (error: any) {
+    logger.error('❌ Erro ao buscar posições da carteira:', error);
+    
+    let errorResponse: any = {
+      error: 'Failed to fetch wallet positions',
+      message: error.message || 'Unknown error',
+      timestamp: new Date().toISOString(),
+      wallet: req.params.publicKey
     };
-    
-    res.json(response);
-  }
 
-}));
+    if (error.message?.includes('Invalid owner address')) {
+      errorResponse.statusCode = 400;
+      errorResponse.suggestions = [
+        'Verifique se o endereço da carteira está correto',
+        'O endereço deve ser uma chave pública Solana válida'
+      ];
+    } else if (error.message?.includes('No liquidity positions found')) {
+      errorResponse.statusCode = 404;
+      errorResponse.suggestions = [
+        'Esta carteira não possui posições de liquidez no Orca Whirlpools',
+        'Verifique se o endereço está correto',
+        'A carteira pode não ter posições ativas'
+      ];
+    } else if (error.context?.statusCode === 429) {
+      errorResponse.statusCode = 429;
+      errorResponse.suggestions = [
+        'Rate limit exceeded',
+        'Wait a moment before trying again',
+        'Configure a Helius API key to avoid rate limits'
+      ];
+    } else {
+      errorResponse.statusCode = 500;
+      errorResponse.suggestions = [
+        'Verifique se o endereço da carteira está correto',
+        'Confirme se a rede Mainnet está acessível',
+        'Verifique se as dependências estão atualizadas',
+        'Configure uma chave de API da Helius para melhor performance'
+      ];
+    }
+
+    res.status(errorResponse.statusCode || 500).json(errorResponse);
+  }
+});
 
 export default router;
