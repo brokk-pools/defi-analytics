@@ -2,7 +2,12 @@ import pkg from 'pg';
 const { Pool: PgPool } = pkg;
 
 export const db = new PgPool({
-  connectionString: process.env.DATABASE_URL
+  host: 'localhost',
+  port: 5432,
+  database: 'orca_mvp',
+  user: 'postgres',
+  password: 'postgres',
+  ssl: false
 });
 
 export async function query(q: string, params?: any[]) {

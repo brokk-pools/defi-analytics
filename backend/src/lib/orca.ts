@@ -418,52 +418,196 @@ export async function detectClassicLpPositions(tokens: SplTokenAccount[]): Promi
     .filter((p): p is ClassicLpPosition => !!p);
 }
 
-export async function getLiquidityOverview(connection: Connection, owner: string) {
+export async function getLiquidityOverview(owner: string) {
   try {
     console.log(`🌊 Getting liquidity overview for wallet: ${owner}`);
     
-    // Get all position types using SDK-enhanced functions
-    const whirlpoolNfts = await getPositionsByOwner(connection, owner);
-    const splTokens = await listSplTokensByOwner(connection, owner);
-    const classicLps = await detectClassicLpPositions(splTokens);
-    const vaultPositions = await resolveVaultPositions(connection, owner);
+    // Importar as funções necessárias do SDK
+    const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+    const { address } = await import('@solana/kit');
+    
+    // Criar conexão RPC reutilizável
+    const { rpc, rpcProvider } = await createRpcConnection();
 
-    // Calculate total value and fees for whirlpool positions
-    let totalWhirlpoolFeesA = '0';
-    let totalWhirlpoolFeesB = '0';
-    let totalWhirlpoolLiquidity = '0';
+    // Converter endereço para o formato correto
+    const ownerAddress = address(owner);
+    console.log(`🔍 Searching positions for owner: ${ownerAddress}`);
 
-    for (const position of whirlpoolNfts) {
+    // Buscar posições do proprietário usando o SDK oficial
+    const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+    console.log(`📊 Encontradas ${positions?.length || 0} posições`);
+
+    // Processar posições para obter informações básicas
+    const processedPositions = await Promise.all((positions || []).map(async (position: any) => {
+      try {
+        console.log('🔍 Processando posição completa:', {
+          address: position.address?.toString(),
+          data: position.data ? {
+            positionMint: position.data.positionMint?.toString(),
+            whirlpool: position.data.whirlpool?.toString(),
+            tickLowerIndex: position.data.tickLowerIndex,
+            tickUpperIndex: position.data.tickUpperIndex,
+            liquidity: position.data.liquidity?.toString(),
+            feeOwedA: position.data.feeOwedA?.toString(),
+            feeOwedB: position.data.feeOwedB?.toString()
+          } : null
+        });
+        
+        // Extrair dados da estrutura correta do SDK
+        const positionMint = position.data?.positionMint?.toString() || position.positionMint?.toString();
+        const whirlpool = position.data?.whirlpool?.toString() || position.whirlpool?.toString();
+        const tickLowerIndex = position.data?.tickLowerIndex || position.tickLowerIndex;
+        const tickUpperIndex = position.data?.tickUpperIndex || position.tickUpperIndex;
+        const liquidity = position.data?.liquidity?.toString() || position.liquidity?.toString();
+        const feeOwedA = position.data?.feeOwedA?.toString() || position.feeOwedA?.toString() || '0';
+        const feeOwedB = position.data?.feeOwedB?.toString() || position.feeOwedB?.toString() || '0';
+        
+        console.log('🔍 Dados extraídos:', {
+          positionMint,
+          whirlpool,
+          tickLowerIndex,
+          tickUpperIndex,
+          liquidity,
+          feeOwedA,
+          feeOwedB
+        });
+        
+        // Verificar se positionMint existe
+        if (!positionMint) {
+          console.warn('⚠️ Posição sem positionMint:', position);
+          return {
+            positionMint: 'unknown',
+            whirlpool: whirlpool || 'unknown',
+            tickLowerIndex: tickLowerIndex || 0,
+            tickUpperIndex: tickUpperIndex || 0,
+            liquidity: liquidity || '0',
+            feeOwedA: '0',
+            feeOwedB: '0',
+            status: 'error',
+            error: 'Missing positionMint',
+            lastUpdated: new Date().toISOString()
+          };
+        }
+
+        // Calcular se a posição está in-range
+        // Para isso, precisamos do tick atual da pool
+        let isInRange = false;
+        let currentTick = 0;
+        
+        try {
+          // Obter dados da pool para calcular o tick atual
+          if (whirlpool && whirlpool !== 'unknown') {
+            const connection = makeConnection();
+            const client = makeWhirlpoolClient();
+            const poolPubkey = new PublicKey(whirlpool);
+            const pool = await client.getPool(poolPubkey);
+            const poolData = pool.getData();
+            currentTick = poolData.tickCurrentIndex;
+            
+            // Verificar se o tick atual está dentro do range da posição
+            isInRange = currentTick >= tickLowerIndex && currentTick <= tickUpperIndex;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Erro ao obter tick atual da pool ${whirlpool}:`, error);
+          // Fallback: assumir que se os ticks são válidos, a posição está ativa
+          isInRange = tickLowerIndex !== undefined && tickUpperIndex !== undefined && 
+                     tickLowerIndex < tickUpperIndex;
+        }
+        
+        // Status baseado no cálculo de in-range
+        const status = isInRange ? 'active' : 'out_of_range';
+
+        // Calcular informações visuais para comparação de ticks
+        const tickComparison = {
+          currentTick: currentTick,
+          tickLowerIndex: tickLowerIndex || 0,
+          tickUpperIndex: tickUpperIndex || 0,
+          tickRange: `${tickLowerIndex || 0} to ${tickUpperIndex || 0}`,
+          tickSpread: (tickUpperIndex || 0) - (tickLowerIndex || 0),
+          distanceFromLower: currentTick - (tickLowerIndex || 0),
+          distanceFromUpper: (tickUpperIndex || 0) - currentTick,
+          isBelowRange: currentTick < (tickLowerIndex || 0),
+          isAboveRange: currentTick > (tickUpperIndex || 0),
+          isInRange: isInRange
+        };
+
+        // Retornar dados básicos da posição
+        return {
+          positionMint: positionMint,
+          whirlpool: whirlpool || 'unknown',
+          tickLowerIndex: tickLowerIndex || 0,
+          tickUpperIndex: tickUpperIndex || 0,
+          currentTick: currentTick,
+          liquidity: liquidity || '0',
+          feeOwedA: feeOwedA,
+          feeOwedB: feeOwedB,
+          isInRange: isInRange,
+          currentPrice: 0, // Será calculado posteriormente se necessário
+          lowerPrice: 0, // Será calculado posteriormente se necessário
+          upperPrice: 0, // Será calculado posteriormente se necessário
+          status: status,
+          tickComparison: tickComparison, // Informações visuais para comparação
+          lastUpdated: new Date().toISOString()
+        };
+      } catch (error) {
+        console.warn(`⚠️ Erro ao processar posição:`, error);
+        return {
+          positionMint: 'unknown',
+          whirlpool: 'unknown',
+          tickLowerIndex: 0,
+          tickUpperIndex: 0,
+          liquidity: '0',
+          status: 'error',
+          error: (error as Error).message,
+          lastUpdated: new Date().toISOString()
+        };
+      }
+    }));
+
+    // Calcular estatísticas
+    const activePositions = processedPositions.filter(p => p.status === 'active');
+    const outOfRangePositions = processedPositions.filter(p => p.status === 'out_of_range');
+    
+    let totalFeesA = BigInt(0);
+    let totalFeesB = BigInt(0);
+    let totalLiquidity = BigInt(0);
+
+    for (const position of processedPositions) {
       if (position.feeOwedA) {
-        totalWhirlpoolFeesA = (BigInt(totalWhirlpoolFeesA) + BigInt(position.feeOwedA)).toString();
+        totalFeesA += BigInt(position.feeOwedA);
       }
       if (position.feeOwedB) {
-        totalWhirlpoolFeesB = (BigInt(totalWhirlpoolFeesB) + BigInt(position.feeOwedB)).toString();
+        totalFeesB += BigInt(position.feeOwedB);
       }
       if (position.liquidity) {
-        totalWhirlpoolLiquidity = (BigInt(totalWhirlpoolLiquidity) + BigInt(position.liquidity)).toString();
+        totalLiquidity += BigInt(position.liquidity);
       }
     }
 
     const overview = {
       timestamp: new Date().toISOString(),
+      method: 'getLiquidityOverview',
+      rpcProvider: rpcProvider,
       wallet: owner,
-      whirlpools_positions: whirlpoolNfts,
-      classic_pools_positions: classicLps,
-      vault_positions: vaultPositions,
+      totalPositions: processedPositions.length,
+      positions: processedPositions,
       summary: {
-        total_whirlpool_positions: whirlpoolNfts.length,
-        total_classic_lp_positions: classicLps.length,
-        total_vault_positions: vaultPositions.length,
+        total_whirlpool_positions: processedPositions.length,
+        active_positions: activePositions.length,
+        out_of_range_positions: outOfRangePositions.length,
+        active_percentage: processedPositions.length > 0 ? 
+          ((activePositions.length / processedPositions.length) * 100).toFixed(2) + '%' : '0%',
         total_whirlpool_fees: {
-          tokenA: totalWhirlpoolFeesA,
-          tokenB: totalWhirlpoolFeesB
+          tokenA: totalFeesA.toString(),
+          tokenB: totalFeesB.toString()
         },
-        total_whirlpool_liquidity: totalWhirlpoolLiquidity
+        total_whirlpool_liquidity: totalLiquidity.toString(),
+        average_liquidity: processedPositions.length > 0 ? 
+          (totalLiquidity / BigInt(processedPositions.length)).toString() : '0'
       }
     };
 
-    console.log(`✅ Liquidity overview completed: ${whirlpoolNfts.length} whirlpools, ${classicLps.length} classic LPs, ${vaultPositions.length} vaults`);
+    console.log(`✅ Liquidity overview completed: ${processedPositions.length} whirlpools (${activePositions.length} active, ${outOfRangePositions.length} out-of-range)`);
     return overview;
 
   } catch (error) {
@@ -473,6 +617,69 @@ export async function getLiquidityOverview(connection: Connection, owner: string
 }
 
 const TICKS_PER_ARRAY = 88;
+
+/**
+ * Função para converter BigInt para string recursivamente
+ */
+export function convertBigIntToString(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToString);
+  }
+  
+  if (typeof obj === 'object') {
+    const converted: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToString(value);
+    }
+    return converted;
+  }
+  
+  return obj;
+}
+
+/**
+ * Função para criar conexão RPC reutilizável
+ */
+export async function createRpcConnection() {
+  // Importar as funções necessárias do SDK
+  const { setWhirlpoolsConfig } = await import('@orca-so/whirlpools');
+  const { createSolanaRpc, mainnet } = await import('@solana/kit');
+  
+  // Configurar para usar a rede Mainnet
+  await setWhirlpoolsConfig('solanaMainnet');
+  console.log('✅ Configured to use Solana Mainnet');
+
+  // Configuração do RPC
+  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
+  const apiKey = process.env.HELIUS_API_KEY;
+  
+  let rpcUrl: string;
+  if (rpcProvider === 'helius') {
+    rpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
+    console.log('✅ Using Helius RPC (no rate limiting)');
+  } else {
+    rpcUrl = 'https://api.mainnet-beta.solana.com';
+    console.log(`✅ Using RPC ${rpcProvider}`);
+  }
+
+  // Criar conexão RPC
+  const rpc = createSolanaRpc(mainnet(rpcUrl));
+  console.log(`✅ Connected to Mainnet via ${rpcProvider}`);
+
+  return {
+    rpc,
+    rpcProvider,
+    rpcUrl
+  };
+}
 
 // Função auxiliar para calcular preço ajustado baseado nos tokens
 function calculateAdjustedPrice(tickIndex: number, tokenMintA: string, tokenMintB: string): number {
