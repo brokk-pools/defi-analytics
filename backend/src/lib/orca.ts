@@ -783,9 +783,9 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
           ticks: detailedTicks,
         });
       } else {
-        tickArrays.push({
-          startTickIndex: start,
-          pubkey: pda.publicKey.toBase58(),
+      tickArrays.push({
+        startTickIndex: start,
+        pubkey: pda.publicKey.toBase58(),
           exists: false,
           initializedTicks: 0,
           totalTicks: 0,
@@ -846,13 +846,13 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
     let positionAccounts: any = [];
     
     if (includePositions) {
-      // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
+    // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
       positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
-        filters: [
-          { dataSize: 216 }, // tamanho PositionAccount
-          { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
-        ],
-      });
+      filters: [
+        { dataSize: 216 }, // tamanho PositionAccount
+        { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
+      ],
+    });
 
       // Se topPositions > 0, limitar o número de posições processadas
       const positionsToProcess = topPositions > 0 ? 
@@ -933,8 +933,8 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
           } catch (error) {
             // Em caso de erro, retornar dados básicos
             return {
-              pubkey: acc.pubkey.toBase58(),
-              dataLength: acc.account.data.length,
+      pubkey: acc.pubkey.toBase58(),
+      dataLength: acc.account.data.length,
               status: 'error',
               error: (error as Error).message
             };
@@ -1025,20 +1025,20 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
     let totalPositions = 0;
     
     if (includePositions) {
-      const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
-        filters: [
-          { dataSize: 216 },
-          { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
-        ],
-      });
+    const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+      filters: [
+        { dataSize: 216 },
+        { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
+      ],
+    });
 
       // No fallback, retornar dados básicos das posições
       positions = positionAccounts.map((acc) => ({
-        pubkey: acc.pubkey.toBase58(),
-        dataLength: acc.account.data.length,
+      pubkey: acc.pubkey.toBase58(),
+      dataLength: acc.account.data.length,
         status: 'fallback_mode',
         note: 'Position data limited in fallback mode - SDK failed'
-      }));
+    }));
       
       totalPositions = positions.length;
     }
@@ -1052,5 +1052,97 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
       totalPositions,
       error: 'SDK failed, used RPC fallback'
     };
+  }
+}
+
+/**
+ * Função para buscar pools usando a API oficial da Orca
+ * Documentação: https://api.orca.so/docs#tag/whirlpools/get/pools
+ */
+export async function fetchPoolsFromOrcaAPI(poolId?: string, sortBy?: string, sortDirection?: string): Promise<any> {
+  try {
+    let url = 'https://api.orca.so/v2/solana/pools';
+    
+    if (poolId) {
+      // Para pool específico, usar API v2 e filtrar depois
+      url = 'https://api.orca.so/v2/solana/pools';
+    } else {
+      // Adicionar parâmetros de query para a lista de pools
+      const queryParams = new URLSearchParams();
+      
+      if (sortBy) {
+        queryParams.append('sortBy', sortBy);
+        // Se sortBy é fornecido, sempre incluir sortDirection (padrão: desc)
+        queryParams.append('sortDirection', sortDirection || 'desc');
+      }
+      
+      // Parâmetros mínimos para não filtrar resultados
+      queryParams.append('stats', '5m');
+      queryParams.append('includeBlocked', 'true');
+      
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+    }
+    
+    console.log(`🌐 Buscando dados da API da Orca: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'orca-whirlpools-mvp/1.0'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API da Orca retornou status ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json() as any;
+    
+    // Verificar se a resposta contém erro
+    if (data.lasterror) {
+      console.warn(`⚠️ API da Orca retornou erro: ${data.lasterror}`);
+      // Se há parâmetros de query, tentar novamente sem eles
+      if (sortBy || sortDirection) {
+        console.log('🔄 Tentando novamente sem parâmetros de ordenação...');
+        const fallbackUrl = 'https://api.orca.so/v2/solana/pools';
+        const fallbackResponse = await fetch(fallbackUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'orca-whirlpools-mvp/1.0'
+          }
+        });
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          console.log(`✅ Dados recebidos da API da Orca (fallback sem parâmetros)`);
+          return fallbackData;
+        }
+      }
+      throw new Error(`API da Orca retornou erro: ${data.lasterror}`);
+    }
+    
+    console.log(`✅ Dados recebidos da API da Orca`);
+    
+    // Se foi solicitado um pool específico, filtrar os resultados
+    if (poolId && data.data) {
+      const specificPool = data.data.find((pool: any) => pool.address === poolId);
+      if (specificPool) {
+        return {
+          data: [specificPool],
+          meta: data.meta
+        };
+      } else {
+        throw new Error(`Pool com ID ${poolId} não encontrado`);
+      }
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados da API da Orca:', error);
+    throw new Error(`Erro na API da Orca: ${(error as Error).message}`);
   }
 }
