@@ -24,10 +24,57 @@ GET /health
 ```
 Retorna status do serviço e métricas do sistema.
 
-#### Pools Details
+#### Wallet Positions
+```bash
+GET /wallet/:publicKey
+```
+Busca posições de liquidez para uma carteira específica.
+
+**Parâmetros:**
+- `publicKey` (obrigatório): Endereço da carteira Solana
+
+#### Position Details
+```bash
+GET /position/:nftMint
+```
+Retorna detalhes de uma posição específica usando o NFT mint.
+
+**Parâmetros:**
+- `nftMint` (obrigatório): Endereço do NFT da posição
+
+#### Liquidity Overview
+```bash
+GET /liquidity/:owner?saveFile=true
+```
+Retorna overview consolidado de todas as posições de liquidez do proprietário usando SDK oficial do Orca.
+
+**Parâmetros:**
+- `owner` (obrigatório): Endereço da carteira
+- `saveFile` (opcional): `true` para salvar resultado em arquivo JSON
+
+**Dados retornados:**
+- `positions`: Array de posições com dados detalhados
+- `summary`: Estatísticas consolidadas
+- `tickComparison`: Dados de comparação de ticks para visualização
+- `isInRange`: Status de cada posição (ativa/fora do range)
+
+#### Pools (API Orca)
+```bash
+GET /pools?sortBy=volume&sortDirection=desc
+GET /pools/:poolId
+```
+Busca dados de pools usando a API oficial da Orca.
+
+**Parâmetros:**
+- `sortBy` (opcional): Campo para ordenação (volume, liquidity, etc.)
+- `sortDirection` (opcional): `asc` ou `desc`
+- `poolId` (obrigatório para rota específica): ID da pool
+
+#### Pool Details
 ```bash
 GET /poolsdetails/:poolid?showpositions=true&topPositions=10&saveFile=true
 ```
+Retorna dados completos de uma pool com análise detalhada de ticks e posições.
 
 **Parâmetros:**
 - `poolid` (obrigatório): Endereço da pool
@@ -42,141 +89,84 @@ GET /poolsdetails/:poolid?showpositions=true&topPositions=10&saveFile=true
 - `tickStats.rangeAnalysis.liquidityConcentration`: Distribuição de liquidez
 - `tickStats.currentPrice`: Preço atual ajustado
 - `tickStats.liquidityDistribution`: Estatísticas de distribuição
+- `positions`: Array de posições (se `showpositions=true`)
+- `positionStats`: Estatísticas agregadas das posições
 
-**Exemplo de resposta:**
-```json
-{
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "method": "getFullPoolData",
-  "poolId": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
-  "showPositions": true,
-  "success": true,
-  "data": {
-    "includePositions": true,
-    "main": {
-      "address": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
-      "tokenA": "So11111111111111111111111111111111111111112",
-      "tokenB": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "liquidity": "1000000000",
-      "tickSpacing": 64,
-      "feeRate": 300,
-      "sqrtPrice": "79228162514264337593543950336",
-      "tickCurrentIndex": -443636
-    },
-    "allTicks": [
-      {
-        "tickIndex": -443636,
-        "liquidityNet": "1000000",
-        "liquidityGross": "2000000",
-        "price": 0.0001,
-        "priceAdjusted": 100.0,
-        "feeGrowthOutsideA": "0",
-        "feeGrowthOutsideB": "0"
-      }
-    ],
-    "tickStats": {
-      "currentTickIndex": -443636,
-      "currentPrice": 100.0,
-      "totalInitializedTicks": 150,
-      "liquidityDistribution": {
-        "totalLiquidityGross": "300000000",
-        "averageLiquidityGross": "2000000",
-        "maxLiquidityGross": "10000000",
-        "minLiquidityGross": "100000"
-      },
-      "rangeAnalysis": {
-        "ticksAroundCurrent": [
-          {
-            "tickIndex": -443636,
-            "priceAdjusted": 100.0,
-            "liquidityGross": "2000000",
-            "distanceFromCurrent": 0
-          }
-        ],
-        "liquidityConcentration": [
-          {
-            "tickIndex": -443636,
-            "priceAdjusted": 100.0,
-            "liquidityGross": "2000000",
-            "isActive": true
-          }
-        ]
-      }
-    },
-    "positions": [
-      {
-        "pubkey": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-        "positionMint": "3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-        "whirlpool": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
-        "tickLowerIndex": -443700,
-        "tickUpperIndex": -443600,
-        "liquidity": "1000000000",
-        "liquidityPercentage": "0.15%",
-        "feeOwedA": "500000",
-        "feeOwedB": "2500000",
-        "feeGrowthCheckpointA": "1000000000",
-        "feeGrowthCheckpointB": "2000000000",
-        "isInRange": true,
-        "lowerPrice": 99.5,
-        "upperPrice": 100.5,
-        "currentPrice": 100.0,
-        "feeRate": 300,
-        "protocolFeeRate": 300,
-        "status": "active",
-        "hasRewards": true,
-        "rewardCount": 2,
-        "lastUpdated": "2024-01-11T12:00:00.000Z"
-      }
-    ],
-    "positionStats": {
-      "totalPositions": 150,
-      "activePositions": 120,
-      "outOfRangePositions": 30,
-      "activePercentage": "80.00%",
-      "totalLiquidity": "100000000000",
-      "totalFees": {
-        "tokenA": "50000000",
-        "tokenB": "250000000"
-      },
-      "averageLiquidity": "666666666",
-      "positionsWithRewards": 45,
-      "rewardPositionsPercentage": "30.00%"
-    },
-    "totalPositions": 150
-  }
-}
-```
-
-#### Posições por Proprietário
-```bash
-GET /positionsByOwner/:owner?saveFile=true
-```
-
-**Parâmetros:**
-- `owner` (obrigatório): Endereço da carteira
-- `saveFile` (opcional): `true` para salvar resultado em arquivo
-
-#### Overview de Liquidez
-```bash
-GET /liquidity/:owner
-```
-
-Retorna overview consolidado de todas as posições de liquidez do proprietário.
-
-#### Pools (API Orca)
-```bash
-GET /pools?sortBy=volume&sortDirection=desc
-GET /pools/:poolId
-```
-
-Busca dados de pools usando a API oficial da Orca.
-
-#### Top Posições
+#### Top Positions
 ```bash
 GET /top-positions?limit=10
 ```
-
 Retorna as principais posições por volume ou liquidez.
+
+**Parâmetros:**
+- `limit` (opcional): Número de posições a retornar (padrão: 10)
+
+#### Webhook (Helius)
+```bash
+POST /webhook/helius
+```
+Endpoint para receber webhooks da Helius com eventos de posições.
+
+**Headers:**
+- `Content-Type: application/json`
+- `X-Helius-Signature`: Assinatura do webhook (se configurada)
+
+#### Metrics (Produção)
+```bash
+GET /metrics
+```
+Retorna métricas do sistema (disponível apenas em produção).
+
+**Exemplo de resposta da rota `/liquidity/:owner`:**
+```json
+{
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "method": "getLiquidityOverview",
+  "rpcProvider": "helius",
+  "wallet": "6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+  "totalPositions": 3,
+  "positions": [
+    {
+      "positionMint": "3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+      "whirlpool": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+      "tickLowerIndex": -443700,
+      "tickUpperIndex": -443600,
+      "currentTick": -443636,
+      "liquidity": "1000000000",
+      "feeOwedA": "500000",
+      "feeOwedB": "2500000",
+      "isInRange": true,
+      "status": "active",
+      "tickComparison": {
+        "currentTick": -443636,
+        "tickLowerIndex": -443700,
+        "tickUpperIndex": -443600,
+        "tickRange": "-443700 to -443600",
+        "tickSpread": 100,
+        "distanceFromLower": 64,
+        "distanceFromUpper": 36,
+        "isBelowRange": false,
+        "isAboveRange": false,
+        "isInRange": true
+      },
+      "lastUpdated": "2024-01-11T12:00:00.000Z"
+    }
+  ],
+  "summary": {
+    "total_whirlpool_positions": 3,
+    "active_positions": 2,
+    "out_of_range_positions": 1,
+    "active_percentage": "66.67%",
+    "total_whirlpool_fees": {
+      "tokenA": "1500000",
+      "tokenB": "7500000"
+    },
+    "total_whirlpool_liquidity": "3000000000",
+    "average_liquidity": "1000000000"
+  },
+  "success": true
+}
+```
 
 ## 🛠️ Instalação e Configuração
 
@@ -280,12 +270,19 @@ src/
 │   ├── orca.ts          # Funções principais do Orca SDK
 │   ├── logger.ts        # Sistema de logging
 │   ├── security.ts      # Middleware de segurança
-│   └── errors.ts        # Tratamento de erros
+│   ├── errors.ts        # Tratamento de erros
+│   ├── db.ts            # Configuração do banco de dados
+│   ├── types.ts         # Definições de tipos TypeScript
+│   ├── validation.ts    # Validação de variáveis de ambiente
+│   └── vault.ts         # Funções de vault resolvers
 ├── routes/
-│   ├── pools-details.ts # Rota de detalhes de pools
-│   ├── positions-by-owner.ts # Rota de posições
-│   ├── liquidity.ts     # Rota de liquidez
-│   └── pools.ts         # Rota de pools (API Orca)
+│   ├── webhook.ts       # Webhook da Helius
+│   ├── wallet.ts        # Posições por carteira
+│   ├── position.ts      # Detalhes de posição específica
+│   ├── liquidity.ts     # Overview de liquidez (SDK Orca)
+│   ├── pools.ts         # Pools via API Orca
+│   ├── pools-details.ts # Detalhes completos de pool
+│   └── top-positions.ts # Top posições por volume/liquidez
 └── index.ts             # Servidor principal
 ```
 
@@ -298,28 +295,76 @@ src/
 
 ## 🚀 Exemplos de Uso
 
-### Parâmetros de Performance
+### 1. Overview de Liquidez de uma Carteira
 ```bash
-# Incluir todas as posições (comportamento padrão)
-GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true
+# Buscar todas as posições de liquidez de uma carteira
+curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 
-# Incluir apenas as top 10 posições (mais leve)
-GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=10
-
-# Incluir apenas as top 5 posições
-GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=5
-
-# Omitir posições completamente (mais rápido)
-GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=false
-
-# Combinar com saveFile
-GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=20&saveFile=true
+# Salvar resultado em arquivo
+curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?saveFile=true"
 ```
 
-### Benefícios do topPositions
-- **Performance**: Reduz drasticamente o tempo de resposta
-- **Dados relevantes**: Foca nas posições com maior liquidez
-- **Flexibilidade**: Permite ajustar o número conforme necessário
+### 2. Detalhes Completos de uma Pool
+```bash
+# Dados básicos da pool (sem posições)
+curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Incluir todas as posições
+curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true"
+
+# Incluir apenas as top 10 posições (mais leve)
+curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=10"
+
+# Salvar resultado em arquivo
+curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=20&saveFile=true"
+```
+
+### 3. Posições de uma Carteira
+```bash
+# Buscar posições de uma carteira específica
+curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+```
+
+### 4. Detalhes de uma Posição Específica
+```bash
+# Buscar detalhes de uma posição usando o NFT mint
+curl "http://localhost:3001/position/3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+```
+
+### 5. Pools da Orca
+```bash
+# Listar todas as pools
+curl "http://localhost:3001/pools"
+
+# Buscar pool específica
+curl "http://localhost:3001/pools/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Ordenar por volume
+curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc"
+```
+
+### 6. Top Posições
+```bash
+# Top 10 posições
+curl "http://localhost:3001/top-positions?limit=10"
+
+# Top 50 posições
+curl "http://localhost:3001/top-positions?limit=50"
+```
+
+### 7. Health Check e Métricas
+```bash
+# Status do serviço
+curl "http://localhost:3001/health"
+
+# Métricas (apenas em produção)
+curl "http://localhost:3001/metrics"
+```
+
+### Benefícios dos Parâmetros de Performance
+- **`showpositions=false`**: Resposta mais rápida, apenas dados da pool
+- **`topPositions=N`**: Foca nas N posições com maior liquidez
+- **`saveFile=true`**: Salva resultado em arquivo JSON para análise offline
 - **Escalabilidade**: Funciona bem mesmo com pools com milhares de posições
 
 ## 🚀 Performance
@@ -364,12 +409,25 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
+### v1.1.0 (Atual)
+- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
+- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
+- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
+- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
+- ✅ **Mensagens traduzidas para inglês** em todas as rotas
+- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
+- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
+- ✅ **Melhor tratamento de erros e logging** estruturado
+- ✅ **Dados de `tickComparison`** para visualizações frontend
+- ✅ **Documentação atualizada** com todas as rotas existentes
+
 ### v1.0.0
 - ✅ Integração completa com @orca-so/whirlpools-sdk
 - ✅ Rota `/poolsdetails/:poolid` com análise de ticks
 - ✅ Dados detalhados para visualizações de range
-- ✅ Parâmetro `showpositions` para controle de performance
+- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
 - ✅ Cálculo de preços ajustados para diferentes tokens
 - ✅ Estatísticas de liquidez e concentração
 - ✅ Sistema de logging e monitoramento
 - ✅ Rate limiting e segurança
+- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`
