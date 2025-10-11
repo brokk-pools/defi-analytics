@@ -23,6 +23,7 @@ import walletRoutes from './routes/wallet.js';
 import positionRoutes from './routes/position.js';
 import liquidityRoutes from './routes/liquidity.js';
 import poolsRoutes from './routes/pools.js';
+import poolsDetailRoutes from './routes/pools-detail.js';
 import topPositionsRoutes from './routes/top-positions.js';
 import positionsByOwnerRoutes from './routes/positions-by-owner.js';
 
@@ -79,6 +80,7 @@ app.use('/wallet', walletRoutes);
 app.use('/position', positionRoutes);
 app.use('/liquidity', liquidityRoutes);
 app.use('/pools', poolsRoutes);
+app.use('/poolsdetail', poolsDetailRoutes);
 app.use('/top-positions', topPositionsRoutes);
 app.use('/positionsByOwner', positionsByOwnerRoutes);
 
@@ -140,6 +142,7 @@ app.get('/', (req, res) => {
       liquidity: '/liquidity/:owner',
       pools: '/pools',
       poolsById: '/pools/:poolId',
+      poolsDetail: '/poolsdetail/:poolid',
       topPositions: '/top-positions?limit=10',
       positionsByOwner: '/positionsByOwner/:owner?saveFile=true'
     },
@@ -173,6 +176,7 @@ app.use((req, res) => {
       liquidity: '/liquidity/:owner',
       pools: '/pools',
       poolsById: '/pools/:poolId',
+      poolsDetail: '/poolsdetail/:poolid',
       topPositions: '/top-positions?limit=10',
       positionsByOwner: '/positionsByOwner/:owner?saveFile=true'
     }
@@ -220,6 +224,7 @@ async function startServer() {
         console.log(`💧 Liquidity endpoint: http://${HOST}:${PORT}/liquidity/:owner`);
         console.log(`🏊 Pools endpoint: http://${HOST}:${PORT}/pools`);
         console.log(`🏊 Pool by ID: http://${HOST}:${PORT}/pools/:poolId`);
+        console.log(`🔍 Pool details: http://${HOST}:${PORT}/poolsdetail/:poolid`);
         console.log(`🏆 Top positions: http://${HOST}:${PORT}/top-positions?limit=10`);
         console.log(`👤 Positions by owner: http://${HOST}:${PORT}/positionsByOwner/:owner`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);

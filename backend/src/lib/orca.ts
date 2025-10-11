@@ -3,6 +3,7 @@ import { setWhirlpoolsConfig } from '@orca-so/whirlpools';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import fetch from 'node-fetch';
 import { resolveVaultPositions } from './vault.js';
+// Removido import problemático do whirlpools-sdk devido a conflito com @coral-xyz/anchor
 
 export function makeConnection(): Connection {
   let url = process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
@@ -408,4 +409,67 @@ export async function getLiquidityOverview(connection: Connection, owner: string
     classic_pools_positions: classicLps,
     vault_positions: vaultPositions
   };
+}
+
+// Função para obter dados completos de uma pool usando RPC básico
+export async function getFullPoolData(poolAddressStr: string) {
+  const connection = makeConnection();
+  const POOL_ADDRESS = new PublicKey(poolAddressStr);
+  const WHIRLPOOL_PROGRAM_ID = getProgramId();
+
+  console.log("🔍 Buscando dados da pool:", POOL_ADDRESS.toBase58());
+  
+  // Buscar dados da pool diretamente via RPC
+  const poolAccount = await connection.getAccountInfo(POOL_ADDRESS);
+  if (!poolAccount) {
+    throw new Error('Pool not found');
+  }
+
+  // --- Dados principais ---
+  const main = {
+    address: POOL_ADDRESS.toBase58(),
+    accountExists: true,
+    dataLength: poolAccount.data.length,
+    lamports: poolAccount.lamports,
+    owner: poolAccount.owner.toBase58(),
+    executable: poolAccount.executable,
+    rentEpoch: poolAccount.rentEpoch,
+    programId: WHIRLPOOL_PROGRAM_ID.toBase58(),
+  };
+
+  // --- Posições ---
+  // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
+  const positionAccounts = await connection.getProgramAccounts(WHIRLPOOL_PROGRAM_ID, {
+    filters: [
+      { dataSize: 216 }, // tamanho PositionAccount
+      { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
+    ],
+  });
+
+  const positions = positionAccounts.map((acc) => ({
+    pubkey: acc.pubkey.toBase58(),
+    dataLength: acc.account.data.length,
+    lamports: acc.account.lamports,
+    owner: acc.account.owner.toBase58(),
+  }));
+
+  // --- Informações adicionais ---
+  const additionalInfo = {
+    programId: WHIRLPOOL_PROGRAM_ID.toBase58(),
+    totalAccountsScanned: positionAccounts.length,
+    searchMethod: 'getProgramAccounts',
+  };
+
+  // --- JSON Final ---
+  const json = { 
+    timestamp: new Date().toISOString(),
+    method: 'getFullPoolData',
+    main, 
+    positions,
+    additionalInfo,
+    totalPositions: positions.length
+  };
+
+  console.log("✅ Dados da pool obtidos com sucesso");
+  return json;
 }
