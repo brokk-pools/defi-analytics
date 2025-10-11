@@ -1,84 +1,82 @@
 import { Router, Request, Response } from 'express';
-import { makeConnection, getPositionData, calculateEstimatedFees, getTokenMetadata, isPositionInRange } from '../lib/orca.js';
-import { query } from '../lib/db.js';
-import { PositionDetailsResponse } from '../lib/types.js';
-import { asyncHandler, NotFoundError, ExternalServiceError, ValidationError } from '../lib/errors.js';
-import { validateNFTMint } from '../lib/validation.js';
+import { getPositionDetailsData } from '../lib/orca.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
-router.get('/:nftMint', asyncHandler(async (req: Request, res: Response) => {
-  const { nftMint } = req.params;
-  
-  if (!nftMint) {
-    throw new ValidationError('NFT mint parameter is required');
-  }
-  
-  // Validate NFT mint format
-  const validatedMint = validateNFTMint(nftMint);
-    
-  const connection = makeConnection();
-  
+/**
+ * Rota para buscar dados completos de uma posição específica
+ * GET /position/:nftMint
+ * 
+ * Parâmetros:
+ * - nftMint (obrigatório): Endereço do NFT da posição
+ * 
+ * Dados retornados:
+ * - position: Dados completos da posição incluindo tokens, ticks, liquidez, fees
+ * - pool: Dados básicos da pool associada
+ * - Metadados de tokens buscados dinamicamente (não apenas mapeados)
+ */
+router.get('/:nftMint', async (req: Request, res: Response) => {
   try {
-    // Get position data from Orca
-    const positionData = await getPositionData(connection, validatedMint.toString());
+    const { nftMint } = req.params;
     
-    if (!positionData || !positionData.whirlpoolData) {
-      throw new NotFoundError('Position not found or is not a valid Orca Whirlpool position');
+    logger.info(`📍 Buscando dados da posição: ${nftMint}`);
+    
+    if (!nftMint) {
+      return res.status(400).json({
+        error: 'NFT mint parameter is required',
+        message: 'NFT mint must be provided in the URL path'
+      });
     }
     
-    // Get token metadata
-    const tokenAMeta = await getTokenMetadata(connection, positionData.whirlpoolData.tokenMintA);
-    const tokenBMeta = await getTokenMetadata(connection, positionData.whirlpoolData.tokenMintB);
+    // Usar função centralizada do orca.ts para toda a lógica de negócio
+    const response = await getPositionDetailsData(nftMint);
     
-    // Get additional data from database
-    const dbPosition = await query(
-      'SELECT * FROM positions WHERE nft_mint = $1',
-      [validatedMint.toString()]
-    );
-    
-    const dbFees = await query(
-      'SELECT * FROM position_fees WHERE nft_mint = $1',
-      [validatedMint.toString()]
-    );
-    
-    // Calculate estimated fees
-    const fees = calculateEstimatedFees(positionData);
-    
-    // Check if position is in range
-    const inRange = isPositionInRange(positionData);
-    
-    // Calculate current price from sqrt price
-    const sqrtPrice = BigInt(positionData.whirlpoolData.sqrtPrice);
-    const price = Number(sqrtPrice * sqrtPrice) / (2 ** 128);
-    
-    // Determine owner from database or derive from on-chain data
-    const owner = dbPosition[0]?.owner || 'unknown';
-    
-    const response: PositionDetailsResponse = {
-      nftMint: validatedMint.toString(),
-      poolAddress: positionData.poolAddress,
-      tokenA: tokenAMeta.symbol,
-      tokenB: tokenBMeta.symbol,
-      tickLower: positionData.tickLower,
-      tickUpper: positionData.tickUpper,
-      liquidity: positionData.liquidity,
-      currentPrice: price,
-      inRange,
-      estimatedFeesA: dbFees[0]?.token_a_fees || fees.tokenA,
-      estimatedFeesB: dbFees[0]?.token_b_fees || fees.tokenB,
-      owner,
-      createdSlot: dbPosition[0]?.created_slot || BigInt(0),
-      lastUpdated: dbFees[0]?.last_updated || new Date()
-    };
-    
+    logger.info(`✅ Dados da posição obtidos com sucesso: ${nftMint}`);
     res.json(response);
-  } catch (error) {
-    if ((error as Error).message.includes('fetch position data')) {
-      throw new ExternalServiceError('Unable to fetch position data from Solana network');
+    
+  } catch (error: any) {
+    logger.error('❌ Erro ao buscar dados da posição:', error);
+    
+    let errorResponse: any = {
+      error: 'Failed to fetch position details',
+      message: error.message || 'Unknown error',
+      timestamp: new Date().toISOString(),
+      nftMint: req.params.nftMint
+    };
+
+    if (error.message?.includes('Invalid NFT mint')) {
+      errorResponse.statusCode = 400;
+      errorResponse.suggestions = [
+        'Verifique se o endereço do NFT está correto',
+        'O endereço deve ser uma chave pública Solana válida'
+      ];
+    } else if (error.message?.includes('Position not found')) {
+      errorResponse.statusCode = 404;
+      errorResponse.suggestions = [
+        'Verifique se o NFT mint está correto',
+        'Confirme se a posição existe na rede Mainnet',
+        'A posição pode ter sido fechada ou não ser uma posição Orca Whirlpool válida'
+      ];
+    } else if (error.message?.includes('fetch position data')) {
+      errorResponse.statusCode = 503;
+      errorResponse.suggestions = [
+        'O SDK do Orca pode estar temporariamente indisponível',
+        'Tente novamente em alguns minutos',
+        'Verifique se a conexão com a rede Solana está estável'
+      ];
+    } else {
+      errorResponse.statusCode = 500;
+      errorResponse.suggestions = [
+        'Verifique se o endereço do NFT está correto',
+        'Confirme se a rede Mainnet está acessível',
+        'Verifique se as dependências estão atualizadas',
+        'Configure uma chave de API da Helius para melhor performance'
+      ];
     }
-    throw error;
+
+    res.status(errorResponse.statusCode || 500).json(errorResponse);
   }
-}));
+});
 
 export default router;

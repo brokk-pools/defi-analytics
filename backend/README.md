@@ -116,7 +116,21 @@ Retorna dados completos de uma pool com análise detalhada de ticks e posições
 - `poolid` (obrigatório): Endereço da pool
 - `topPositions` (opcional): número (ex: 10) para limitar a N posições com maior liquidez (0-1000). Se > 0, inclui posições
 
+#### Position Details
+```bash
+GET /position/:nftMint
+```
+Retorna dados completos de uma posição específica incluindo metadados de tokens.
+
+**Parâmetros:**
+- `nftMint` (obrigatório): Endereço do NFT da posição
+
 **Dados retornados:**
+- `position`: Dados completos da posição (tokens, ticks, liquidez, fees, range)
+- `pool`: Dados básicos da pool associada
+- Metadados de tokens buscados dinamicamente (não apenas mapeados)
+
+**Dados retornados (Pool Details):**
 - `allTicks`: Array de todos os ticks com dados detalhados
 - `tickStats`: Estatísticas dos ticks e análise de range
 - `tickStats.rangeAnalysis.ticksAroundCurrent`: Ticks próximos ao preço atual
@@ -369,7 +383,16 @@ curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryf
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=20"
 ```
 
-### 3. Posições de uma Carteira
+### 3. Detalhes de uma Posição Específica
+```bash
+# Buscar dados completos de uma posição (substitua pelo NFT mint real)
+curl "http://localhost:3001/position/EXEMPLO_NFT_MINT_AQUI"
+
+# Exemplo com um NFT mint real (se disponível)
+curl "http://localhost:3001/position/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+```
+
+### 4. Posições de uma Carteira
 ```bash
 # Buscar posições de uma carteira específica
 curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"

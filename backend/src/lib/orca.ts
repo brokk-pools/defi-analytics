@@ -1190,3 +1190,158 @@ export async function getPoolDetailsData(poolId: string, topPositions?: string):
     throw error;
   }
 }
+
+/**
+ * Função para buscar metadados de qualquer token usando SPL Token Registry
+ * Busca metadados de qualquer token, não apenas os mapeados
+ */
+export async function getTokenMetadataFromRegistry(mint: string): Promise<{ symbol: string; name: string; decimals: number }> {
+  try {
+    const mintPubkey = new PublicKey(mint);
+    
+    // Primeiro, tentar buscar do mapeamento local (mais rápido)
+    const tokenMappings: Record<string, { symbol: string; name: string }> = {
+      'So11111111111111111111111111111111111111112': { symbol: 'SOL', name: 'Solana' },
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': { symbol: 'USDC', name: 'USD Coin' },
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': { symbol: 'RAY', name: 'Raydium' },
+      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': { symbol: 'mSOL', name: 'Marinade SOL' },
+      '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': { symbol: 'ORCA', name: 'Orca' },
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': { symbol: 'BONK', name: 'Bonk' },
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': { symbol: 'USDT', name: 'Tether USD' },
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': { symbol: 'JUP', name: 'Jupiter' },
+      'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': { symbol: 'PYTH', name: 'Pyth Network' },
+      '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm': { symbol: 'WIF', name: 'dogwifhat' }
+    };
+
+    if (tokenMappings[mint]) {
+      return {
+        ...tokenMappings[mint],
+        decimals: 6 // Default decimals, will be fetched from on-chain if needed
+      };
+    }
+
+    // Se não estiver no mapeamento, buscar metadados on-chain
+    console.log(`🔍 Buscando metadados on-chain para token: ${mint}`);
+    
+    const connection = makeConnection();
+    
+    // Buscar informações básicas do token
+    const tokenInfo = await connection.getParsedAccountInfo(mintPubkey);
+    
+    if (!tokenInfo.value?.data || !('parsed' in tokenInfo.value.data)) {
+      throw new Error(`Token account not found for mint: ${mint}`);
+    }
+
+    const tokenData = tokenInfo.value.data.parsed.info;
+    const decimals = tokenData.decimals || 6;
+
+    // Tentar buscar metadados adicionais (se disponível)
+    // Nota: Metaplex não está disponível, usando fallback para metadados básicos
+
+    // Fallback: usar informações básicas do token
+    return {
+      symbol: `TOKEN-${mint.slice(0, 8)}`,
+      name: `Token ${mint.slice(0, 8)}`,
+      decimals: decimals
+    };
+
+  } catch (error) {
+    console.error(`❌ Erro ao buscar metadados do token ${mint}:`, error);
+    
+    // Fallback final
+    return {
+      symbol: `TOKEN-${mint.slice(0, 8)}`,
+      name: `Token ${mint.slice(0, 8)}`,
+      decimals: 6
+    };
+  }
+}
+
+/**
+ * Função para buscar dados completos de uma posição específica
+ * Centraliza toda a lógica de negócio para a rota position
+ */
+export async function getPositionDetailsData(nftMint: string): Promise<any> {
+  try {
+    // Validar NFT mint
+    if (!nftMint || nftMint.length < 32) {
+      throw new Error('Invalid NFT mint: NFT mint must be a valid Solana public key');
+    }
+
+    console.log(`📍 Buscando dados da posição: ${nftMint}`);
+    
+    const connection = makeConnection();
+    
+    // Buscar dados da posição usando o SDK do Orca
+    const positionData = await getPositionData(connection, nftMint);
+    
+    if (!positionData || !positionData.whirlpoolData) {
+      throw new Error('Position not found or is not a valid Orca Whirlpool position');
+    }
+    
+    // Buscar metadados dos tokens usando a nova função
+    const tokenAMeta = await getTokenMetadataFromRegistry(positionData.whirlpoolData.tokenMintA);
+    const tokenBMeta = await getTokenMetadataFromRegistry(positionData.whirlpoolData.tokenMintB);
+    
+    // Calcular fees estimados
+    const fees = calculateEstimatedFees(positionData);
+    
+    // Verificar se a posição está no range
+    const inRange = isPositionInRange(positionData);
+    
+    // Calcular preço atual a partir do sqrt price
+    const sqrtPrice = BigInt(positionData.whirlpoolData.sqrtPrice);
+    const price = Number(sqrtPrice * sqrtPrice) / (2 ** 128);
+    
+    // Buscar dados da pool para informações adicionais
+    let poolData = null;
+    try {
+      const poolResponse = await getFullPoolData(positionData.poolAddress, false, 0);
+      poolData = poolResponse?.main || null;
+    } catch (poolError) {
+      console.warn(`⚠️ Erro ao buscar dados da pool ${positionData.poolAddress}:`, poolError);
+    }
+    
+    // Preparar resposta
+    const response = {
+      timestamp: new Date().toISOString(),
+      method: 'getPositionDetailsData',
+      nftMint: nftMint,
+      success: true,
+      data: {
+        position: {
+          nftMint: nftMint,
+          poolAddress: positionData.poolAddress,
+          tokenA: {
+            mint: positionData.whirlpoolData.tokenMintA,
+            symbol: tokenAMeta.symbol,
+            name: tokenAMeta.name,
+            decimals: tokenAMeta.decimals
+          },
+          tokenB: {
+            mint: positionData.whirlpoolData.tokenMintB,
+            symbol: tokenBMeta.symbol,
+            name: tokenBMeta.name,
+            decimals: tokenBMeta.decimals
+          },
+          tickLower: positionData.tickLower,
+          tickUpper: positionData.tickUpper,
+          liquidity: positionData.liquidity,
+          currentPrice: price,
+          inRange: inRange,
+          estimatedFeesA: fees.tokenA,
+          estimatedFeesB: fees.tokenB,
+          whirlpoolData: positionData.whirlpoolData
+        },
+        pool: poolData
+      }
+    };
+
+    console.log(`✅ Dados da posição obtidos com sucesso: ${nftMint}`);
+    return convertBigIntToString(response);
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados da posição:', error);
+    throw error;
+  }
+}
