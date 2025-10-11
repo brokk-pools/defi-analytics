@@ -164,7 +164,7 @@ Retorna métricas do sistema (disponível apenas em produção).
   "positions": [
     {
       "positionMint": "3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-      "whirlpool": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+      "whirlpool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
       "tickLowerIndex": -443700,
       "tickUpperIndex": -443600,
       "currentTick": -443636,
@@ -362,16 +362,16 @@ curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4
 ### 2. Detalhes Completos de uma Pool
 ```bash
 # Dados básicos da pool (sem posições)
-curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 
 # Incluir todas as posições
-curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true"
+curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?showpositions=true"
 
 # Incluir apenas as top 10 posições (mais leve)
-curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=10"
+curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?showpositions=true&topPositions=10"
 
 # Salvar resultado em arquivo
-curl "http://localhost:3001/poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=20&saveFile=true"
+curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?showpositions=true&topPositions=20&saveFile=true"
 ```
 
 ### 3. Posições de uma Carteira
@@ -392,7 +392,7 @@ curl "http://localhost:3001/position/3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAs
 curl "http://localhost:3001/pools"
 
 # Buscar pool específica
-curl "http://localhost:3001/pools/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+curl "http://localhost:3001/pools/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 
 # Ordenar por volume
 curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc"
