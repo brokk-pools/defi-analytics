@@ -142,6 +142,21 @@ Retorna dados completos de uma posição específica no mesmo formato da rota de
 - `tickComparison`: Objeto com comparações detalhadas de ticks para visualização
 - `lastUpdated`: Timestamp da última atualização
 
+#### Top Positions
+```bash
+GET /top-positions?limit=10
+```
+Retorna as posições com maior liquidez no mesmo formato da rota position.
+
+**Parâmetros:**
+- `limit` (opcional): Número de posições a retornar (1-1000, padrão: 10)
+
+**Dados retornados:**
+- `positions`: Array de posições no mesmo formato da rota position
+- `statistics`: Estatísticas das posições (total, lamports, etc.)
+- `totalFound`: Total de posições encontradas na rede
+- `limit`: Limite solicitado
+
 **Dados retornados (Pool Details):**
 - `allTicks`: Array de todos os ticks com dados detalhados
 - `tickStats`: Estatísticas dos ticks e análise de range
@@ -416,7 +431,49 @@ curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR
 # }
 ```
 
-### 4. Posições de uma Carteira
+### 4. Top Positions (Maiores Posições por Liquidez)
+```bash
+# Buscar top 10 posições com maior liquidez
+curl "http://localhost:3001/top-positions?limit=10"
+
+# Buscar top 50 posições
+curl "http://localhost:3001/top-positions?limit=50"
+
+# Exemplo de resposta:
+# {
+#   "timestamp": "2025-01-11T...",
+#   "method": "getTopPositionsData",
+#   "limit": 10,
+#   "totalFound": 12345,
+#   "success": true,
+#   "data": {
+#     "positions": [
+#       {
+#         "positionMint": "...",
+#         "whirlpool": "...",
+#         "tickLowerIndex": -1000,
+#         "tickUpperIndex": 1000,
+#         "currentTick": 500,
+#         "liquidity": "1000000000",
+#         "feeOwedA": "1000",
+#         "feeOwedB": "2000",
+#         "isInRange": true,
+#         "status": "active",
+#         "tickComparison": { ... }
+#       }
+#     ],
+#     "statistics": {
+#       "totalPositions": 12345,
+#       "totalLamports": 5000000000,
+#       "averageLamports": 405000,
+#       "maxLamports": 10000000,
+#       "minLamports": 100000
+#     }
+#   }
+# }
+```
+
+### 5. Posições de uma Carteira
 ```bash
 # Buscar posições de uma carteira específica
 curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
@@ -505,7 +562,15 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.3.0 (Atual)
+### v1.4.0 (Atual)
+- ✅ **Rota top-positions refatorada** com toda lógica de negócio migrada para orca.ts
+- ✅ **Consistência de dados** entre rotas `/top-positions`, `/position/:nftMint` e `/liquidity/:owner`
+- ✅ **Função getTopPositionsData** criada para centralizar lógica de busca de top positions
+- ✅ **Processamento padronizado** usando processPositionDataFromRaw para mesmo formato
+- ✅ **Documentação atualizada** com nova rota top-positions e exemplos de uso
+- ✅ **Otimização de performance** com processamento em lotes para grandes volumes
+
+### v1.3.0
 - ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
 - ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
 - ✅ **Função processPositionData** criada para padronizar o processamento de posições

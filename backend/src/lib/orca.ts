@@ -171,7 +171,7 @@ export async function getPositionData(connection: Connection, positionMint: stri
         // Get whirlpool data for additional context
         let whirlpoolData = null;
         try {
-          const poolResponse = await getFullPoolData(targetPosition.data.whirlpool.toString(), false, 0);
+          const poolResponse = await getFullPoolData('whirlpool' in targetPosition.data ? targetPosition.data.whirlpool.toString() : '', false, 0);
           whirlpoolData = poolResponse?.main || null;
         } catch (poolError) {
           console.warn(`⚠️ Error fetching pool data:`, poolError);
@@ -179,20 +179,20 @@ export async function getPositionData(connection: Connection, positionMint: stri
         
         return {
           positionMint: positionMint,
-          poolAddress: targetPosition.data.whirlpool.toString(),
+          poolAddress: 'whirlpool' in targetPosition.data ? targetPosition.data.whirlpool.toString() : '',
           whirlpoolData: {
-            tokenMintA: targetPosition.data.tokenMintA?.toString(),
-            tokenMintB: targetPosition.data.tokenMintB?.toString(),
-            sqrtPrice: targetPosition.data.sqrtPrice?.toString(),
-            tickCurrentIndex: targetPosition.data.tickCurrentIndex,
-            feeRate: targetPosition.data.feeRate,
-            protocolFeeRate: targetPosition.data.protocolFeeRate,
-            liquidity: targetPosition.data.liquidity?.toString(),
-            tickSpacing: targetPosition.data.tickSpacing
+            tokenMintA: 'tokenMintA' in targetPosition.data ? targetPosition.data.tokenMintA?.toString() : null,
+            tokenMintB: 'tokenMintB' in targetPosition.data ? targetPosition.data.tokenMintB?.toString() : null,
+            sqrtPrice: 'sqrtPrice' in targetPosition.data ? targetPosition.data.sqrtPrice?.toString() : null,
+            tickCurrentIndex: 'tickCurrentIndex' in targetPosition.data ? targetPosition.data.tickCurrentIndex : 0,
+            feeRate: 'feeRate' in targetPosition.data ? targetPosition.data.feeRate : 0,
+            protocolFeeRate: 'protocolFeeRate' in targetPosition.data ? targetPosition.data.protocolFeeRate : 0,
+            liquidity: 'liquidity' in targetPosition.data ? targetPosition.data.liquidity?.toString() : '0',
+            tickSpacing: 'tickSpacing' in targetPosition.data ? targetPosition.data.tickSpacing : 0
           },
-          tickLower: targetPosition.data.tickLowerIndex,
-          tickUpper: targetPosition.data.tickUpperIndex,
-          liquidity: targetPosition.data.liquidity?.toString(),
+          tickLower: 'tickLowerIndex' in targetPosition.data ? targetPosition.data.tickLowerIndex : 0,
+          tickUpper: 'tickUpperIndex' in targetPosition.data ? targetPosition.data.tickUpperIndex : 0,
+          liquidity: 'liquidity' in targetPosition.data ? targetPosition.data.liquidity?.toString() : '0',
           poolData: whirlpoolData
         };
       }
@@ -1331,6 +1331,400 @@ export async function getPositionDetailsData(nftMint: string): Promise<any> {
 }
 
 /**
+ * Função para buscar top positions usando getProgramAccounts
+ * Centraliza toda a lógica de negócio para a rota top-positions
+ */
+export async function getTopPositionsData(limit: number): Promise<any> {
+  try {
+    // Validar limite
+    if (limit < 1 || limit > 1000) {
+      throw new Error('Invalid limit: Limit must be between 1 and 1000');
+    }
+
+    console.log(`🏆 Buscando top ${limit} positions...`);
+
+    // Configurar para usar a rede Mainnet
+    const { setWhirlpoolsConfig } = await import('@orca-so/whirlpools');
+    await setWhirlpoolsConfig('solanaMainnet');
+    console.log('✅ Configurado para usar Solana Mainnet');
+
+    // Criar conexão
+    const connection = makeConnection();
+    console.log('✅ Conectado à rede Mainnet');
+
+    // ID do programa Whirlpool da Orca
+    const WHIRLPOOL_PROGRAM_ID = new PublicKey('whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc');
+
+    // Buscar todas as posições usando getProgramAccounts
+    const allPositions = await fetchAllPositionsDirect(connection, WHIRLPOOL_PROGRAM_ID);
+
+    if (allPositions.length === 0) {
+      throw new Error('No valid Whirlpool positions found on the network');
+    }
+
+    // Encontrar as top positions
+    const topPositions = findTopPositions(allPositions, limit);
+
+    // Processar cada posição para retornar no mesmo formato da rota position
+    const processedPositions = await Promise.all(
+      topPositions.map(async (position: any) => {
+        try {
+          // Usar a mesma lógica de processPositionData
+          return await processPositionDataFromRaw(position);
+        } catch (error) {
+          console.warn(`⚠️ Error processing position ${position.data?.positionMint}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Filtrar posições nulas
+    const validPositions = processedPositions.filter(pos => pos !== null);
+
+    // Calcular estatísticas
+    const stats = calculatePositionStats(allPositions);
+
+    // Preparar resposta
+    const response = {
+      timestamp: new Date().toISOString(),
+      method: 'getTopPositionsData',
+      limit: limit,
+      totalFound: allPositions.length,
+      success: true,
+      data: {
+        positions: validPositions,
+        statistics: stats
+      }
+    };
+
+    console.log(`✅ Top ${limit} positions obtidas com sucesso`);
+    return convertBigIntToString(response);
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar top positions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Função para buscar todas as posições usando getProgramAccounts
+ */
+async function fetchAllPositionsDirect(connection: Connection, programId: PublicKey): Promise<any[]> {
+  console.log('🔍 Buscando TODAS as posições usando getProgramAccounts...');
+  console.log(`📋 Programa Whirlpool: ${programId.toString()}`);
+  
+  try {
+    // Usar getProgramAccounts para buscar todas as contas do programa Whirlpool
+    const programAccounts = await connection.getProgramAccounts(programId, {
+      // Filtrar apenas contas de posição (tamanho específico)
+      filters: [
+        {
+          dataSize: 216, // Tamanho de uma conta de posição Whirlpool
+        }
+      ]
+    });
+
+    console.log(`📊 Total de contas encontradas: ${programAccounts.length}`);
+    
+    const positions: any[] = [];
+    
+    for (const account of programAccounts) {
+      try {
+        // Verificar se é uma conta de posição válida
+        const accountInfo = account.account;
+        
+        if (accountInfo.data.length === 216) {
+          // Decodificar os dados da posição
+          const decodedData = decodePositionData(accountInfo.data);
+          
+          if (decodedData) {
+            // Criar objeto de posição com dados decodificados
+            const position = {
+              executable: accountInfo.executable,
+              lamports: accountInfo.lamports,
+              programAddress: accountInfo.owner.toString(),
+              space: accountInfo.data.length,
+              address: account.pubkey.toString(),
+              data: decodedData, // Dados decodificados em vez de bytes brutos
+              exists: true,
+              tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              isPositionBundle: false
+            };
+            
+            positions.push(position);
+          }
+        }
+      } catch (error) {
+        console.log(`⚠️  Erro ao processar conta ${account.pubkey.toString()}:`, error);
+      }
+    }
+    
+    console.log(`✅ Posições válidas encontradas: ${positions.length}`);
+    return positions;
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar posições:', error);
+    return [];
+  }
+}
+
+/**
+ * Função para decodificar os bytes da posição usando o layout exato da Orca
+ * Layout: 216 bytes total
+ */
+function decodePositionData(rawData: Buffer): any {
+  try {
+    // Verificar se tem o tamanho correto
+    if (rawData.length !== 216) {
+      throw new Error(`Tamanho incorreto: esperado 216 bytes, recebido ${rawData.length}`);
+    }
+
+    // Verificar discriminator (primeiros 8 bytes)
+    const discriminator = rawData.slice(0, 8);
+    const expectedDiscriminator = Buffer.from([0xaa, 0xbc, 0x8f, 0xe4, 0x7a, 0x40, 0xf7, 0xd0]);
+    
+    if (!discriminator.equals(expectedDiscriminator)) {
+      throw new Error('Discriminator inválido - não é uma conta de posição válida');
+    }
+
+    // Decodificar campos usando little-endian
+    const decoded = {
+      discriminator: Array.from(discriminator),
+      
+      // Offset 8: whirlpool (32 bytes)
+      whirlpool: new PublicKey(rawData.slice(8, 40)).toString(),
+      
+      // Offset 40: positionMint (32 bytes)
+      positionMint: new PublicKey(rawData.slice(40, 72)).toString(),
+      
+      // Offset 72: liquidity (16 bytes, u128 LE)
+      liquidity: rawData.readBigUInt64LE(72) + (rawData.readBigUInt64LE(80) << 64n),
+      
+      // Offset 88: tickLowerIndex (4 bytes, i32 LE)
+      tickLowerIndex: rawData.readInt32LE(88),
+      
+      // Offset 92: tickUpperIndex (4 bytes, i32 LE)
+      tickUpperIndex: rawData.readInt32LE(92),
+      
+      // Offset 96: feeGrowthCheckpointA (16 bytes, u128 LE)
+      feeGrowthCheckpointA: rawData.readBigUInt64LE(96) + (rawData.readBigUInt64LE(104) << 64n),
+      
+      // Offset 112: feeOwedA (8 bytes, u64 LE)
+      feeOwedA: rawData.readBigUInt64LE(112),
+      
+      // Offset 120: feeGrowthCheckpointB (16 bytes, u128 LE)
+      feeGrowthCheckpointB: rawData.readBigUInt64LE(120) + (rawData.readBigUInt64LE(128) << 64n),
+      
+      // Offset 136: feeOwedB (8 bytes, u64 LE)
+      feeOwedB: rawData.readBigUInt64LE(136),
+      
+      // Offset 144: rewardInfos[3] (24 bytes cada = 72 bytes total)
+      rewardInfos: [] as any[]
+    };
+
+    // Decodificar rewardInfos (3 estruturas de 24 bytes cada)
+    for (let i = 0; i < 3; i++) {
+      const offset = 144 + (i * 24);
+      const rewardInfo = {
+        // growthInsideCheckpoint (16 bytes, u128 LE)
+        growthInsideCheckpoint: rawData.readBigUInt64LE(offset) + (rawData.readBigUInt64LE(offset + 8) << 64n),
+        // amountOwed (8 bytes, u64 LE)
+        amountOwed: rawData.readBigUInt64LE(offset + 16)
+      };
+      decoded.rewardInfos.push(rewardInfo);
+    }
+
+    return decoded;
+  } catch (error) {
+    console.error('Erro ao decodificar dados da posição:', error);
+    return null;
+  }
+}
+
+/**
+ * Função para encontrar top posições sem ordenar tudo (otimizada para evitar stack overflow)
+ */
+function findTopPositions(positions: any[], count: number): any[] {
+  if (positions.length <= count) {
+    return positions;
+  }
+  
+  console.log(`🔍 Encontrando top ${count} posições de ${positions.length} total...`);
+  
+  // Usar uma abordagem mais eficiente: processar em lotes pequenos
+  const batchSize = 1000;
+  let topPositions: any[] = [];
+  
+  for (let i = 0; i < positions.length; i += batchSize) {
+    const batch = positions.slice(i, i + batchSize);
+    
+    // Processar lote atual
+    for (const position of batch) {
+      if (topPositions.length < count) {
+        topPositions.push(position);
+      } else {
+        // Encontrar a posição com menor liquidez na lista atual
+        let minIndex = 0;
+        for (let j = 1; j < topPositions.length; j++) {
+          const jLiquidity = BigInt(topPositions[j].data?.liquidity || 0);
+          const minLiquidity = BigInt(topPositions[minIndex].data?.liquidity || 0);
+          
+          if (jLiquidity < minLiquidity) {
+            minIndex = j;
+          }
+        }
+        
+        // Se a posição atual tem mais liquidez que a menor da lista, substituir
+        const currentLiquidity = BigInt(position.data?.liquidity || 0);
+        const minLiquidity = BigInt(topPositions[minIndex].data?.liquidity || 0);
+        
+        if (currentLiquidity > minLiquidity) {
+          topPositions[minIndex] = position;
+        }
+      }
+    }
+    
+    // Log de progresso
+    if (i % 10000 === 0) {
+      console.log(`   Processado ${i + batchSize} de ${positions.length} posições...`);
+    }
+  }
+  
+  console.log(`✅ Encontradas ${topPositions.length} top posições`);
+  
+  // Ordenar apenas as top posições encontradas por liquidez
+  return topPositions.sort((a, b) => {
+    const aLiquidity = BigInt(a.data?.liquidity || 0);
+    const bLiquidity = BigInt(b.data?.liquidity || 0);
+    return aLiquidity > bLiquidity ? -1 : aLiquidity < bLiquidity ? 1 : 0;
+  });
+}
+
+/**
+ * Função para calcular estatísticas das posições
+ */
+function calculatePositionStats(positions: any[]): any {
+  if (positions.length === 0) {
+    return {
+      totalPositions: 0,
+      totalLamports: 0,
+      averageLamports: 0,
+      maxLamports: 0,
+      minLamports: 0
+    };
+  }
+
+  console.log(`📊 Calculando estatísticas de ${positions.length} posições...`);
+  
+  let totalLamports = 0;
+  let maxLamports = 0;
+  let minLamports = positions[0].lamports;
+  
+  for (const position of positions) {
+    totalLamports += position.lamports;
+    if (position.lamports > maxLamports) {
+      maxLamports = position.lamports;
+    }
+    if (position.lamports < minLamports) {
+      minLamports = position.lamports;
+    }
+  }
+
+  return {
+    totalPositions: positions.length,
+    totalLamports: totalLamports,
+    averageLamports: Math.round(totalLamports / positions.length),
+    maxLamports: maxLamports,
+    minLamports: minLamports
+  };
+}
+
+/**
+ * Função auxiliar para processar dados de uma posição a partir de dados brutos
+ * Usa a mesma lógica de processPositionData mas adaptada para dados decodificados
+ */
+async function processPositionDataFromRaw(position: any): Promise<any> {
+  try {
+    const positionMint = position.data.positionMint?.toString();
+    const whirlpool = position.data.whirlpool?.toString();
+    const tickLowerIndex = position.data.tickLowerIndex;
+    const tickUpperIndex = position.data.tickUpperIndex;
+    const liquidity = position.data.liquidity?.toString() || '0';
+    const feeOwedA = position.data.feeOwedA?.toString() || '0';
+    const feeOwedB = position.data.feeOwedB?.toString() || '0';
+    
+    // Buscar dados da pool para obter o currentTick
+    let currentTick = 0;
+    let currentPrice = 0;
+    let lowerPrice = 0;
+    let upperPrice = 0;
+    
+    try {
+      const poolResponse = await getFullPoolData(whirlpool, false, 0);
+      if (poolResponse?.main && 'tickCurrentIndex' in poolResponse.main) {
+        currentTick = poolResponse.main.tickCurrentIndex || 0;
+        currentPrice = 0; // Simplified for now
+        lowerPrice = 0; // Simplified for now
+        upperPrice = 0; // Simplified for now
+      }
+    } catch (poolError) {
+      console.warn(`⚠️ Error fetching pool data for ${whirlpool}:`, poolError);
+    }
+    
+    // Calcular se está no range
+    const isInRange = currentTick >= tickLowerIndex && currentTick <= tickUpperIndex;
+    
+    // Determinar status
+    let status = 'active';
+    if (!isInRange) {
+      if (currentTick < tickLowerIndex) {
+        status = 'below_range';
+      } else if (currentTick > tickUpperIndex) {
+        status = 'above_range';
+      } else {
+        status = 'out_of_range';
+      }
+    }
+    
+    // Calcular tickComparison
+    const tickComparison = {
+      currentTick: currentTick,
+      tickLowerIndex: tickLowerIndex,
+      tickUpperIndex: tickUpperIndex,
+      tickRange: `${tickLowerIndex} to ${tickUpperIndex}`,
+      tickSpread: tickUpperIndex - tickLowerIndex,
+      distanceFromLower: currentTick - tickLowerIndex,
+      distanceFromUpper: tickUpperIndex - currentTick,
+      isBelowRange: currentTick < tickLowerIndex,
+      isAboveRange: currentTick > tickUpperIndex,
+      isInRange: isInRange
+    };
+    
+    return {
+      positionMint: positionMint,
+      whirlpool: whirlpool,
+      tickLowerIndex: tickLowerIndex,
+      tickUpperIndex: tickUpperIndex,
+      currentTick: currentTick,
+      liquidity: liquidity,
+      feeOwedA: feeOwedA,
+      feeOwedB: feeOwedB,
+      isInRange: isInRange,
+      currentPrice: currentPrice,
+      lowerPrice: lowerPrice,
+      upperPrice: upperPrice,
+      status: status,
+      tickComparison: tickComparison,
+      lastUpdated: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('Error processing position data from raw:', error);
+    throw error;
+  }
+}
+
+/**
  * Função auxiliar para processar dados de uma posição
  * Usa a mesma lógica de getLiquidityOverview
  */
@@ -1352,7 +1746,7 @@ async function processPositionData(position: any): Promise<any> {
     
     try {
       const poolResponse = await getFullPoolData(whirlpool, false, 0);
-      if (poolResponse?.main) {
+      if (poolResponse?.main && 'tickCurrentIndex' in poolResponse.main) {
         currentTick = poolResponse.main.tickCurrentIndex || 0;
         currentPrice = 0; // Simplified for now
         lowerPrice = 0; // Simplified for now
