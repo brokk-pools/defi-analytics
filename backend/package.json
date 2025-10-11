@@ -17,6 +17,8 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
     "@orca-so/whirlpools": "^4.0.0",
+    "@orca-so/whirlpools-sdk": "^0.16.0",
+    "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.98.4",
     "compression": "^1.7.4",
