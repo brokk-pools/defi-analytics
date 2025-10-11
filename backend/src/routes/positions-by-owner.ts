@@ -4,7 +4,7 @@ import { createSolanaRpc, mainnet, address } from '@solana/kit';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js';
 
 dotenv.config();
 
@@ -145,7 +145,7 @@ router.get('/:owner', async (req, res) => {
     logger.info(`📊 Encontradas ${positions?.length || 0} posições`);
 
     // Preparar resposta
-    const response = {
+    const response: any = {
       timestamp: new Date().toISOString(),
       method: 'fetchPositionsForOwner',
       rpcProvider: rpcProvider,
