@@ -1,6 +1,42 @@
 # Orca Whirlpools MVP Backend
 
-Backend para análise e visualização de dados de pools do Orca Whirlpools na rede Solana.
+Backend para análise e visualização de dados de pools do Orca Whirlpools na rede Solana Mainnet.
+
+## 📚 Documentação da API
+
+Para documentação completa da API com exemplos detalhados, parâmetros e respostas, consulte:
+**[📖 Documentação Completa da API](./README.md#-apis-e-endpoints)**
+
+## 🎯 Visão Geral
+
+Este backend fornece APIs RESTful para análise de dados do Orca Whirlpools, incluindo:
+- Análise de pools e posições de liquidez
+- Dados de ticks para visualizações de range
+- Overview consolidado de posições por carteira
+- Integração com SDK oficial do Orca
+- Webhooks da Helius para atualizações em tempo real
+
+## ⚡ Quick Start
+
+```bash
+# 1. Clone e instale
+git clone https://github.com/brokk-pools/defi-analytics.git
+cd defi-analytics/backend
+npm install
+
+# 2. Configure (opcional - funciona sem API key)
+cp .env.example .env
+# Edite .env com sua HELIUS_API_KEY para melhor performance
+
+# 3. Execute
+npm run dev
+
+# 4. Teste
+curl http://localhost:3001/health
+curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY
+```
+
+**🎯 Pronto!** O servidor estará rodando em `http://localhost:3001` com todas as APIs disponíveis.
 
 ## 🚀 Funcionalidades
 
@@ -171,28 +207,30 @@ Retorna métricas do sistema (disponível apenas em produção).
 ## 🛠️ Instalação e Configuração
 
 ### Pré-requisitos
-- Node.js >= 20.17.0
-- npm ou yarn
-- Chave de API da Helius (opcional, mas recomendada)
+- **Node.js >= 20.17.0** (recomendado: 20.18.0+)
+- **npm** (incluído com Node.js)
+- **Chave de API da Helius** (recomendada para melhor performance)
+- **PostgreSQL** (opcional, para dados persistentes)
 
-### Instalação
+### Instalação Rápida
 ```bash
 # Clonar o repositório
-git clone <repository-url>
-cd orca-whirlpools-mvp/backend
+git clone https://github.com/brokk-pools/defi-analytics.git
+cd defi-analytics/backend
 
 # Instalar dependências
 npm install
 
 # Configurar variáveis de ambiente
 cp .env.example .env
+# Edite o arquivo .env com suas configurações
 ```
 
-### Variáveis de Ambiente
+### Configuração de Ambiente
 ```bash
-# RPC Configuration
+# RPC Configuration (Helius recomendado)
 HELIUS_RPC=https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
-HELIUS_API_KEY=your_helius_api_key
+HELIUS_API_KEY=your_helius_api_key_here
 
 # Server Configuration
 PORT=3001
@@ -202,42 +240,59 @@ NODE_ENV=development
 # Orca Configuration
 ORCA_NETWORK=mainnet
 ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
+
+# Database (opcional)
+DATABASE_URL=postgres://user:password@localhost:5432/orca_mvp
 ```
 
 ### Execução
 ```bash
-# Desenvolvimento
+# Desenvolvimento (com hot reload)
 npm run dev
 
 # Produção
 npm run build
 npm start
 
-# Debug
+# Debug (com debugger)
 npm run dev:debug
+```
+
+### Verificação da Instalação
+```bash
+# Testar se o servidor está funcionando
+curl http://localhost:3001/health
+
+# Deve retornar status "ok" e métricas do sistema
 ```
 
 ## 📦 Dependências Principais
 
-### Core
-- **@orca-so/whirlpools-sdk**: SDK oficial do Orca para interação com pools
-- **@orca-so/common-sdk**: SDK comum do Orca
-- **@coral-xyz/anchor**: Framework Anchor para Solana
-- **@solana/web3.js**: SDK oficial da Solana
-- **@solana/spl-token**: Tokens SPL da Solana
+### Core (Orca & Solana)
+- **@orca-so/whirlpools-sdk** `^0.16.0`: SDK oficial do Orca para interação com pools
+- **@orca-so/whirlpools** `^4.0.0`: Biblioteca principal do Orca Whirlpools
+- **@orca-so/common-sdk** `^0.6.11`: SDK comum do Orca
+- **@coral-xyz/anchor** `^0.29.0`: Framework Anchor para Solana
+- **@solana/web3.js** `^1.98.4`: SDK oficial da Solana
+- **@solana/spl-token** `^0.4.14`: Tokens SPL da Solana
+- **@solana/kit** `^2.3.0`: Kit de utilitários Solana
 
-### Backend
-- **express**: Framework web
-- **winston**: Sistema de logging
-- **helmet**: Segurança HTTP
-- **cors**: Cross-Origin Resource Sharing
-- **compression**: Compressão de respostas
-- **express-rate-limit**: Rate limiting
+### Backend (Express & Utils)
+- **express** `^5.1.0`: Framework web moderno
+- **winston** `^3.15.0`: Sistema de logging estruturado
+- **helmet** `^8.0.0`: Segurança HTTP
+- **cors** `^2.8.5`: Cross-Origin Resource Sharing
+- **compression** `^1.7.4`: Compressão de respostas
+- **express-rate-limit** `^7.4.1`: Rate limiting
+- **express-session** `^1.18.1`: Gerenciamento de sessões
+- **pg** `^8.16.3`: Cliente PostgreSQL
+- **ioredis** `^5.4.1`: Cliente Redis
+- **decimal.js** `^10.6.0`: Precisão decimal para cálculos financeiros
 
 ### Desenvolvimento
-- **typescript**: Tipagem estática
-- **tsx**: Execução de TypeScript
-- **@types/***: Definições de tipos
+- **typescript** `^5.9.3`: Tipagem estática
+- **tsx** `^4.20.6`: Execução de TypeScript
+- **@types/***: Definições de tipos para todas as dependências
 
 ## 🎯 Casos de Uso para Frontend
 
@@ -409,7 +464,14 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.1.0 (Atual)
+### v1.2.0 (Atual)
+- ✅ **README atualizado** com informações básicas e referência à documentação da API
+- ✅ **Instruções de instalação melhoradas** com comandos atualizados
+- ✅ **Dependências atualizadas** com versões específicas
+- ✅ **Configuração de ambiente** mais detalhada
+- ✅ **Verificação de instalação** com comandos de teste
+
+### v1.1.0
 - ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
 - ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
 - ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
@@ -419,7 +481,7 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 - ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
 - ✅ **Melhor tratamento de erros e logging** estruturado
 - ✅ **Dados de `tickComparison`** para visualizações frontend
-- ✅ **Documentação atualizada** com todas as rotas existentes
+- ✅ **Documentação completa da API** com exemplos práticos
 
 ### v1.0.0
 - ✅ Integração completa com @orca-so/whirlpools-sdk
