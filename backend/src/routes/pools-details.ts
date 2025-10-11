@@ -37,6 +37,7 @@ function convertBigIntToString(obj: any): any {
  * 
  * Query Parameters:
  * - showpositions: 'true' para incluir detalhes das posições, qualquer outro valor para omitir
+ * - topPositions: número (ex: 10) para limitar a N posições com maior liquidez
  * - saveFile: 'true' para salvar resultado em arquivo JSON
  * 
  * Dados retornados para visualizações:
@@ -55,7 +56,7 @@ function convertBigIntToString(obj: any): any {
 router.get('/:poolid', async (req, res) => {
   try {
     const { poolid } = req.params;
-    const { saveFile, showpositions } = req.query;
+    const { saveFile, showpositions, topPositions } = req.query;
 
     logger.info(`🔍 Buscando dados completos da pool: ${poolid}`);
 
@@ -69,11 +70,20 @@ router.get('/:poolid', async (req, res) => {
 
     // Determinar se deve incluir posições baseado no parâmetro showpositions
     const includePositions = showpositions === 'true';
+    const topPositionsLimit = topPositions ? parseInt(topPositions as string, 10) : 0;
     
-    logger.info(`🔍 Buscando dados da pool ${poolid} (posições: ${includePositions ? 'incluídas' : 'omitidas'})`);
+    // Validar topPositions
+    if (topPositionsLimit < 0 || topPositionsLimit > 1000) {
+      return res.status(400).json({ 
+        error: 'Invalid topPositions parameter',
+        message: 'topPositions must be between 0 and 1000'
+      });
+    }
+    
+    logger.info(`🔍 Buscando dados da pool ${poolid} (posições: ${includePositions ? 'incluídas' : 'omitidas'}${topPositionsLimit > 0 ? `, limitadas a ${topPositionsLimit}` : ''})`);
 
     // Buscar dados completos da pool usando o SDK do Orca
-    const poolData = await getFullPoolData(poolid, includePositions);
+    const poolData = await getFullPoolData(poolid, includePositions, topPositionsLimit);
 
     logger.info(`✅ Dados da pool obtidos com sucesso: ${poolid}`);
 
@@ -83,6 +93,7 @@ router.get('/:poolid', async (req, res) => {
       method: 'getFullPoolData',
       poolId: poolid,
       showPositions: includePositions,
+      topPositions: topPositionsLimit > 0 ? topPositionsLimit : null,
       success: true,
       data: convertBigIntToString(poolData)
     };

@@ -26,12 +26,13 @@ Retorna status do serviço e métricas do sistema.
 
 #### Pools Details
 ```bash
-GET /poolsdetails/:poolid?showpositions=true&saveFile=true
+GET /poolsdetails/:poolid?showpositions=true&topPositions=10&saveFile=true
 ```
 
 **Parâmetros:**
 - `poolid` (obrigatório): Endereço da pool
 - `showpositions` (opcional): `true` para incluir posições, qualquer outro valor para omitir
+- `topPositions` (opcional): número (ex: 10) para limitar a N posições com maior liquidez (0-1000)
 - `saveFile` (opcional): `true` para salvar resultado em arquivo JSON
 
 **Dados retornados:**
@@ -294,6 +295,32 @@ src/
 3. **SDK Orca** → Busca dados usando SDK oficial
 4. **Processamento** → Cálculos de preços e estatísticas
 5. **Resposta** → Dados estruturados para frontend
+
+## 🚀 Exemplos de Uso
+
+### Parâmetros de Performance
+```bash
+# Incluir todas as posições (comportamento padrão)
+GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true
+
+# Incluir apenas as top 10 posições (mais leve)
+GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=10
+
+# Incluir apenas as top 5 posições
+GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=5
+
+# Omitir posições completamente (mais rápido)
+GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=false
+
+# Combinar com saveFile
+GET /poolsdetails/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showpositions=true&topPositions=20&saveFile=true
+```
+
+### Benefícios do topPositions
+- **Performance**: Reduz drasticamente o tempo de resposta
+- **Dados relevantes**: Foca nas posições com maior liquidez
+- **Flexibilidade**: Permite ajustar o número conforme necessário
+- **Escalabilidade**: Funciona bem mesmo com pools com milhares de posições
 
 ## 🚀 Performance
 

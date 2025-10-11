@@ -497,7 +497,7 @@ function calculateAdjustedPrice(tickIndex: number, tokenMintA: string, tokenMint
 }
 
 // Função para obter dados completos de uma pool usando Orca SDK
-export async function getFullPoolData(poolAddressStr: string, includePositions: boolean = true) {
+export async function getFullPoolData(poolAddressStr: string, includePositions: boolean = true, topPositions: number = 0) {
   const connection = makeConnection();
   const POOL_ADDRESS = new PublicKey(poolAddressStr);
 
@@ -636,19 +636,27 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
     // --- Posições ---
     let positions: any[] = [];
     let totalPositions = 0;
+    let positionAccounts: any = [];
     
     if (includePositions) {
       // ⚠️ Consulta bruta via getProgramAccounts (filtro pelo Whirlpool)
-      const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+      positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
         filters: [
           { dataSize: 216 }, // tamanho PositionAccount
           { memcmp: { offset: 8, bytes: POOL_ADDRESS.toBase58() } },
         ],
       });
 
+      // Se topPositions > 0, limitar o número de posições processadas
+      const positionsToProcess = topPositions > 0 ? 
+        positionAccounts.slice(0, topPositions) : 
+        positionAccounts;
+      
+      console.log(`📊 Processando ${positionsToProcess.length} posições${topPositions > 0 ? ` (top ${topPositions})` : ''}`);
+
       // Processar cada posição para obter dados básicos
       positions = await Promise.all(
-        positionAccounts.map(async (acc) => {
+        positionsToProcess.map(async (acc: any) => {
           try {
             // Tentar obter dados da posição usando o SDK
             const position = await client.getPosition(acc.pubkey);
@@ -728,6 +736,11 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
       );
       
       totalPositions = positions.length;
+      
+      // Se limitamos as posições, adicionar informação sobre o total real
+      if (topPositions > 0 && positionAccounts.length > topPositions) {
+        console.log(`📊 Processadas ${positions.length} de ${positionAccounts.length} posições totais`);
+      }
     }
 
     // --- Estatísticas das Posições ---
@@ -741,6 +754,9 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
       
       positionStats = {
         totalPositions: positions.length,
+        totalPositionsInPool: topPositions > 0 ? positionAccounts.length : positions.length,
+        isLimited: topPositions > 0 && positionAccounts.length > topPositions,
+        limitApplied: topPositions > 0 ? topPositions : null,
         activePositions: activePositions.length,
         outOfRangePositions: outOfRangePositions.length,
         activePercentage: positions.length > 0 ? 
@@ -763,6 +779,7 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
       timestamp: new Date().toISOString(),
       method: 'getFullPoolData',
       includePositions,
+      topPositions: topPositions > 0 ? topPositions : null,
       main, 
       tickArrays, 
       allTicks, // Todos os ticks consolidados e ordenados
