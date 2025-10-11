@@ -36,8 +36,7 @@ function convertBigIntToString(obj: any): any {
  * GET /poolsdetails/:poolid
  * 
  * Query Parameters:
- * - showpositions: 'true' para incluir detalhes das posições, qualquer outro valor para omitir
- * - topPositions: número (ex: 10) para limitar a N posições com maior liquidez
+ * - topPositions: número (ex: 10) para limitar a N posições com maior liquidez. Se > 0, inclui posições
  * - saveFile: 'true' para salvar resultado em arquivo JSON
  * 
  * Dados retornados para visualizações:
@@ -48,7 +47,7 @@ function convertBigIntToString(obj: any): any {
  * - tickStats.currentPrice: Preço atual ajustado para os tokens da pool
  * - tickStats.liquidityDistribution: Estatísticas de distribuição de liquidez (total, média, min, max)
  * 
- * Dados das posições (quando showpositions=true):
+ * Dados das posições (quando topPositions > 0):
  * - positions: Array de posições com dados básicos (liquidez, fees, range, status)
  * - positionStats: Estatísticas agregadas das posições (ativas, fora do range, fees totais)
  * - Cada posição inclui: pubkey, tickLower/Upper, liquidez, fees, isInRange, preços, status
@@ -56,7 +55,7 @@ function convertBigIntToString(obj: any): any {
 router.get('/:poolid', async (req, res) => {
   try {
     const { poolid } = req.params;
-    const { saveFile, showpositions, topPositions } = req.query;
+    const { saveFile, topPositions } = req.query;
 
     logger.info(`🔍 Buscando dados completos da pool: ${poolid}`);
 
@@ -68,9 +67,9 @@ router.get('/:poolid', async (req, res) => {
       });
     }
 
-    // Determinar se deve incluir posições baseado no parâmetro showpositions
-    const includePositions = showpositions === 'true';
+    // Determinar se deve incluir posições baseado no parâmetro topPositions
     const topPositionsLimit = topPositions ? parseInt(topPositions as string, 10) : 0;
+    const includePositions = topPositionsLimit > 0;
     
     // Validar topPositions
     if (topPositionsLimit < 0 || topPositionsLimit > 1000) {
@@ -80,7 +79,7 @@ router.get('/:poolid', async (req, res) => {
       });
     }
     
-    logger.info(`🔍 Buscando dados da pool ${poolid} (posições: ${includePositions ? 'incluídas' : 'omitidas'}${topPositionsLimit > 0 ? `, limitadas a ${topPositionsLimit}` : ''})`);
+    logger.info(`🔍 Buscando dados da pool ${poolid} (posições: ${includePositions ? `incluídas, limitadas a ${topPositionsLimit}` : 'omitidas'})`);
 
     // Buscar dados completos da pool usando o SDK do Orca
     const poolData = await getFullPoolData(poolid, includePositions, topPositionsLimit);
@@ -92,7 +91,6 @@ router.get('/:poolid', async (req, res) => {
       timestamp: new Date().toISOString(),
       method: 'getFullPoolData',
       poolId: poolid,
-      showPositions: includePositions,
       topPositions: topPositionsLimit > 0 ? topPositionsLimit : null,
       success: true,
       data: convertBigIntToString(poolData)
