@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import { initializeOrcaConfig } from './lib/orca.js';
+import { runMigrations } from './lib/migrations.js';
 import { errorHandler } from './lib/errors.js';
 import { validateRequiredEnvVars } from './lib/validation.js';
 import { logger, createHttpLogger } from './lib/logger.js';
@@ -20,6 +21,10 @@ import {
 import webhookRoutes from './routes/webhook.js';
 import walletRoutes from './routes/wallet.js';
 import positionRoutes from './routes/position.js';
+import liquidityRoutes from './routes/liquidity.js';
+import poolsRoutes from './routes/pools.js';
+import topPositionsRoutes from './routes/top-positions.js';
+import positionsByOwnerRoutes from './routes/positions-by-owner.js';
 
 dotenv.config();
 
@@ -72,6 +77,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/webhook', webhookRateLimit, webhookSignatureMiddleware, webhookRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/position', positionRoutes);
+app.use('/liquidity', liquidityRoutes);
+app.use('/pools', poolsRoutes);
+app.use('/top-positions', topPositionsRoutes);
+app.use('/positionsByOwner', positionsByOwnerRoutes);
 
 // Health check endpoint with detailed status
 app.get('/health', (req, res) => {
@@ -127,7 +136,12 @@ app.get('/', (req, res) => {
       health: '/health',
       webhook: '/webhook/helius',
       wallet: '/wallet/:publicKey',
-      position: '/position/:nftMint'
+      position: '/position/:nftMint',
+      liquidity: '/liquidity/:owner',
+      pools: '/pools',
+      poolsById: '/pools/:poolId',
+      topPositions: '/top-positions?limit=10',
+      positionsByOwner: '/positionsByOwner/:owner?saveFile=true'
     },
     documentation: 'https://docs.orca.so/',
     support: 'https://discord.gg/orcaprotocol'
@@ -155,7 +169,12 @@ app.use((req, res) => {
       health: '/health',
       wallet: '/wallet/:publicKey',
       position: '/position/:nftMint',
-      webhook: '/webhook/helius'
+      webhook: '/webhook/helius',
+      liquidity: '/liquidity/:owner',
+      pools: '/pools',
+      poolsById: '/pools/:poolId',
+      topPositions: '/top-positions?limit=10',
+      positionsByOwner: '/positionsByOwner/:owner?saveFile=true'
     }
   });
 });
@@ -171,6 +190,10 @@ async function startServer() {
     validateRequiredEnvVars();
     logger.info('Environment variables validated');
     
+    // Run DB migrations (commented out for now)
+    // await runMigrations();
+    // logger.info('Database migrations applied');
+
     // Initialize Orca configuration
     await initializeOrcaConfig();
     logger.info('Orca SDK configured for Solana network');
@@ -194,6 +217,11 @@ async function startServer() {
         console.log(`💼 Wallet endpoint: http://${HOST}:${PORT}/wallet/:publicKey`);
         console.log(`🎯 Position endpoint: http://${HOST}:${PORT}/position/:nftMint`);
         console.log(`🔗 Webhook endpoint: http://${HOST}:${PORT}/webhook/helius`);
+        console.log(`💧 Liquidity endpoint: http://${HOST}:${PORT}/liquidity/:owner`);
+        console.log(`🏊 Pools endpoint: http://${HOST}:${PORT}/pools`);
+        console.log(`🏊 Pool by ID: http://${HOST}:${PORT}/pools/:poolId`);
+        console.log(`🏆 Top positions: http://${HOST}:${PORT}/top-positions?limit=10`);
+        console.log(`👤 Positions by owner: http://${HOST}:${PORT}/positionsByOwner/:owner`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📈 Metrics: http://${HOST}:${PORT}/metrics`);
       }

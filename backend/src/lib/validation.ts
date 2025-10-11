@@ -38,7 +38,7 @@ export function validateNFTMint(mintString: string): PublicKey {
 }
 
 export function validateRequiredEnvVars(): void {
-  const required = ['DATABASE_URL', 'HELIUS_API_KEY', 'ORCA_WHIRLPOOLS_PROGRAM_ID'];
+  const required = ['HELIUS_API_KEY', 'ORCA_WHIRLPOOLS_PROGRAM_ID'];
   
   for (const envVar of required) {
     if (!process.env[envVar]) {

@@ -2,9 +2,23 @@ import { Connection, PublicKey, ParsedAccountData } from '@solana/web3.js';
 import { setWhirlpoolsConfig } from '@orca-so/whirlpools';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import fetch from 'node-fetch';
+import { resolveVaultPositions } from './vault.js';
 
 export function makeConnection(): Connection {
-  const url = process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
+  let url = process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
+  const apiKey = process.env.HELIUS_API_KEY;
+
+  // Support template-style interpolation in .env like `${HELIUS_API_KEY}`
+  if (apiKey && url.includes('${HELIUS_API_KEY}')) {
+    url = url.replace('${HELIUS_API_KEY}', encodeURIComponent(apiKey));
+  }
+
+  // If API key is provided but not present in URL, append it for common Helius endpoints
+  if (apiKey && /helius/i.test(url) && !/[?&]api-key=/.test(url)) {
+    const hasQuery = url.includes('?');
+    url = `${url}${hasQuery ? '&' : '?'}api-key=${encodeURIComponent(apiKey)}`;
+  }
+
   return new Connection(url, 'confirmed');
 }
 
@@ -14,7 +28,9 @@ export function getProgramId(): PublicKey {
 }
 
 export async function initializeOrcaConfig() {
-  await setWhirlpoolsConfig("solanaMainnet");
+  const network = process.env.ORCA_NETWORK || (process.env.NODE_ENV === 'production' ? 'mainnet' : 'devnet');
+  const configName = network.toLowerCase() === 'mainnet' ? 'solanaMainnet' : 'solanaDevnet';
+  await setWhirlpoolsConfig(configName);
 }
 
 export async function getPositionsByOwner(connection: Connection, owner: string): Promise<any[]> {
@@ -47,9 +63,10 @@ export async function getPositionsByOwner(connection: Connection, owner: string)
         const mintPubkey = new PublicKey(mint);
         
         // Try to derive the position account address
+        const whirlpoolsProgramId = getProgramId();
         const [positionPda] = PublicKey.findProgramAddressSync(
           [Buffer.from('position'), mintPubkey.toBuffer()],
-          new PublicKey('whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc') // Orca Whirlpools Program ID
+          whirlpoolsProgramId
         );
         
         // Check if this position account exists
@@ -87,9 +104,10 @@ export async function getPositionData(connection: Connection, positionMint: stri
     console.log(`📍 Fetching position data for: ${positionMint}`);
     
     // Derive the position account address
+    const whirlpoolsProgramId = getProgramId();
     const [positionPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('position'), mintPubkey.toBuffer()],
-      new PublicKey('whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc')
+      whirlpoolsProgramId
     );
     
     // Get the position account data
@@ -288,4 +306,106 @@ export function calculatePriceFromSqrtPrice(sqrtPrice: string, decimalsA: number
     console.error('Error calculating price:', error);
     return 0;
   }
+}
+
+// ============== Classic LP discovery (simplificado) ==============
+export type SplTokenAccount = {
+  pubkey: string;
+  mint: string;
+  amount: string;
+  decimals: number;
+};
+
+export async function listSplTokensByOwner(connection: Connection, owner: string): Promise<SplTokenAccount[]> {
+  const ownerPubkey = new PublicKey(owner);
+  const accounts = await connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_PROGRAM_ID });
+
+  return accounts.value.map((acc) => {
+    const info = acc.account.data.parsed.info;
+    const tokenAmount = info.tokenAmount;
+    return {
+      pubkey: acc.pubkey.toString(),
+      mint: info.mint as string,
+      amount: tokenAmount.amount as string,
+      decimals: tokenAmount.decimals as number
+    };
+  });
+}
+
+// Mapa mínimo de LPs conhecidos (exemplo; expandir conforme necessidade)
+type OrcaClassicLpInfo = {
+  symbol: string;
+  tokenAMint: string;
+  tokenBMint: string;
+  // contas/reservas poderiam ser lidas do programa; aqui mantemos simples
+};
+
+export const ORCA_CLASSIC_LP_REGISTRY: Record<string, OrcaClassicLpInfo> = {};
+
+// Carrega registry simples da API pública da Orca (classic pools)
+// Estrutura esperada (parcial): { pools: { [symbol]: { poolTokenMint, tokenA, tokenB } } }
+let cachedRegistryLoaded = false;
+export async function ensureClassicRegistryLoaded(): Promise<void> {
+  if (cachedRegistryLoaded) return;
+  try {
+    const resp = await fetch('https://api.orca.so/pools');
+    if (!resp.ok) return;
+    const data = await resp.json() as any;
+    const pools = data?.pools || {};
+    for (const symbol of Object.keys(pools)) {
+      const p = pools[symbol];
+      if (p?.poolTokenMint && p?.tokenA?.mint && p?.tokenB?.mint) {
+        ORCA_CLASSIC_LP_REGISTRY[p.poolTokenMint] = {
+          symbol,
+          tokenAMint: p.tokenA.mint,
+          tokenBMint: p.tokenB.mint
+        };
+      }
+    }
+    cachedRegistryLoaded = true;
+  } catch {
+    // ignore network errors; fallback é registry vazio
+  }
+}
+
+export type ClassicLpPosition = {
+  lpMint: string;
+  lpBalanceRaw: string;
+  lpDecimals: number;
+  knownPool: OrcaClassicLpInfo;
+  // Quando tivermos reserves e totalSupply podemos preencher:
+  share?: number;
+  tokenAAmount?: string;
+  tokenBAmount?: string;
+};
+
+export async function detectClassicLpPositions(tokens: SplTokenAccount[]): Promise<ClassicLpPosition[]> {
+  await ensureClassicRegistryLoaded();
+  return tokens
+    .filter(t => Number(t.amount) > 0)
+    .map(t => {
+      const info = ORCA_CLASSIC_LP_REGISTRY[t.mint];
+      if (!info) return undefined;
+      const pos: ClassicLpPosition = {
+        lpMint: t.mint,
+        lpBalanceRaw: t.amount,
+        lpDecimals: t.decimals,
+        knownPool: info
+      };
+      return pos;
+    })
+    .filter((p): p is ClassicLpPosition => !!p);
+}
+
+export async function getLiquidityOverview(connection: Connection, owner: string) {
+  const whirlpoolNfts = await getPositionsByOwner(connection, owner);
+  const splTokens = await listSplTokensByOwner(connection, owner);
+  const classicLps = await detectClassicLpPositions(splTokens);
+  const vaultPositions = await resolveVaultPositions(connection, owner);
+
+  return {
+    whirlpools_positions: whirlpoolNfts,
+    classic_pools_positions: classicLps,
+    vault_positions: vaultPositions
+  };
 }
