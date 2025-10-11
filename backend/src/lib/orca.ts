@@ -646,12 +646,116 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
         ],
       });
 
-      positions = positionAccounts.map((acc) => ({
-        pubkey: acc.pubkey.toBase58(),
-        dataLength: acc.account.data.length,
-      }));
+      // Processar cada posição para obter dados básicos
+      positions = await Promise.all(
+        positionAccounts.map(async (acc) => {
+          try {
+            // Tentar obter dados da posição usando o SDK
+            const position = await client.getPosition(acc.pubkey);
+            
+            if (position) {
+              const positionData = position.getData();
+              
+              // Verificar se a posição está no range
+              const isInRange = positionData.tickLowerIndex <= currentTick && 
+                               positionData.tickUpperIndex >= currentTick;
+              
+              // Calcular preços dos ticks
+              const lowerPrice = calculateAdjustedPrice(
+                positionData.tickLowerIndex, 
+                poolData.tokenMintA.toString(), 
+                poolData.tokenMintB.toString()
+              );
+              const upperPrice = calculateAdjustedPrice(
+                positionData.tickUpperIndex, 
+                poolData.tokenMintA.toString(), 
+                poolData.tokenMintB.toString()
+              );
+              
+              // Calcular percentual de liquidez em relação ao total da pool
+              const positionLiquidity = BigInt(positionData.liquidity.toString());
+              const poolLiquidity = BigInt(poolData.liquidity.toString());
+              const liquidityPercentage = poolLiquidity > 0n ? 
+                (Number(positionLiquidity * 10000n / poolLiquidity) / 100).toFixed(2) : '0.00';
+              
+              return {
+                pubkey: acc.pubkey.toBase58(),
+                positionMint: positionData.positionMint.toString(),
+                whirlpool: positionData.whirlpool.toString(),
+                tickLowerIndex: positionData.tickLowerIndex,
+                tickUpperIndex: positionData.tickUpperIndex,
+                liquidity: positionData.liquidity.toString(),
+                liquidityPercentage: `${liquidityPercentage}%`,
+                feeOwedA: positionData.feeOwedA.toString(),
+                feeOwedB: positionData.feeOwedB.toString(),
+                feeGrowthCheckpointA: positionData.feeGrowthCheckpointA.toString(),
+                feeGrowthCheckpointB: positionData.feeGrowthCheckpointB.toString(),
+                // Informações de range
+                isInRange,
+                lowerPrice,
+                upperPrice,
+                currentPrice: calculateAdjustedPrice(currentTick, poolData.tokenMintA.toString(), poolData.tokenMintB.toString()),
+                // Informações de fees
+                feeRate: poolData.feeRate,
+                protocolFeeRate: poolData.protocolFeeRate,
+                // Status da posição
+                status: isInRange ? 'active' : 'out_of_range',
+                // Rewards (se disponíveis) - simplificado para evitar erros de tipo
+                hasRewards: positionData.rewardInfos.length > 0,
+                rewardCount: positionData.rewardInfos.length,
+                // Timestamp da última atualização
+                lastUpdated: new Date().toISOString(),
+              };
+            } else {
+              // Fallback para dados básicos se não conseguir obter via SDK
+              return {
+                pubkey: acc.pubkey.toBase58(),
+                dataLength: acc.account.data.length,
+                status: 'unknown',
+                error: 'Could not fetch position data via SDK'
+              };
+            }
+          } catch (error) {
+            // Em caso de erro, retornar dados básicos
+            return {
+              pubkey: acc.pubkey.toBase58(),
+              dataLength: acc.account.data.length,
+              status: 'error',
+              error: (error as Error).message
+            };
+          }
+        })
+      );
       
       totalPositions = positions.length;
+    }
+
+    // --- Estatísticas das Posições ---
+    let positionStats = null;
+    if (includePositions && positions.length > 0) {
+      const activePositions = positions.filter(p => p.status === 'active');
+      const outOfRangePositions = positions.filter(p => p.status === 'out_of_range');
+      const totalLiquidity = positions.reduce((sum, p) => sum + BigInt(p.liquidity || '0'), BigInt(0));
+      const totalFeesA = positions.reduce((sum, p) => sum + BigInt(p.feeOwedA || '0'), BigInt(0));
+      const totalFeesB = positions.reduce((sum, p) => sum + BigInt(p.feeOwedB || '0'), BigInt(0));
+      
+      positionStats = {
+        totalPositions: positions.length,
+        activePositions: activePositions.length,
+        outOfRangePositions: outOfRangePositions.length,
+        activePercentage: positions.length > 0 ? 
+          ((activePositions.length / positions.length) * 100).toFixed(2) + '%' : '0%',
+        totalLiquidity: totalLiquidity.toString(),
+        totalFees: {
+          tokenA: totalFeesA.toString(),
+          tokenB: totalFeesB.toString()
+        },
+        averageLiquidity: positions.length > 0 ? 
+          (totalLiquidity / BigInt(positions.length)).toString() : '0',
+        positionsWithRewards: positions.filter(p => p.hasRewards).length,
+        rewardPositionsPercentage: positions.length > 0 ? 
+          ((positions.filter(p => p.hasRewards).length / positions.length) * 100).toFixed(2) + '%' : '0%'
+      };
     }
 
     // --- JSON Final ---
@@ -665,6 +769,7 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
       tickStats, // Estatísticas dos ticks
       fees, 
       positions: includePositions ? positions : undefined,
+      positionStats, // Estatísticas das posições
       totalPositions
     };
 
@@ -703,9 +808,12 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
         ],
       });
 
+      // No fallback, retornar dados básicos das posições
       positions = positionAccounts.map((acc) => ({
         pubkey: acc.pubkey.toBase58(),
         dataLength: acc.account.data.length,
+        status: 'fallback_mode',
+        note: 'Position data limited in fallback mode - SDK failed'
       }));
       
       totalPositions = positions.length;

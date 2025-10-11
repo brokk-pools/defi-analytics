@@ -46,6 +46,11 @@ function convertBigIntToString(obj: any): any {
  * - tickStats.rangeAnalysis.liquidityConcentration: Distribuição de liquidez por tick
  * - tickStats.currentPrice: Preço atual ajustado para os tokens da pool
  * - tickStats.liquidityDistribution: Estatísticas de distribuição de liquidez (total, média, min, max)
+ * 
+ * Dados das posições (quando showpositions=true):
+ * - positions: Array de posições com dados básicos (liquidez, fees, range, status)
+ * - positionStats: Estatísticas agregadas das posições (ativas, fora do range, fees totais)
+ * - Cada posição inclui: pubkey, tickLower/Upper, liquidez, fees, isInRange, preços, status
  */
 router.get('/:poolid', async (req, res) => {
   try {

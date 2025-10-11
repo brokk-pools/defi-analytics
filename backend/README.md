@@ -102,7 +102,45 @@ GET /poolsdetails/:poolid?showpositions=true&saveFile=true
         ]
       }
     },
-    "positions": [...],
+    "positions": [
+      {
+        "pubkey": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+        "positionMint": "3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+        "whirlpool": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+        "tickLowerIndex": -443700,
+        "tickUpperIndex": -443600,
+        "liquidity": "1000000000",
+        "liquidityPercentage": "0.15%",
+        "feeOwedA": "500000",
+        "feeOwedB": "2500000",
+        "feeGrowthCheckpointA": "1000000000",
+        "feeGrowthCheckpointB": "2000000000",
+        "isInRange": true,
+        "lowerPrice": 99.5,
+        "upperPrice": 100.5,
+        "currentPrice": 100.0,
+        "feeRate": 300,
+        "protocolFeeRate": 300,
+        "status": "active",
+        "hasRewards": true,
+        "rewardCount": 2,
+        "lastUpdated": "2024-01-11T12:00:00.000Z"
+      }
+    ],
+    "positionStats": {
+      "totalPositions": 150,
+      "activePositions": 120,
+      "outOfRangePositions": 30,
+      "activePercentage": "80.00%",
+      "totalLiquidity": "100000000000",
+      "totalFees": {
+        "tokenA": "50000000",
+        "tokenB": "250000000"
+      },
+      "averageLiquidity": "666666666",
+      "positionsWithRewards": 45,
+      "rewardPositionsPercentage": "30.00%"
+    },
     "totalPositions": 150
   }
 }
@@ -223,6 +261,14 @@ Use `liquidityDistribution` para métricas gerais e concentração de liquidez.
 
 ### 4. Análise de Preços
 Use `currentPrice` para preço atual e compare com `priceAdjusted` dos ticks.
+
+### 5. Análise de Posições
+Use `positions` e `positionStats` para análise de posições:
+- **Status das posições**: `active` vs `out_of_range`
+- **Fees acumulados**: `feeOwedA` e `feeOwedB` por posição
+- **Liquidez por posição**: `liquidity` e `liquidityPercentage`
+- **Range de preços**: `lowerPrice` e `upperPrice` vs `currentPrice`
+- **Estatísticas agregadas**: `positionStats` com totais e percentuais
 
 ## 🔧 Arquitetura
 
