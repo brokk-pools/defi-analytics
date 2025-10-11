@@ -1146,3 +1146,47 @@ export async function fetchPoolsFromOrcaAPI(poolId?: string, sortBy?: string, so
     throw new Error(`Erro na API da Orca: ${(error as Error).message}`);
   }
 }
+
+/**
+ * Função para buscar dados completos de uma pool com validação e processamento
+ * Centraliza toda a lógica de negócio para a rota pools-details
+ */
+export async function getPoolDetailsData(poolId: string, topPositions?: string): Promise<any> {
+  try {
+    // Validar endereço da pool
+    if (!poolId || poolId.length < 32) {
+      throw new Error('Invalid pool address: Pool address must be a valid Solana public key');
+    }
+
+    // Determinar se deve incluir posições baseado no parâmetro topPositions
+    const topPositionsLimit = topPositions ? parseInt(topPositions, 10) : 0;
+    const includePositions = topPositionsLimit > 0;
+    
+    // Validar topPositions
+    if (topPositionsLimit < 0 || topPositionsLimit > 1000) {
+      throw new Error('Invalid topPositions parameter: topPositions must be between 0 and 1000');
+    }
+    
+    console.log(`🔍 Buscando dados da pool ${poolId} (posições: ${includePositions ? `incluídas, limitadas a ${topPositionsLimit}` : 'omitidas'})`);
+
+    // Buscar dados completos da pool usando o SDK do Orca
+    const poolData = await getFullPoolData(poolId, includePositions, topPositionsLimit);
+
+    console.log(`✅ Dados da pool obtidos com sucesso: ${poolId}`);
+
+    // Preparar resposta
+    const response = {
+      timestamp: new Date().toISOString(),
+      method: 'getFullPoolData',
+      poolId: poolId,
+      topPositions: topPositionsLimit > 0 ? topPositionsLimit : null,
+      success: true,
+      data: convertBigIntToString(poolData)
+    };
+
+    return response;
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados da pool:', error);
+    throw error;
+  }
+}

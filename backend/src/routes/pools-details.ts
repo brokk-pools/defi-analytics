@@ -1,35 +1,8 @@
 import express from 'express';
-import { getFullPoolData } from '../lib/orca.js';
+import { getPoolDetailsData } from '../lib/orca.js';
 import { logger } from '../lib/logger.js';
 
 const router = express.Router();
-
-/**
- * Função para converter BigInt para string recursivamente
- */
-function convertBigIntToString(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-  
-  if (typeof obj === 'bigint') {
-    return obj.toString();
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(convertBigIntToString);
-  }
-  
-  if (typeof obj === 'object') {
-    const converted: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      converted[key] = convertBigIntToString(value);
-    }
-    return converted;
-  }
-  
-  return obj;
-}
 
 /**
  * Rota para buscar dados completos de uma pool específica
@@ -37,7 +10,6 @@ function convertBigIntToString(obj: any): any {
  * 
  * Query Parameters:
  * - topPositions: número (ex: 10) para limitar a N posições com maior liquidez. Se > 0, inclui posições
- * - saveFile: 'true' para salvar resultado em arquivo JSON
  * 
  * Dados retornados para visualizações:
  * - allTicks: Array de todos os ticks com dados detalhados (tickIndex, price, priceAdjusted, liquidityGross, etc.)
@@ -55,83 +27,14 @@ function convertBigIntToString(obj: any): any {
 router.get('/:poolid', async (req, res) => {
   try {
     const { poolid } = req.params;
-    const { saveFile, topPositions } = req.query;
+    const { topPositions } = req.query;
 
     logger.info(`🔍 Buscando dados completos da pool: ${poolid}`);
 
-    // Validar endereço da pool
-    if (!poolid || poolid.length < 32) {
-      return res.status(400).json({ 
-        error: 'Invalid pool address',
-        message: 'Pool address must be a valid Solana public key'
-      });
-    }
-
-    // Determinar se deve incluir posições baseado no parâmetro topPositions
-    const topPositionsLimit = topPositions ? parseInt(topPositions as string, 10) : 0;
-    const includePositions = topPositionsLimit > 0;
-    
-    // Validar topPositions
-    if (topPositionsLimit < 0 || topPositionsLimit > 1000) {
-      return res.status(400).json({ 
-        error: 'Invalid topPositions parameter',
-        message: 'topPositions must be between 0 and 1000'
-      });
-    }
-    
-    logger.info(`🔍 Buscando dados da pool ${poolid} (posições: ${includePositions ? `incluídas, limitadas a ${topPositionsLimit}` : 'omitidas'})`);
-
-    // Buscar dados completos da pool usando o SDK do Orca
-    const poolData = await getFullPoolData(poolid, includePositions, topPositionsLimit);
+    // Usar função centralizada do orca.ts para toda a lógica de negócio
+    const response = await getPoolDetailsData(poolid, topPositions as string);
 
     logger.info(`✅ Dados da pool obtidos com sucesso: ${poolid}`);
-
-    // Preparar resposta
-    const response: any = {
-      timestamp: new Date().toISOString(),
-      method: 'getFullPoolData',
-      poolId: poolid,
-      topPositions: topPositionsLimit > 0 ? topPositionsLimit : null,
-      success: true,
-      data: convertBigIntToString(poolData)
-    };
-
-    // Salvar arquivo se solicitado
-    if (saveFile === 'true') {
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        
-        // Criar pasta resultfiles se não existir
-        const resultDir = path.join(process.cwd(), 'resultfiles');
-        if (!fs.existsSync(resultDir)) {
-          fs.mkdirSync(resultDir, { recursive: true });
-        }
-
-        // Gerar timestamp no formato yyyymmddhhmmss
-        const now = new Date();
-        const timestamp = now.getFullYear().toString() +
-          (now.getMonth() + 1).toString().padStart(2, '0') +
-          now.getDate().toString().padStart(2, '0') +
-          now.getHours().toString().padStart(2, '0') +
-          now.getMinutes().toString().padStart(2, '0') +
-          now.getSeconds().toString().padStart(2, '0');
-
-        // Nome do arquivo
-        const filename = `pool_details_${poolid}_${timestamp}.json`;
-        const filepath = path.join(resultDir, filename);
-
-        // Salvar arquivo
-        fs.writeFileSync(filepath, JSON.stringify(response, null, 2), 'utf8');
-        
-        response.savedFile = filepath;
-        logger.info(`💾 Dados da pool salvos em: ${filepath}`);
-      } catch (fileError) {
-        logger.warn('⚠️ Erro ao salvar arquivo:', fileError);
-        response.fileError = 'Failed to save file';
-      }
-    }
-
     res.json(response);
 
   } catch (error: any) {
@@ -144,7 +47,19 @@ router.get('/:poolid', async (req, res) => {
       poolId: req.params.poolid
     };
 
-    if (error.message?.includes('Pool not found')) {
+    if (error.message?.includes('Invalid pool address')) {
+      errorResponse.statusCode = 400;
+      errorResponse.suggestions = [
+        'Verifique se o endereço da pool está correto',
+        'O endereço deve ser uma chave pública Solana válida'
+      ];
+    } else if (error.message?.includes('Invalid topPositions parameter')) {
+      errorResponse.statusCode = 400;
+      errorResponse.suggestions = [
+        'topPositions deve ser um número entre 0 e 1000',
+        'Use 0 para omitir posições ou um número > 0 para incluir posições'
+      ];
+    } else if (error.message?.includes('Pool not found')) {
       errorResponse.statusCode = 404;
       errorResponse.suggestions = [
         'Verifique se o endereço da pool está correto',

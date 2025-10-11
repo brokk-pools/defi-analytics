@@ -108,14 +108,13 @@ Busca dados de pools usando a API oficial da Orca.
 
 #### Pool Details
 ```bash
-GET /poolsdetails/:poolid?topPositions=10&saveFile=true
+GET /poolsdetails/:poolid?topPositions=10
 ```
 Retorna dados completos de uma pool com análise detalhada de ticks e posições.
 
 **Parâmetros:**
 - `poolid` (obrigatório): Endereço da pool
 - `topPositions` (opcional): número (ex: 10) para limitar a N posições com maior liquidez (0-1000). Se > 0, inclui posições
-- `saveFile` (opcional): `true` para salvar resultado em arquivo JSON
 
 **Dados retornados:**
 - `allTicks`: Array de todos os ticks com dados detalhados
@@ -368,9 +367,6 @@ curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryf
 
 # Incluir apenas as top 20 posições
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=20"
-
-# Salvar resultado em arquivo
-curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=20&saveFile=true"
 ```
 
 ### 3. Posições de uma Carteira
@@ -418,7 +414,6 @@ curl "http://localhost:3001/metrics"
 ### Benefícios dos Parâmetros de Performance
 - **`topPositions=0` (padrão)**: Resposta mais rápida, apenas dados da pool
 - **`topPositions=N`**: Foca nas N posições com maior liquidez
-- **`saveFile=true`**: Salva resultado em arquivo JSON para análise offline
 - **Escalabilidade**: Funciona bem mesmo com pools com milhares de posições
 
 ## 🚀 Performance
