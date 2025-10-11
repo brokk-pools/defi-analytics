@@ -1,14 +1,23 @@
 # Orca Whirlpools MVP
 
-A complete MVP application for tracking Orca Whirlpools liquidity positions and fees on Solana Devnet. Users can connect their wallet or enter a public key to view their positions, liquidity ranges, and estimated fee earnings.
+Um MVP completo para rastrear posições de liquidez e taxas do Orca Whirlpools na Solana Devnet. O backend está totalmente funcional com APIs REST e integração com webhooks do Helius. O frontend ainda está em desenvolvimento.
 
-## 🎯 Features
+## 📋 Status do Projeto
 
-- **Real-time Position Tracking**: View all Orca Whirlpool positions for any wallet
-- **Fee Estimation**: Calculate estimated fees earned from liquidity provision
-- **Range Monitoring**: Check if positions are in-range or out-of-range
-- **Helius Integration**: Real-time webhook events for position updates
-- **Devnet Support**: Fully configured for Solana Devnet testing
+- ✅ **Backend**: Completamente funcional com APIs REST
+- 🚧 **Frontend**: Em desenvolvimento (apenas estrutura básica)
+- ✅ **Database**: PostgreSQL configurado e funcionando
+- ✅ **Webhooks**: Integração com Helius funcionando
+
+## 🎯 Features do Backend
+
+- **Real-time Position Tracking**: Visualizar todas as posições Orca Whirlpool de qualquer carteira
+- **Fee Estimation**: Calcular taxas estimadas ganhas com fornecimento de liquidez
+- **Range Monitoring**: Verificar se posições estão dentro ou fora do range
+- **Helius Integration**: Eventos de webhook em tempo real para atualizações de posições
+- **Devnet Support**: Totalmente configurado para testes na Solana Devnet
+- **REST API**: Endpoints completos para consulta de dados
+- **Database Integration**: PostgreSQL com schema otimizado para dados do Orca
 
 ## 🏗️ Architecture
 
@@ -53,11 +62,12 @@ npm install
 npm run dev
 ```
 
-### 4. Start Frontend
+### 4. Frontend (Em Desenvolvimento)
 ```bash
 cd ../frontend
 npm install
 npm run dev
+# ⚠️ Frontend ainda está em desenvolvimento - apenas estrutura básica
 ```
 
 ### 5. Configure Helius Webhook
@@ -111,7 +121,7 @@ ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 VITE_API_URL=http://localhost:3001
 ```
 
-## 📡 API Endpoints
+## 📡 API Endpoints (Backend)
 
 ### Health Check
 ```
@@ -131,6 +141,22 @@ GET /position/:nftMint
 ### Helius Webhook
 ```
 POST /webhook/helius
+```
+
+### Pools Information
+```
+GET /pools
+GET /pools/:poolId
+```
+
+### Top Positions
+```
+GET /top-positions
+```
+
+### Liquidity Operations
+```
+GET /liquidity/:publicKey
 ```
 
 ## 🗄️ Database Schema
@@ -163,11 +189,12 @@ curl http://localhost:3001/health
 curl http://localhost:3001/wallet/11111111111111111111111111111112
 ```
 
-### Test Frontend
+### Test Frontend (Em Desenvolvimento)
 ```bash
 cd frontend
 npm run dev
 # Visit http://localhost:5173
+# ⚠️ Frontend ainda está em desenvolvimento - apenas estrutura básica
 ```
 
 ## 🚀 Deployment
@@ -231,8 +258,10 @@ npm run build
 - [x] Webhook Helius (Devnet) apontando pro backend
 - [x] /wallet/:pk retornando lista de NFTs de posição
 - [x] Cálculo/quote de fees simples via SDK
-- [x] Frontend React com input de public key e render do JSON
+- [x] APIs REST completas para todas as operações
+- [x] Database schema otimizado para dados do Orca
 - [x] Demo ready: 1 carteira com 1+ posições em devnet
+- [ ] Frontend React completo (em desenvolvimento)
 
 ## 🛠️ Next Steps (Post-MVP)
 
@@ -255,6 +284,24 @@ npm run build
    - Error handling & retry logic
    - Rate limiting
    - Monitoring & logging
+
+## 📖 Documentação do Backend
+
+### Documentação Técnica
+- [Backend README](./backend/README.md) - Documentação completa do backend
+- [API Documentation](./backend/README.md#api-endpoints) - Endpoints e exemplos de uso
+- [Database Schema](./backend/README.md#database-schema) - Estrutura do banco de dados
+- [Environment Variables](./backend/README.md#environment-variables) - Configuração de variáveis
+
+### Arquivos de Configuração
+- [TypeScript Config](./backend/tsconfig.json) - Configuração do TypeScript
+- [Package.json](./backend/package.json) - Dependências e scripts
+- [Dockerfile](./backend/Dockerfile) - Configuração do container Docker
+
+### Código Fonte
+- [Routes](./backend/src/routes/) - Endpoints da API
+- [Lib](./backend/src/lib/) - Utilitários e integrações
+- [Types](./backend/src/lib/types.ts) - Definições TypeScript
 
 ## 📖 Learn More
 
