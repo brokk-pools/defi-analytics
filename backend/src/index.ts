@@ -25,6 +25,7 @@ import liquidityRoutes from './routes/liquidity.js';
 import poolsRoutes from './routes/pools.js';
 import poolsDetailsRoutes from './routes/pools-details.js';
 import topPositionsRoutes from './routes/top-positions.js';
+import feesRoutes from './routes/fees.js';
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use('/liquidity', liquidityRoutes);
 app.use('/pools', poolsRoutes);
 app.use('/poolsdetails', poolsDetailsRoutes);
 app.use('/top-positions', topPositionsRoutes);
+app.use('/fees', feesRoutes);
 
 // Health check endpoint with detailed status
 app.get('/health', (req, res) => {
@@ -142,6 +144,7 @@ app.get('/', (req, res) => {
       poolsById: '/pools/:poolId',
       poolsDetails: '/poolsdetails/:poolid?showpositions=true&saveFile=true',
       topPositions: '/top-positions?limit=10',
+      fees: '/fees/:positionId/:poolId',
     },
     documentation: 'https://docs.orca.so/',
     support: 'https://discord.gg/orcaprotocol'
@@ -175,6 +178,7 @@ app.use((req, res) => {
       poolsById: '/pools/:poolId',
       poolsDetails: '/poolsdetails/:poolid?showpositions=true&saveFile=true',
       topPositions: '/top-positions?limit=10',
+      fees: '/fees/:positionId/:poolId',
     }
   });
 });
@@ -221,6 +225,7 @@ async function startServer() {
         console.log(`🏊 Pool by ID: http://${HOST}:${PORT}/pools/:poolId`);
         console.log(`🔍 Pool details: http://${HOST}:${PORT}/poolsdetails/:poolid`);
         console.log(`🏆 Top positions: http://${HOST}:${PORT}/top-positions?limit=10`);
+        console.log(`💰 Fees calculation: http://${HOST}:${PORT}/fees/:positionId/:poolId`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📈 Metrics: http://${HOST}:${PORT}/metrics`);
       }

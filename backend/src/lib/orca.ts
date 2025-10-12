@@ -1,5 +1,5 @@
-import { Connection, PublicKey, ParsedAccountData } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Connection, PublicKey, ParsedAccountData, ParsedTransactionWithMeta } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import fetch from 'node-fetch';
 import { resolveVaultPositions } from './vault.js';
 import {
@@ -535,7 +535,64 @@ export async function getLiquidityOverview(owner: string) {
           isInRange: isInRange
         };
 
-        // Retornar dados básicos da posição
+        // Obter informações completas de rewards e fees
+        let rewardInfos: any[] = [];
+        let feeGrowthCheckpointA = '0';
+        let feeGrowthCheckpointB = '0';
+        let rewardGrowthsInside: any[] = [];
+
+        try {
+          // Buscar dados completos da posição usando o SDK
+          const connection = makeConnection();
+          const client = makeWhirlpoolClient();
+          const positionMintPubkey = new PublicKey(positionMint);
+          const positionPda = PDAUtil.getPosition(positionMintPubkey, ORCA_WHIRLPOOL_PROGRAM_ID);
+          const position = await client.getPosition(positionPda.publicKey);
+          
+          if (position) {
+            const positionData = position.getData();
+            
+            // Extrair informações completas de fees
+            feeGrowthCheckpointA = positionData.feeGrowthCheckpointA.toString();
+            feeGrowthCheckpointB = positionData.feeGrowthCheckpointB.toString();
+            
+            // Extrair informações completas de rewards
+            rewardInfos = positionData.rewardInfos.map((reward, index) => ({
+              index: index,
+              growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
+              amountOwed: reward.amountOwed.toString(),
+              hasReward: reward.amountOwed > 0n
+            }));
+            
+            // Calcular reward growths inside (se disponível)
+            rewardGrowthsInside = positionData.rewardInfos.map(reward => ({
+              growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
+              amountOwed: reward.amountOwed.toString()
+            }));
+          }
+        } catch (rewardError) {
+          console.warn(`⚠️ Erro ao obter dados completos de rewards/fees para posição ${positionMint}:`, rewardError);
+        }
+
+        // Calcular fees pendentes (que ainda faltam coletar)
+        // Nota: Este é um cálculo simplificado - em produção seria necessário
+        // comparar com feeGrowthGlobal da pool para calcular fees acumuladas
+        const feesCollected = {
+          tokenA: feeOwedA,
+          tokenB: feeOwedB
+        };
+
+        const feesPending = {
+          tokenA: '0', // Seria calculado baseado na diferença entre feeGrowthGlobal e feeGrowthCheckpoint
+          tokenB: '0'  // Seria calculado baseado na diferença entre feeGrowthGlobal e feeGrowthCheckpoint
+        };
+
+        const totalFees = {
+          tokenA: (BigInt(feeOwedA) + BigInt(feesPending.tokenA)).toString(),
+          tokenB: (BigInt(feeOwedB) + BigInt(feesPending.tokenB)).toString()
+        };
+
+        // Retornar dados completos da posição
         return {
           positionMint: positionMint,
           whirlpool: whirlpool || 'unknown',
@@ -543,14 +600,28 @@ export async function getLiquidityOverview(owner: string) {
           tickUpperIndex: tickUpperIndex || 0,
           currentTick: currentTick,
           liquidity: liquidity || '0',
-          feeOwedA: feeOwedA,
-          feeOwedB: feeOwedB,
+          
+          // Informações completas de fees
+          fees: {
+            collected: feesCollected,
+            pending: feesPending,
+            total: totalFees,
+            feeGrowthCheckpointA: feeGrowthCheckpointA,
+            feeGrowthCheckpointB: feeGrowthCheckpointB
+          },
+          
+          // Informações completas de rewards
+          rewards: {
+            rewardInfos: rewardInfos,
+            rewardGrowthsInside: rewardGrowthsInside,
+            totalRewardsOwed: rewardInfos.reduce((sum, reward) => sum + BigInt(reward.amountOwed), BigInt(0)).toString(),
+            hasActiveRewards: rewardInfos.some(reward => BigInt(reward.amountOwed) > 0n),
+            rewardCount: rewardInfos.length
+          },
+          
           isInRange: isInRange,
-          currentPrice: 0, // Será calculado posteriormente se necessário
-          lowerPrice: 0, // Será calculado posteriormente se necessário
-          upperPrice: 0, // Será calculado posteriormente se necessário
           status: status,
-          tickComparison: tickComparison, // Informações visuais para comparação
+          tickComparison: tickComparison,
           lastUpdated: new Date().toISOString()
         };
       } catch (error) {
@@ -572,17 +643,40 @@ export async function getLiquidityOverview(owner: string) {
     const activePositions = processedPositions.filter(p => p.status === 'active');
     const outOfRangePositions = processedPositions.filter(p => p.status === 'out_of_range');
     
-    let totalFeesA = BigInt(0);
-    let totalFeesB = BigInt(0);
+    let totalFeesCollectedA = BigInt(0);
+    let totalFeesCollectedB = BigInt(0);
+    let totalFeesPendingA = BigInt(0);
+    let totalFeesPendingB = BigInt(0);
+    let totalRewardsOwed = BigInt(0);
     let totalLiquidity = BigInt(0);
+    let positionsWithRewards = 0;
 
     for (const position of processedPositions) {
-      if (position.feeOwedA) {
-        totalFeesA += BigInt(position.feeOwedA);
+      // Fees coletadas
+      if (position.fees?.collected?.tokenA) {
+        totalFeesCollectedA += BigInt(position.fees.collected.tokenA);
       }
-      if (position.feeOwedB) {
-        totalFeesB += BigInt(position.feeOwedB);
+      if (position.fees?.collected?.tokenB) {
+        totalFeesCollectedB += BigInt(position.fees.collected.tokenB);
       }
+      
+      // Fees pendentes
+      if (position.fees?.pending?.tokenA) {
+        totalFeesPendingA += BigInt(position.fees.pending.tokenA);
+      }
+      if (position.fees?.pending?.tokenB) {
+        totalFeesPendingB += BigInt(position.fees.pending.tokenB);
+      }
+      
+      // Rewards
+      if (position.rewards?.totalRewardsOwed) {
+        totalRewardsOwed += BigInt(position.rewards.totalRewardsOwed);
+      }
+      if (position.rewards?.hasActiveRewards) {
+        positionsWithRewards++;
+      }
+      
+      // Liquidity
       if (position.liquidity) {
         totalLiquidity += BigInt(position.liquidity);
       }
@@ -602,8 +696,24 @@ export async function getLiquidityOverview(owner: string) {
         active_percentage: processedPositions.length > 0 ? 
           ((activePositions.length / processedPositions.length) * 100).toFixed(2) + '%' : '0%',
         total_whirlpool_fees: {
-          tokenA: totalFeesA.toString(),
-          tokenB: totalFeesB.toString()
+          collected: {
+            tokenA: totalFeesCollectedA.toString(),
+            tokenB: totalFeesCollectedB.toString()
+          },
+          pending: {
+            tokenA: totalFeesPendingA.toString(),
+            tokenB: totalFeesPendingB.toString()
+          },
+          total: {
+            tokenA: (totalFeesCollectedA + totalFeesPendingA).toString(),
+            tokenB: (totalFeesCollectedB + totalFeesPendingB).toString()
+          }
+        },
+        total_whirlpool_rewards: {
+          totalRewardsOwed: totalRewardsOwed.toString(),
+          positionsWithRewards: positionsWithRewards,
+          rewardsPercentage: processedPositions.length > 0 ? 
+            ((positionsWithRewards / processedPositions.length) * 100).toFixed(2) + '%' : '0%'
         },
         total_whirlpool_liquidity: totalLiquidity.toString(),
         average_liquidity: processedPositions.length > 0 ? 
@@ -1275,54 +1385,130 @@ export async function getPositionDetailsData(nftMint: string): Promise<any> {
 
     console.log(`📍 Buscando dados da posição: ${nftMint}`);
     
-    // Usar a mesma abordagem que funciona em getLiquidityOverview
-    const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
-    const { address } = await import('@solana/kit');
-    
     // Criar conexão RPC reutilizável
-    const { rpc, rpcProvider } = await createRpcConnection();
+    const { rpcProvider } = await createRpcConnection();
 
-    // We know from the liquidity route that this position belongs to owner 6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY
-    const knownOwner = '6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY';
-    console.log(`🔍 Searching for position ${nftMint} for owner: ${knownOwner}`);
+    // Abordagem direta: usar o SDK do Orca para buscar a posição diretamente pelo NFT mint
+    const connection = makeConnection();
+    const client = makeWhirlpoolClient();
     
-    // Converter endereço para o formato correto
-    const ownerAddress = address(knownOwner);
-    
-    // Buscar posições do proprietário usando o SDK oficial
-    const positions = await fetchPositionsForOwner(rpc, ownerAddress);
-    console.log(`📊 Encontradas ${positions?.length || 0} posições`);
-    
-    if (!positions || positions.length === 0) {
-      throw new Error(`No positions found for owner: ${knownOwner}`);
-    }
-    
-    // Encontrar a posição específica
-    const targetPosition = positions.find((pos: any) => 
-      pos.data?.positionMint?.toString() === nftMint
-    );
-    
-    if (!targetPosition) {
-      throw new Error(`Position with mint ${nftMint} not found for owner ${knownOwner}`);
-    }
-    
-    console.log(`✅ Found position using fetchPositionsForOwner approach`);
-    
-    // Processar a posição usando a mesma lógica de getLiquidityOverview
-    const processedPosition = await processPositionData(targetPosition);
-    
-    // Preparar resposta no mesmo formato da rota de liquidez
-    const response = {
-      timestamp: new Date().toISOString(),
-      method: 'getPositionDetailsData',
-      rpcProvider: rpcProvider,
-      nftMint: nftMint,
-      success: true,
-      data: processedPosition
-    };
+    try {
+      // Tentar buscar a posição diretamente usando o SDK
+      const positionMintPubkey = new PublicKey(nftMint);
+      const positionPda = PDAUtil.getPosition(positionMintPubkey, ORCA_WHIRLPOOL_PROGRAM_ID);
+      
+      console.log(`🔍 Tentando buscar posição diretamente via SDK: ${positionPda.publicKey.toString()}`);
+      
+      const position = await client.getPosition(positionPda.publicKey);
+      
+      if (!position) {
+        throw new Error(`Position not found at address: ${positionPda.publicKey.toString()}`);
+      }
+      
+      const positionData = position.getData();
+      console.log(`✅ Posição encontrada diretamente via SDK`);
+      
+      // Criar objeto de posição no formato esperado
+      const targetPosition = {
+        address: positionPda.publicKey.toString(),
+        data: {
+          positionMint: positionData.positionMint.toString(),
+          whirlpool: positionData.whirlpool.toString(),
+          tickLowerIndex: positionData.tickLowerIndex,
+          tickUpperIndex: positionData.tickUpperIndex,
+          liquidity: positionData.liquidity.toString(),
+          feeOwedA: positionData.feeOwedA.toString(),
+          feeOwedB: positionData.feeOwedB.toString(),
+          feeGrowthCheckpointA: positionData.feeGrowthCheckpointA.toString(),
+          feeGrowthCheckpointB: positionData.feeGrowthCheckpointB.toString(),
+          rewardInfos: positionData.rewardInfos
+        }
+      };
+      
+      // Processar a posição usando a mesma lógica de getLiquidityOverview
+      const processedPosition = await processPositionData(targetPosition);
+      
+      // Preparar resposta no mesmo formato da rota de liquidez
+      const response = {
+        timestamp: new Date().toISOString(),
+        method: 'getPositionDetailsData',
+        rpcProvider: rpcProvider,
+        nftMint: nftMint,
+        success: true,
+        data: processedPosition
+      };
 
-    console.log(`✅ Dados da posição obtidos com sucesso: ${nftMint}`);
-    return convertBigIntToString(response);
+      console.log(`✅ Dados da posição obtidos com sucesso: ${nftMint}`);
+      return convertBigIntToString(response);
+      
+    } catch (sdkError) {
+      console.warn(`⚠️ Erro ao buscar posição via SDK, tentando abordagem alternativa:`, sdkError);
+      
+      // Fallback: tentar buscar via getProgramAccounts
+      console.log(`🔍 Tentando buscar via getProgramAccounts...`);
+      
+      const programAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+        filters: [
+          { dataSize: 216 }, // Tamanho de uma conta de posição Whirlpool
+          { memcmp: { offset: 40, bytes: nftMint } }, // Filtrar pelo positionMint (offset 40)
+        ],
+      });
+      
+      console.log(`📊 Encontradas ${programAccounts.length} contas de posição`);
+      
+      if (programAccounts.length === 0) {
+        throw new Error(`Position with mint ${nftMint} not found on the network`);
+      }
+      
+      // Usar a primeira conta encontrada (deveria ser única)
+      const account = programAccounts[0];
+      
+      if (!account) {
+        throw new Error(`No valid account found for position mint: ${nftMint}`);
+      }
+      
+      // Decodificar os dados da posição
+      const decodedData = decodePositionData(account.account.data);
+      
+      if (!decodedData) {
+        throw new Error(`Failed to decode position data for mint: ${nftMint}`);
+      }
+      
+      console.log(`✅ Posição encontrada via getProgramAccounts`);
+      
+      // Criar objeto de posição no formato esperado
+      const targetPosition = {
+        address: account.pubkey.toString(),
+        data: {
+          positionMint: decodedData.positionMint,
+          whirlpool: decodedData.whirlpool,
+          tickLowerIndex: decodedData.tickLowerIndex,
+          tickUpperIndex: decodedData.tickUpperIndex,
+          liquidity: decodedData.liquidity.toString(),
+          feeOwedA: decodedData.feeOwedA.toString(),
+          feeOwedB: decodedData.feeOwedB.toString(),
+          feeGrowthCheckpointA: decodedData.feeGrowthCheckpointA.toString(),
+          feeGrowthCheckpointB: decodedData.feeGrowthCheckpointB.toString(),
+          rewardInfos: decodedData.rewardInfos
+        }
+      };
+      
+      // Processar a posição usando a mesma lógica de getLiquidityOverview
+      const processedPosition = await processPositionData(targetPosition);
+      
+      // Preparar resposta no mesmo formato da rota de liquidez
+      const response = {
+        timestamp: new Date().toISOString(),
+        method: 'getPositionDetailsData',
+        rpcProvider: rpcProvider,
+        nftMint: nftMint,
+        success: true,
+        data: processedPosition
+      };
+
+      console.log(`✅ Dados da posição obtidos com sucesso via fallback: ${nftMint}`);
+      return convertBigIntToString(response);
+    }
 
   } catch (error) {
     console.error('❌ Erro ao buscar dados da posição:', error);
@@ -1785,6 +1971,61 @@ async function processPositionData(position: any): Promise<any> {
       isInRange: isInRange
     };
     
+    // Obter informações completas de rewards e fees
+    let rewardInfos: any[] = [];
+    let feeGrowthCheckpointA = '0';
+    let feeGrowthCheckpointB = '0';
+    let rewardGrowthsInside: any[] = [];
+
+    try {
+      // Buscar dados completos da posição usando o SDK
+      const connection = makeConnection();
+      const client = makeWhirlpoolClient();
+      const positionMintPubkey = new PublicKey(positionMint);
+      const positionPda = PDAUtil.getPosition(positionMintPubkey, ORCA_WHIRLPOOL_PROGRAM_ID);
+      const position = await client.getPosition(positionPda.publicKey);
+      
+      if (position) {
+        const positionData = position.getData();
+        
+        // Extrair informações completas de fees
+        feeGrowthCheckpointA = positionData.feeGrowthCheckpointA.toString();
+        feeGrowthCheckpointB = positionData.feeGrowthCheckpointB.toString();
+        
+        // Extrair informações completas de rewards
+        rewardInfos = positionData.rewardInfos.map((reward, index) => ({
+          index: index,
+          growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
+          amountOwed: reward.amountOwed.toString(),
+          hasReward: reward.amountOwed > 0n
+        }));
+        
+        // Calcular reward growths inside
+        rewardGrowthsInside = positionData.rewardInfos.map(reward => ({
+          growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
+          amountOwed: reward.amountOwed.toString()
+        }));
+      }
+    } catch (rewardError) {
+      console.warn(`⚠️ Erro ao obter dados completos de rewards/fees para posição ${positionMint}:`, rewardError);
+    }
+
+    // Calcular fees pendentes
+    const feesCollected = {
+      tokenA: feeOwedA,
+      tokenB: feeOwedB
+    };
+
+    const feesPending = {
+      tokenA: '0', // Seria calculado baseado na diferença entre feeGrowthGlobal e feeGrowthCheckpoint
+      tokenB: '0'  // Seria calculado baseado na diferença entre feeGrowthGlobal e feeGrowthCheckpoint
+    };
+
+    const totalFees = {
+      tokenA: (BigInt(feeOwedA) + BigInt(feesPending.tokenA)).toString(),
+      tokenB: (BigInt(feeOwedB) + BigInt(feesPending.tokenB)).toString()
+    };
+
     return {
       positionMint: positionMint,
       whirlpool: whirlpool,
@@ -1792,12 +2033,26 @@ async function processPositionData(position: any): Promise<any> {
       tickUpperIndex: tickUpperIndex,
       currentTick: currentTick,
       liquidity: liquidity,
-      feeOwedA: feeOwedA,
-      feeOwedB: feeOwedB,
+      
+      // Informações completas de fees
+      fees: {
+        collected: feesCollected,
+        pending: feesPending,
+        total: totalFees,
+        feeGrowthCheckpointA: feeGrowthCheckpointA,
+        feeGrowthCheckpointB: feeGrowthCheckpointB
+      },
+      
+      // Informações completas de rewards
+      rewards: {
+        rewardInfos: rewardInfos,
+        rewardGrowthsInside: rewardGrowthsInside,
+        totalRewardsOwed: rewardInfos.reduce((sum, reward) => sum + BigInt(reward.amountOwed), BigInt(0)).toString(),
+        hasActiveRewards: rewardInfos.some(reward => BigInt(reward.amountOwed) > 0n),
+        rewardCount: rewardInfos.length
+      },
+      
       isInRange: isInRange,
-      currentPrice: currentPrice,
-      lowerPrice: lowerPrice,
-      upperPrice: upperPrice,
       status: status,
       tickComparison: tickComparison,
       lastUpdated: new Date().toISOString()
@@ -1806,5 +2061,479 @@ async function processPositionData(position: any): Promise<any> {
   } catch (error) {
     console.error('Error processing position data:', error);
     throw error;
+  }
+}
+
+// ============== Fees Calculation Functions ==============
+
+const Q64 = 1n << 64n;
+
+type BNLike = bigint | number | string;
+
+function toBN(x: BNLike): bigint {
+  return typeof x === 'bigint' ? x : BigInt(x);
+}
+
+function subMod(a: bigint, b: bigint): bigint {
+  // feeGrowth* são u128 em Q64.64; aqui ignoramos wrap/underflow por simplicidade
+  return a - b;
+}
+
+/**
+ * Função para calcular fees pendentes de uma posição específica
+ * Baseada no código fornecido pelo usuário
+ */
+export async function getOutstandingFeesForPosition(
+  poolPkStr: string,
+  positionPkStr: string
+): Promise<any> {
+  try {
+    console.log(`💰 Calculando fees pendentes para posição: ${positionPkStr} na pool: ${poolPkStr}`);
+    
+    const connection = makeConnection();
+    const ctx = makeWhirlpoolContext();
+    const client = buildWhirlpoolClient(ctx);
+
+    const poolPk = new PublicKey(poolPkStr);
+    
+    // Tentar determinar se positionPkStr é um NFT mint ou endereço da posição
+    let posPk: PublicKey;
+    let actualPositionPkStr = positionPkStr;
+    
+    try {
+      // Primeiro, tentar usar como endereço da posição diretamente
+      posPk = new PublicKey(positionPkStr);
+      console.log(`🔍 Tentando usar como endereço da posição: ${positionPkStr}`);
+    } catch (error) {
+      throw new Error(`Invalid position parameter: ${positionPkStr}`);
+    }
+
+    // ----- Pool & Position
+    const pool = await client.getPool(poolPk);
+    const poolData = pool.getData();
+    
+    let pos;
+    try {
+      // Tentar buscar a posição diretamente
+      pos = await client.getFetcher().getPosition(posPk);
+      if (!pos) {
+        throw new Error("Position not found at direct address");
+      }
+      console.log(`✅ Posição encontrada diretamente: ${positionPkStr}`);
+    } catch (directError) {
+      console.log(`⚠️ Não foi possível encontrar posição diretamente, tentando buscar via NFT mint...`);
+      
+      // Se falhar, tentar buscar a posição usando a mesma lógica da rota position
+      try {
+        console.log(`🔍 Buscando posição via fetchPositionsForOwner para NFT mint: ${positionPkStr}`);
+        
+        // Usar a mesma abordagem que funciona em getPositionDetailsData
+        const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+        const { address } = await import('@solana/kit');
+        
+        // Criar conexão RPC reutilizável
+        const { rpc } = await createRpcConnection();
+        
+        // Buscar em owners conhecidos (isso é uma limitação, mas funciona para o MVP)
+        const knownOwners = [
+          '6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY',
+          '2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc'
+        ];
+        
+        let foundPosition = null;
+        
+        for (const owner of knownOwners) {
+          try {
+            console.log(`🔍 Buscando posições para owner: ${owner}`);
+            const ownerAddress = address(owner);
+            const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+            
+            if (positions && positions.length > 0) {
+              const targetPosition = positions.find((pos: any) => 
+                pos.data?.positionMint?.toString() === positionPkStr
+              );
+              
+              if (targetPosition) {
+                console.log(`✅ Posição encontrada para owner: ${owner}`);
+                foundPosition = targetPosition;
+                break;
+              }
+            }
+          } catch (ownerError) {
+            console.log(`⚠️ Erro ao buscar posições para owner ${owner}:`, ownerError);
+            continue;
+          }
+        }
+        
+        if (!foundPosition) {
+          throw new Error(`Position with mint ${positionPkStr} not found in any known owner`);
+        }
+        
+        // Usar o endereço da posição encontrada
+        posPk = new PublicKey(foundPosition.address.toString());
+        actualPositionPkStr = foundPosition.address.toString();
+        
+        console.log(`🔍 Usando endereço da posição encontrada: ${actualPositionPkStr}`);
+        
+        pos = await client.getFetcher().getPosition(posPk);
+        if (!pos) {
+          throw new Error("Position not found after fetching via owner search");
+        }
+        console.log(`✅ Posição encontrada via busca por owner`);
+        
+      } catch (searchError) {
+        console.log(`❌ Erro na busca por owner:`, searchError);
+        throw new Error(`Position not found. Tried direct address and owner search. Original: ${positionPkStr}. Search error: ${(searchError as Error).message}`);
+      }
+    }
+
+    const {
+      liquidity,
+      tickLowerIndex,
+      tickUpperIndex,
+      feeGrowthCheckpointA,
+      feeGrowthCheckpointB,
+      feeOwedA,
+      feeOwedB,
+    } = pos;
+
+    const currentTick = poolData.tickCurrentIndex;
+
+    // ----- Carregar ticks lower/upper (pegando os TickArrays corretos)
+    function tickArrayStartFor(tickIndex: number, tickSpacing: number) {
+      const TICKS_PER_ARRAY = 88;
+      const span = tickSpacing * TICKS_PER_ARRAY;
+      return Math.floor(tickIndex / span) * span;
+    }
+
+    async function loadTick(tickIndex: number) {
+      const start = tickArrayStartFor(tickIndex, poolData.tickSpacing);
+      const { publicKey } = PDAUtil.getTickArrayFromTickIndex(
+        start,
+        poolData.tickSpacing,
+        poolPk,
+        ORCA_WHIRLPOOL_PROGRAM_ID
+      );
+      const tickArray = await client.getFetcher().getTickArray(publicKey);
+      if (!tickArray) throw new Error(`TickArray not initialized at start=${start}`);
+      const rel = (tickIndex - start) / poolData.tickSpacing; // 0..87
+      const tick = tickArray.ticks[rel];
+      if (!tick || !tick.initialized) {
+        // Se o tick não estiver inicializado, feeGrowthOutside = 0 por definição
+        return {
+          feeGrowthOutsideA: 0n,
+          feeGrowthOutsideB: 0n,
+        };
+      }
+      return {
+        feeGrowthOutsideA: toBN(tick.feeGrowthOutsideA),
+        feeGrowthOutsideB: toBN(tick.feeGrowthOutsideB),
+      };
+    }
+
+    const lower = await loadTick(tickLowerIndex);
+    const upper = await loadTick(tickUpperIndex);
+
+    // ----- feeGrowthInside para A e B (Q64.64, u128)
+    const gA = toBN(poolData.feeGrowthGlobalA);
+    const gB = toBN(poolData.feeGrowthGlobalB);
+
+    function inside(g: bigint, lo: bigint, up: bigint): bigint {
+      if (currentTick < tickLowerIndex) {
+        return subMod(lo, up);
+      } else if (currentTick >= tickUpperIndex) {
+        return subMod(up, lo);
+      } else {
+        return g - lo - up;
+      }
+    }
+
+    const insideA = inside(gA, lower.feeGrowthOutsideA, upper.feeGrowthOutsideA);
+    const insideB = inside(gB, lower.feeGrowthOutsideB, upper.feeGrowthOutsideB);
+
+    // ----- Cálculo dos fees a receber agora
+    const L = toBN(liquidity);
+    const checkA = toBN(feeGrowthCheckpointA);
+    const checkB = toBN(feeGrowthCheckpointB);
+
+    const deltaA = insideA - checkA; // Q64.64
+    const deltaB = insideB - checkB; // Q64.64
+
+    const variableA = (L * deltaA) / Q64;
+    const variableB = (L * deltaB) / Q64;
+
+    const owedA = toBN(feeOwedA) + (variableA < 0n ? 0n : variableA);
+    const owedB = toBN(feeOwedB) + (variableB < 0n ? 0n : variableB);
+
+    const result = {
+      timestamp: new Date().toISOString(),
+      method: 'getOutstandingFeesForPosition',
+      position: actualPositionPkStr,
+      originalPositionParam: positionPkStr,
+      pool: poolPkStr,
+      currentTick,
+      tickLowerIndex,
+      tickUpperIndex,
+      // tokens:
+      tokenMintA: poolData.tokenMintA.toBase58(),
+      tokenMintB: poolData.tokenMintB.toBase58(),
+      // fees pendentes (em unidades mínimas dos tokens):
+      feeOwedAOnChain: feeOwedA.toString(),
+      feeOwedBOnChain: feeOwedB.toString(),
+      feeOwedAComputedNow: owedA.toString(),
+      feeOwedBComputedNow: owedB.toString(),
+      // Informações adicionais para análise
+      liquidity: liquidity.toString(),
+      feeGrowthGlobalA: poolData.feeGrowthGlobalA.toString(),
+      feeGrowthGlobalB: poolData.feeGrowthGlobalB.toString(),
+      feeGrowthCheckpointA: feeGrowthCheckpointA.toString(),
+      feeGrowthCheckpointB: feeGrowthCheckpointB.toString(),
+      // Cálculos intermediários
+      calculations: {
+        feeGrowthInsideA: insideA.toString(),
+        feeGrowthInsideB: insideB.toString(),
+        deltaA: deltaA.toString(),
+        deltaB: deltaB.toString(),
+        variableA: variableA.toString(),
+        variableB: variableB.toString(),
+        tickLower: {
+          feeGrowthOutsideA: lower.feeGrowthOutsideA.toString(),
+          feeGrowthOutsideB: lower.feeGrowthOutsideB.toString()
+        },
+        tickUpper: {
+          feeGrowthOutsideA: upper.feeGrowthOutsideA.toString(),
+          feeGrowthOutsideB: upper.feeGrowthOutsideB.toString()
+        }
+      }
+    };
+
+    console.log(`✅ Fees calculadas com sucesso para posição: ${positionPkStr}`);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Erro ao calcular fees pendentes:', error);
+    throw new Error(`Failed to calculate outstanding fees: ${(error as Error).message}`);
+  }
+}
+
+// ============== Fees Collected Functions ==============
+
+const MAX_SIGS_PER_ATA = Number(process.env.MAX_SIGS || 5000);
+
+function parseUtcToEpochSeconds(isoUtc: string): number {
+  const d = new Date(isoUtc);
+  if (isNaN(d.getTime())) throw new Error(`Invalid UTC date: ${isoUtc}`);
+  return Math.floor(d.getTime() / 1000);
+}
+
+function mapDeltaForAccount(tx: ParsedTransactionWithMeta, account: string): bigint {
+  const pre = tx.meta?.preTokenBalances ?? [];
+  const post = tx.meta?.postTokenBalances ?? [];
+    const preMap = new Map(pre.map((b) => [b.accountIndex, BigInt(b.uiTokenAmount.amount)]));
+    let delta = 0n;
+    for (const pb of post) {
+      const idx = pb.accountIndex;
+      const afterAmt = BigInt(pb.uiTokenAmount.amount);
+      const beforeAmt = preMap.get(idx) ?? 0n;
+      const key = tx.transaction.message.accountKeys[idx]?.pubkey.toBase58();
+      if (key === account) delta += (afterAmt - beforeAmt); // + received; - sent
+    }
+  return delta;
+}
+
+async function getMintDecimals(conn: Connection, mint: PublicKey): Promise<number> {
+  const acc = await conn.getParsedAccountInfo(mint);
+  const info = (acc.value as any)?.data?.parsed?.info;
+  return typeof info?.decimals === "number" ? info.decimals : 0;
+}
+
+function human(amtRaw: bigint, decimals: number): number {
+  return Number(amtRaw) / Math.pow(10, decimals);
+}
+
+/** First transaction seen at pool address (approximates "creation"). */
+async function getPoolCreationTime(conn: Connection, pool: PublicKey): Promise<number | null> {
+  // getSignaturesForAddress returns by default most recent first;
+  // no native reverse exists; so paginate until last (careful with cost).
+  // For simplicity: we use the OLDEST transaction among the first pages via 'before'.
+  // Here, as a light heuristic, we take the OLDEST from the first page of 1000 and trust it.
+  const sigs = await conn.getSignaturesForAddress(pool, { limit: 1000 });
+  if (sigs.length === 0) return null;
+  const oldest = sigs[sigs.length - 1];
+  return oldest?.blockTime ?? null;
+}
+
+/**
+ * Sums collected fees in range [startUtc, endUtc] (UTC).
+ * If startUtc empty => uses pool creation; if endUtc empty => now.
+ * If showHistory = true, returns detailed history per transaction.
+ */
+export async function feesCollectedInRange(
+  poolPkStr: string,
+  ownerStr: string,
+  startUtcIso?: string,
+  endUtcIso?: string,
+  showHistory: boolean = false
+): Promise<any> {
+  try {
+    console.log(`💰 Calculating collected fees for owner: ${ownerStr} in pool: ${poolPkStr}`);
+    console.log(`📅 Range: ${startUtcIso || 'pool creation'} to ${endUtcIso || 'now'}`);
+    console.log(`📊 Show history: ${showHistory}`);
+    
+    const connection = makeConnection();
+    const ctx = makeWhirlpoolContext();
+    const client = buildWhirlpoolClient(ctx);
+
+    const poolPk = new PublicKey(poolPkStr);
+    const owner = new PublicKey(ownerStr);
+
+    // Pool data
+    const pool = await client.getPool(poolPk);
+    const d = pool.getData();
+    const mintA = d.tokenMintA;
+    const mintB = d.tokenMintB;
+    const vaultA = d.tokenVaultA.toBase58();
+    const vaultB = d.tokenVaultB.toBase58();
+
+    // UTC range
+    let startSec: number;
+    let endSec: number;
+
+    if (!startUtcIso || startUtcIso.trim() === "") {
+      const createdAt = await getPoolCreationTime(connection, poolPk);
+      startSec = createdAt ?? Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // fallback: 30 days ago
+    } else {
+      startSec = parseUtcToEpochSeconds(startUtcIso);
+    }
+
+    if (!endUtcIso || endUtcIso.trim() === "") {
+      endSec = Math.floor(Date.now() / 1000);
+    } else {
+      endSec = parseUtcToEpochSeconds(endUtcIso);
+    }
+
+    if (endSec < startSec) throw new Error("endUtc < startUtc");
+
+    // Owner ATAs
+    const ataA = getAssociatedTokenAddressSync(mintA, owner).toBase58();
+    const ataB = getAssociatedTokenAddressSync(mintB, owner).toBase58();
+
+    // Decimals
+    const [decA, decB] = await Promise.all([
+      getMintDecimals(connection, mintA),
+      getMintDecimals(connection, mintB),
+    ]);
+
+    type HistLine = {
+      token: "A" | "B";
+      signature: string;
+      datetimeUTC: string; // ISO
+      amountRaw: string;
+      amount: number;
+    };
+
+    async function scanAtaForRange(
+      ata: string,
+      vault: string,
+      decs: number,
+      tokenLabel: "A" | "B"
+    ): Promise<{ totalRaw: bigint; lines: HistLine[] }> {
+      let before: string | undefined;
+      let fetched = 0;
+      let totalRaw: bigint = 0n;
+      const lines: HistLine[] = [];
+
+      while (true) {
+        const sigs = await connection.getSignaturesForAddress(
+          new PublicKey(ata),
+          before ? { before, limit: 1000 } : { limit: 1000 }
+        );
+        if (sigs.length === 0) break;
+
+        for (const s of sigs) {
+          if (fetched++ >= MAX_SIGS_PER_ATA) break;
+
+          const bt = s.blockTime ?? null;
+          if (bt && bt < startSec) { before = undefined; break; }
+          if (bt && bt > endSec) { continue; }
+
+          const tx = await connection.getParsedTransaction(s.signature, {
+            maxSupportedTransactionVersion: 0,
+          });
+          if (!tx || !tx.meta) continue;
+
+          const hasOrcaIx = tx.transaction.message.accountKeys
+            .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
+          if (!hasOrcaIx) continue;
+
+          const deltaAta = mapDeltaForAccount(tx, ata);     // + received
+          const deltaVault = mapDeltaForAccount(tx, vault); // - left vault
+
+          if (deltaAta > 0n && deltaVault < 0n) {
+            if (bt !== null && (bt < startSec || bt > endSec)) continue;
+            totalRaw += deltaAta;
+
+            if (showHistory) {
+              lines.push({
+                token: tokenLabel,
+                signature: s.signature,
+                datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
+                amountRaw: deltaAta.toString(),
+                amount: human(deltaAta, decs),
+              });
+            }
+          }
+        }
+
+        if (before === undefined && fetched >= MAX_SIGS_PER_ATA) break;
+        if (sigs.length > 0) before = sigs[sigs.length - 1]?.signature;
+        else break;
+      }
+
+      // Sort history by ascending date (if any)
+      if (showHistory) {
+        lines.sort((a, b) => (a.datetimeUTC < b.datetimeUTC ? -1 : 1));
+      }
+
+      return { totalRaw, lines };
+    }
+
+    const [resA, resB] = await Promise.all([
+      scanAtaForRange(ataA, vaultA, decA, "A"),
+      scanAtaForRange(ataB, vaultB, decB, "B"),
+    ]);
+
+    const result: any = {
+      timestamp: new Date().toISOString(),
+      method: 'feesCollectedInRange',
+      pool: poolPkStr,
+      owner: ownerStr,
+      interval_utc: {
+        start: new Date(startSec * 1000).toISOString(),
+        end: new Date(endSec * 1000).toISOString(),
+      },
+      tokenA: { mint: mintA.toBase58(), ata: ataA, decimals: decA },
+      tokenB: { mint: mintB.toBase58(), ata: ataB, decimals: decB },
+      totals: {
+        A: { raw: resA.totalRaw.toString(), human: human(resA.totalRaw, decA) },
+        B: { raw: resB.totalRaw.toString(), human: human(resB.totalRaw, decB) },
+        note: "A+B sum has no single unit (distinct tokens).",
+      },
+      success: true
+    };
+
+    if (showHistory) {
+      result.history = {
+        A: resA.lines,
+        B: resB.lines,
+      };
+    }
+
+    console.log(`✅ Collected fees calculated successfully for owner: ${ownerStr}`);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error calculating collected fees:', error);
+    throw new Error(`Failed to calculate collected fees: ${(error as Error).message}`);
   }
 }

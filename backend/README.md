@@ -125,6 +125,35 @@ curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Cz
 - Valores Q64.64 são para cálculos internos, não precisam ser exibidos
 - A diferença entre `ComputedNow` e `OnChain` representa fees pendentes
 
+#### Collected Fees History
+```bash
+GET /fees/collected/:poolId/:owner?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true
+```
+Consulta fees já coletadas on-chain por um usuário em uma pool específica dentro de um intervalo de tempo UTC.
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do usuário
+- `startUtc` (opcional): Data/hora inicial em formato ISO 8601 (padrão: criação da pool)
+- `endUtc` (opcional): Data/hora final em formato ISO 8601 (padrão: agora)
+- `showHistory` (opcional): Incluir histórico detalhado de transações (boolean)
+
+**Dados retornados:**
+- `totals.A.raw`: Total de fees coletadas para token A (unidades mínimas)
+- `totals.A.human`: Total de fees coletadas para token A (formato legível)
+- `totals.B.raw`: Total de fees coletadas para token B (unidades mínimas)
+- `totals.B.human`: Total de fees coletadas para token B (formato legível)
+- `interval_utc`: Intervalo de tempo consultado
+- `tokenA`/`tokenB`: Informações dos tokens (mint, ATA, decimais)
+- `history`: Histórico detalhado de transações (se `showHistory=true`)
+
+**Notas importantes:**
+- Consulta diretamente a blockchain Solana via RPC
+- Analisa transações das ATAs do usuário
+- Filtra apenas transações relacionadas ao programa Orca Whirlpools
+- Valores em formato raw e human-readable
+- Histórico inclui signature, datetime e valores de cada transação
+
 #### Pools (API Orca)
 ```bash
 GET /pools?sortBy=volume&sortDirection=desc

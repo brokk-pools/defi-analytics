@@ -164,6 +164,11 @@ GET /liquidity/:publicKey
 GET /fees/:positionId/:poolId
 ```
 
+### Collected Fees History
+```
+GET /fees/collected/:poolId/:owner
+```
+
 **Purpose**: Calculate outstanding fees for a specific Orca Whirlpool position in real-time.
 
 **Parameters**:
@@ -294,6 +299,95 @@ console.log(`Pending fees: ${feesA} SOL, ${feesB} USDC`);
 // Check if position is active
 const isActive = data.currentTick >= data.tickLowerIndex && data.currentTick <= data.tickUpperIndex;
 console.log(`Position is ${isActive ? 'active' : 'inactive'}`);
+```
+
+**Purpose**: Query on-chain collected fees for a specific user in a pool within a UTC time range.
+
+**Parameters**:
+- `poolId`: Whirlpool address (required)
+- `owner`: User wallet address (required)
+- `startUtc`: Start date in ISO 8601 format (optional, defaults to pool creation)
+- `endUtc`: End date in ISO 8601 format (optional, defaults to now)
+- `showHistory`: Include detailed transaction history (optional, boolean)
+
+**Example Request**:
+```bash
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Response Format**:
+```json
+{
+  "timestamp": "2025-10-12T13:34:20.086Z",
+  "method": "feesCollectedInRange",
+  "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "interval_utc": {
+    "start": "2025-10-12T13:33:27.000Z",
+    "end": "2025-10-12T13:34:19.000Z"
+  },
+  "tokenA": {
+    "mint": "So11111111111111111111111111111111111111112",
+    "ata": "2f36BK4QuMJoKpuzUGaG6Tr43VpaSEBC3RqiSYa9mzAM",
+    "decimals": 9
+  },
+  "tokenB": {
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "ata": "6Fx6SycLt9h2c7D6jFYAFudm23iJDjuSRs975ZSH9K3t",
+    "decimals": 6
+  },
+  "totals": {
+    "A": { "raw": "0", "human": 0 },
+    "B": { "raw": "0", "human": 0 },
+    "note": "A+B sum has no single unit (distinct tokens)."
+  },
+  "history": {
+    "A": [],
+    "B": []
+  },
+  "success": true
+}
+```
+
+**Field Descriptions**:
+
+**Basic Information**:
+- `timestamp`: ISO timestamp of the calculation
+- `method`: Method name used for the calculation
+- `pool`: Whirlpool address
+- `owner`: User wallet address
+- `success`: Boolean indicating if the calculation was successful
+
+**Time Range**:
+- `interval_utc.start`: Start of the time range (ISO 8601)
+- `interval_utc.end`: End of the time range (ISO 8601)
+
+**Token Information**:
+- `tokenA`/`tokenB`: Token details including mint address, ATA address, and decimals
+
+**Collected Fees**:
+- `totals.A.raw`: Total collected fees for token A (string, smallest units)
+- `totals.A.human`: Total collected fees for token A (number, human-readable)
+- `totals.B.raw`: Total collected fees for token B (string, smallest units)
+- `totals.B.human`: Total collected fees for token B (number, human-readable)
+
+**Transaction History** (if `showHistory=true`):
+- `history.A`/`history.B`: Array of transaction details including signature, datetime, and amounts
+
+**Usage Examples**:
+
+```javascript
+// Get collected fees for a user in a pool
+const response = await fetch('/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc');
+const data = await response.json();
+
+console.log(`Collected fees: ${data.totals.A.human} SOL, ${data.totals.B.human} USDC`);
+
+// Get fees with date range and history
+const responseWithHistory = await fetch('/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true');
+const dataWithHistory = await responseWithHistory.json();
+
+console.log(`Total transactions: ${dataWithHistory.history.A.length + dataWithHistory.history.B.length}`);
 ```
 
 ## 🗄️ Database Schema
