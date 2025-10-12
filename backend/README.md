@@ -1,6 +1,6 @@
-# Orca Whirlpools MVP Backend
+# 🐋 Orca Whirlpools Analytics Backend
 
-Backend para análise e visualização de dados de pools do Orca Whirlpools na rede Solana Mainnet.
+Backend completo para análise avançada de pools e posições do Orca Whirlpools na Solana, com integração de preços em tempo real via Helius API e análise financeira detalhada.
 
 ## 📚 Documentação da API
 
@@ -18,81 +18,214 @@ Este backend fornece APIs RESTful para análise de dados do Orca Whirlpools, inc
 
 ## ⚡ Quick Start
 
+### Pré-requisitos
+- **Node.js 20+** (recomendado 20.18.0+)
+- **PostgreSQL 14+** 
+- **Chave de API da Helius** (obrigatória para preços em tempo real)
+- **Git** para clonagem do repositório
+
+### Instalação Rápida
 ```bash
-# 1. Clone e instale
+# 1. Clone o repositório
 git clone https://github.com/brokk-pools/defi-analytics.git
 cd defi-analytics/backend
+
+# 2. Instale as dependências
 npm install
 
-# 2. Configure (opcional - funciona sem API key)
+# 3. Configure as variáveis de ambiente
 cp .env.example .env
-# Edite .env com sua HELIUS_API_KEY para melhor performance
+# Edite o .env com suas configurações (veja seção abaixo)
 
-# 3. Execute
+# 4. Execute o servidor
 npm run dev
+```
 
-# 4. Teste
+### Configuração Detalhada do .env
+```bash
+# ===========================================
+# CONFIGURAÇÕES OBRIGATÓRIAS
+# ===========================================
+
+# Database PostgreSQL
+DATABASE_URL=postgresql://username:password@localhost:5432/orca_whirlpools
+
+# Helius API (OBRIGATÓRIA para preços em tempo real)
+HELIUS_API_KEY=sua_chave_helius_aqui
+
+# ===========================================
+# CONFIGURAÇÕES DO SERVIDOR
+# ===========================================
+
+# Porta do servidor
+PORT=3001
+
+# Ambiente de execução
+NODE_ENV=development
+
+# ===========================================
+# CONFIGURAÇÕES OPCIONAIS
+# ===========================================
+
+# Redis (para cache, se disponível)
+REDIS_URL=redis://localhost:6379
+
+# Logs
+LOG_LEVEL=info
+```
+
+### Verificação da Instalação
+```bash
+# Teste se o servidor está funcionando
 curl http://localhost:3001/health
+
+# Teste uma rota básica
+curl http://localhost:3001/pools
+
+# Teste análise de liquidez
 curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY
 ```
 
 **🎯 Pronto!** O servidor estará rodando em `http://localhost:3001` com todas as APIs disponíveis.
 
+## 🔑 Configuração da Helius API
+
+### Por que usar a Helius API?
+- **Preços em tempo real** via Pyth e Jupiter
+- **Dados históricos** com timestamps específicos
+- **Rate limits generosos** para aplicações
+- **Integração nativa** com Solana
+- **Performance otimizada** para DeFi
+
+### Como obter uma chave:
+1. Acesse [helius.xyz](https://helius.xyz)
+2. Crie uma conta gratuita
+3. Gere uma API key
+4. Adicione no seu `.env`:
+   ```bash
+   HELIUS_API_KEY=sua_chave_aqui
+   ```
+
+### Funcionalidades habilitadas com Helius:
+- ✅ **Preços em tempo real** para todos os tokens
+- ✅ **Análise histórica** com preços precisos
+- ✅ **Cálculo de ROI/APR** com dados reais
+- ✅ **Análise de impermanent loss**
+- ✅ **Métricas financeiras** em USD
+
 ## 🚀 Funcionalidades
 
-### 📊 Análise de Pools
+### 📊 Análise Avançada de Pools
 - **Dados completos de pools** com informações detalhadas de ticks e liquidez
 - **Análise de range** para visualizações de concentração de liquidez
 - **Estatísticas de liquidez** com métricas de distribuição
-- **Cálculo de preços precisos** ajustados para diferentes tokens
+- **Cálculo de preços precisos** via Helius API (Pyth/Jupiter)
+- **Suporte a preços históricos** com timestamp específico
+- **Análise de pares** com cálculo de preços relativos
 
-### 🎯 Posições e Liquidez
+### 🎯 Gestão de Posições e Liquidez
 - **Busca de posições por proprietário** usando SDK oficial do Orca
-- **Dados detalhados de posições** com informações de fees e rewards
-- **Overview de liquidez** consolidando diferentes tipos de posições
-- **Detecção de classic LPs** e vaults
+- **Dados de posições individuais** com informações de range e status
+- **Overview consolidado** de todas as posições de uma carteira
+- **Análise de ticks** para visualizações de range
+- **Status de posições** (ativa, fora do range, abaixo/acima)
+- **Cálculo de liquidez atual** e valores em USD
+
+### 💰 Análise Financeira Completa (Brokk Analytics)
+- **ROI e APR** calculados com precisão
+- **Análise de fees** coletadas e pendentes
+- **Cálculo de PnL** (Profit and Loss)
+- **Análise de impermanent loss**
+- **Rastreamento de custos de gas**
+- **Métricas agregadas** entre múltiplas posições
+- **Análise histórica** com valorização USD adequada
+
+### 🔄 Integração e Performance
+- **SDK oficial do Orca** para dados precisos e atualizados
+- **Helius API** para preços em tempo real e dados históricos
+- **Conexão RPC otimizada** com suporte a múltiplos provedores
+- **Rate limiting** para proteção contra abuso
+- **Logs estruturados** para monitoramento e debugging
+- **Cache inteligente** para otimização de performance
 
 ### 🔍 APIs e Endpoints
 
-#### Health Check
+#### 🏥 Health Check
 ```bash
 GET /health
 ```
-Retorna status do serviço e métricas do sistema.
+**Descrição:** Verifica se o servidor está funcionando e retorna status do sistema.
 
-#### Wallet Positions
+**Resposta:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "uptime": 3600,
+  "version": "1.7.0"
+}
+```
+
+#### 💼 Wallet Positions
 ```bash
 GET /wallet/:publicKey
 ```
-Busca posições de liquidez para uma carteira específica.
+**Descrição:** Posições de uma carteira específica (mesmo formato que `/liquidity`).
 
 **Parâmetros:**
 - `publicKey` (obrigatório): Endereço da carteira Solana
 
-#### Position Details
+**Dados Retornados:**
+- **Formato padronizado:** mesmo formato das outras rotas de posição
+- **Dados consolidados:** overview de todas as posições da carteira
+- **Análise de range:** status das posições em relação ao tick atual
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+```
+
+#### 🎯 Position Details
 ```bash
 GET /position/:nftMint
 ```
-Retorna detalhes de uma posição específica usando o NFT mint.
+**Descrição:** Dados completos de uma posição específica por NFT mint.
 
 **Parâmetros:**
 - `nftMint` (obrigatório): Endereço do NFT da posição
 
-#### Liquidity Overview
+**Dados Retornados:**
+- **Informações da posição:** range, liquidez, status
+- **Dados da pool:** tokens, fees, tick atual
+- **Análise financeira:** valores em USD, fees pendentes
+- **Metadados:** timestamps, última atualização
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
+```
+
+#### 💧 Liquidity Overview
 ```bash
 GET /liquidity/:owner?saveFile=true
 ```
-Retorna overview consolidado de todas as posições de liquidez do proprietário usando SDK oficial do Orca.
+**Descrição:** Overview consolidado de todas as posições de liquidez de um proprietário.
 
 **Parâmetros:**
-- `owner` (obrigatório): Endereço da carteira
-- `saveFile` (opcional): `true` para salvar resultado em arquivo JSON
+- `owner` (obrigatório): Endereço do proprietário das posições
+- `saveFile` (opcional): salva resultado em arquivo JSON
 
-**Dados retornados:**
-- `positions`: Array de posições com dados detalhados
-- `summary`: Estatísticas consolidadas
-- `tickComparison`: Dados de comparação de ticks para visualização
-- `isInRange`: Status de cada posição (ativa/fora do range)
+**Dados Retornados:**
+- **Posições:** lista de todas as posições com dados detalhados
+- **Estatísticas:** totais de liquidez, fees, posições ativas/inativas
+- **Análise de range:** posições dentro/fora do range atual
+- **Valores em USD:** calculados via Helius API
+- **Tick comparison:** dados para visualização de range
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+```
 
 #### Outstanding Fees Calculation (Primary)
 ```bash
@@ -435,14 +568,28 @@ curl http://localhost:3001/health
 
 ## 📦 Dependências Principais
 
-### Core (Orca & Solana)
+### 🔧 Core (Orca & Solana)
 - **@orca-so/whirlpools-sdk** `^0.16.0`: SDK oficial do Orca para interação com pools
 - **@orca-so/whirlpools** `^4.0.0`: Biblioteca principal do Orca Whirlpools
 - **@orca-so/common-sdk** `^0.6.11`: SDK comum do Orca
 - **@coral-xyz/anchor** `^0.29.0`: Framework Anchor para Solana
 - **@solana/web3.js** `^1.98.4`: SDK oficial da Solana
-- **@solana/spl-token** `^0.4.14`: Tokens SPL da Solana
+- **@solana/spl-token** `^0.4.8`: Tokens SPL da Solana
 - **@solana/kit** `^2.3.0`: Kit de utilitários Solana
+
+### 🌐 APIs e Integração
+- **Helius API**: Preços em tempo real via Pyth e Jupiter
+- **Orca API**: Dados oficiais de pools e tokens
+- **PostgreSQL**: Banco de dados para cache e persistência
+- **Redis**: Cache para otimização de performance (opcional)
+
+### 🛠️ Utilitários
+- **decimal.js** `^10.6.0`: Cálculos precisos com decimais
+- **winston** `^3.15.0`: Sistema de logging estruturado
+- **express** `^5.1.0`: Framework web para APIs REST
+- **helmet** `^8.0.0`: Segurança HTTP
+- **cors** `^2.8.5`: Cross-Origin Resource Sharing
+- **compression** `^1.7.4`: Compressão de respostas
 
 ### Backend (Express & Utils)
 - **express** `^5.1.0`: Framework web moderno
@@ -714,6 +861,47 @@ O sistema usa Winston para logging estruturado:
 
 Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalhes.
 
+## 🎯 Exemplos de Uso Prático
+
+### 📊 Análise de Portfolio Completa
+```bash
+# 1. Verificar saúde do sistema
+curl http://localhost:3001/health
+
+# 2. Buscar todas as posições de uma carteira
+curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+
+# 3. Analisar ROI detalhado de uma pool específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+
+# 4. Ver detalhes de uma posição específica
+curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
+
+# 5. Encontrar as top posições da rede
+curl "http://localhost:3001/top-positions?limit=20"
+```
+
+### 💰 Análise Financeira Avançada
+```bash
+# Análise com período específico
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true"
+
+# Análise de posição específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?positionId=77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
+```
+
+### 🔍 Exploração de Pools
+```bash
+# Listar todas as pools
+curl "http://localhost:3001/pools"
+
+# Detalhes completos de uma pool com top posições
+curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=10"
+
+# Análise de fees de uma posição
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+```
+
 ## 🆘 Suporte
 
 - **Documentação Orca**: https://docs.orca.so/
@@ -722,7 +910,16 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.6.0 (Atual)
+### v1.7.0 (Atual)
+- ✅ **Provedor de preços Helius implementado** com integração Pyth/Jupiter
+- ✅ **Suporte a preços históricos** com timestamp específico
+- ✅ **Funções utilitárias** para buscar preços de tokens e pares
+- ✅ **Configuração Helius API** para preços em tempo real
+- ✅ **Documentação completamente atualizada** com exemplos detalhados
+- ✅ **Estrutura de APIs melhorada** com descrições e parâmetros detalhados
+- ✅ **Exemplos de uso** para todas as rotas principais
+
+### v1.6.0
 - ✅ **Rota brokk-analytics refatorada** para remover dependência de provedor de preços
 - ✅ **Arquivo BrokkFinancePools.ts renomeado** para brokkfinancepools.ts (minúsculo)
 - ✅ **Simplificação da rota brokk-analytics** removendo rpcUrl e deixando provedor para brokkfinancepools
@@ -782,28 +979,28 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 - ✅ Rate limiting e segurança
 - ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
 
-#### Brokk Analytics (Pool ROI Analysis)
+#### 💰 Brokk Analytics (Análise Financeira Completa)
 ```bash
-GET /brokk-analytics/:poolId/:owner
+GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
 ```
-Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
-
-**Funcionalidades:**
-- Snapshot financeiro completo do desempenho de LP
-- Métricas por posição (range, investimento, estado atual, fees/rewards, PnL/ROI/APR/IL)
-- Métricas agregadas entre todas as posições
-- Integração de preços em tempo real (provedor configurado no brokkfinancepools)
-- Análise histórica com valorização USD adequada
-- Rastreamento de custos de gas e cálculos de PnL
-- Análise de perda de divergência (comparação LP vs HODL)
+**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
 
 **Parâmetros:**
 - `poolId` (obrigatório): Endereço da pool Whirlpool
 - `owner` (obrigatório): Endereço da carteira do owner
 - `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `startUtc` (opcional): Data inicial em formato ISO 8601 para período de análise
-- `endUtc` (opcional): Data final em formato ISO 8601 para período de análise
-- `showHistory` (opcional): Se `true`, retorna histórico detalhado de transações
+- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
+- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
+- `showHistory` (opcional): Incluir histórico detalhado de transações
+
+**Funcionalidades:**
+- **ROI e APR** calculados com precisão via Helius API
+- **Análise de fees** coletadas e pendentes
+- **Cálculo de PnL** (Profit and Loss) detalhado
+- **Análise de impermanent loss**
+- **Rastreamento de custos de gas**
+- **Métricas agregadas** entre múltiplas posições
+- **Análise histórica** com valorização USD adequada
 
 **Exemplos:**
 ```bash

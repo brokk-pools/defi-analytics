@@ -176,11 +176,11 @@ export async function getPositionData(connection: Connection, positionMint: stri
         } catch (poolError) {
           console.warn(`⚠️ Error fetching pool data:`, poolError);
         }
-        
-        return {
+    
+    return {
           positionMint: positionMint,
           poolAddress: 'whirlpool' in targetPosition.data ? targetPosition.data.whirlpool.toString() : '',
-          whirlpoolData: {
+      whirlpoolData: {
             tokenMintA: 'tokenMintA' in targetPosition.data ? targetPosition.data.tokenMintA?.toString() : null,
             tokenMintB: 'tokenMintB' in targetPosition.data ? targetPosition.data.tokenMintB?.toString() : null,
             sqrtPrice: 'sqrtPrice' in targetPosition.data ? targetPosition.data.sqrtPrice?.toString() : null,
@@ -479,7 +479,7 @@ export async function getLiquidityOverview(owner: string) {
         // Verificar se positionMint existe
         if (!positionMint) {
           console.warn('⚠️ Posição sem positionMint:', position);
-          return {
+  return {
             positionMint: 'unknown',
             whirlpool: whirlpool || 'unknown',
             tickLowerIndex: tickLowerIndex || 0,
@@ -888,9 +888,9 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
 
         allTicks.push(...detailedTicks);
 
-        tickArrays.push({
-          startTickIndex: start,
-          pubkey: pda.publicKey.toBase58(),
+      tickArrays.push({
+        startTickIndex: start,
+        pubkey: pda.publicKey.toBase58(),
           exists: true,
           initializedTicks: initializedTicks.length,
           totalTicks: ta.ticks.length,
@@ -1038,8 +1038,8 @@ export async function getFullPoolData(poolAddressStr: string, includePositions: 
             } else {
               // Fallback para dados básicos se não conseguir obter via SDK
               return {
-                pubkey: acc.pubkey.toBase58(),
-                dataLength: acc.account.data.length,
+      pubkey: acc.pubkey.toBase58(),
+      dataLength: acc.account.data.length,
                 status: 'unknown',
                 error: 'Could not fetch position data via SDK'
               };
@@ -2364,6 +2364,117 @@ async function getPoolCreationTime(conn: Connection, pool: PublicKey): Promise<n
 }
 
 /**
+ * Calcula fees pendentes (outstanding fees) para um owner em uma pool específica
+ * Similar ao feesCollectedInRange, mas para fees que ainda não foram coletadas
+ */
+export async function getOutstandingFeesForOwner(
+  poolPkStr: string,
+  ownerStr: string,
+  positionId?: string,
+  showPositions: boolean = false
+) {
+  const connection = await makeConnection();
+  const ctx = makeWhirlpoolContext();
+  const client = buildWhirlpoolClient(ctx);
+
+  const poolPk = new PublicKey(poolPkStr);
+  const owner = new PublicKey(ownerStr);
+
+  // Pool data
+  const pool = await client.getPool(poolPk);
+  const d = pool.getData();
+  const mintA = d.tokenMintA;
+  const mintB = d.tokenMintB;
+
+  // Obter decimais dos tokens
+  const [decA, decB] = await Promise.all([
+    getMintDecimals(connection, mintA),
+    getMintDecimals(connection, mintB),
+  ]);
+
+  // Buscar todas as posições do owner na pool
+  const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+  const { rpc } = await createRpcConnection();
+  const allPositions = await fetchPositionsForOwner(rpc, owner.toBase58() as any);
+  const poolPositions = allPositions.filter((pos: any) => 
+    pos.data?.whirlpool?.toString() === poolPkStr
+  );
+
+  if (poolPositions.length === 0) {
+    throw new Error("No positions found for this owner in the specified pool");
+  }
+
+  // Filtrar por positionId se fornecido
+  let targetPositions = poolPositions;
+  if (positionId) {
+    targetPositions = poolPositions.filter((pos: any) => 
+      pos.data?.positionMint?.toString() === positionId
+    );
+    if (targetPositions.length === 0) {
+      throw new Error("Position not found for this owner in the specified pool");
+    }
+  }
+
+  // Calcular fees pendentes para cada posição
+  const positionFees = [];
+  let totalFeesA = 0n;
+  let totalFeesB = 0n;
+
+  for (const position of targetPositions) {
+    try {
+      const positionMint = (position.data as any)?.positionMint?.toString();
+      if (!positionMint) continue;
+
+      const fees = await getOutstandingFeesForPosition(
+        poolPkStr,
+        positionMint
+      );
+
+      positionFees.push({
+        positionId: positionMint,
+        positionAddress: position.address.toString(),
+        fees: fees
+      });
+
+      // Somar fees totais
+      const feesA = BigInt(fees.feeOwedAComputedNow || "0");
+      const feesB = BigInt(fees.feeOwedBComputedNow || "0");
+      totalFeesA += feesA;
+      totalFeesB += feesB;
+
+    } catch (error) {
+      console.warn(`Failed to get fees for position ${(position.data as any)?.positionMint?.toString()}:`, error);
+    }
+  }
+
+  // Preparar resultado
+  const result: any = {
+    timestamp: new Date().toISOString(),
+    method: 'getOutstandingFeesForOwner',
+    pool: poolPkStr,
+    owner: ownerStr,
+    positionId: positionId || null,
+    totalPositions: targetPositions.length,
+    positionAddresses: targetPositions.map((pos: any) => pos.address.toString()),
+    tokenA: { mint: mintA.toBase58(), decimals: decA },
+    tokenB: { mint: mintB.toBase58(), decimals: decB },
+    totals: {
+      A: { raw: totalFeesA.toString(), human: Number(totalFeesA) / Math.pow(10, decA) },
+      B: { raw: totalFeesB.toString(), human: Number(totalFeesB) / Math.pow(10, decB) },
+      note: "A+B sum has no single unit (distinct tokens).",
+    },
+    success: true
+  };
+
+  // Incluir detalhes por posição se solicitado
+  if (showPositions) {
+    result.positions = positionFees;
+  }
+
+  return result;
+}
+
+/**
  * Sums collected fees in range [startUtc, endUtc] (UTC).
  * If startUtc empty => uses pool creation; if endUtc empty => now.
  * If showHistory = true, returns detailed history per transaction.
@@ -2401,14 +2512,17 @@ export async function feesCollectedInRange(
     let endSec: number;
 
     if (!startUtcIso || startUtcIso.trim() === "") {
-      const createdAt = await getPoolCreationTime(connection, poolPk);
-      startSec = createdAt ?? Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // fallback: 30 days ago
+      // Se não fornecido, usar 1º de janeiro de 1900 (início amplo)
+      startSec = parseUtcToEpochSeconds("1900-01-01T00:00:00Z");
     } else {
       startSec = parseUtcToEpochSeconds(startUtcIso);
     }
 
     if (!endUtcIso || endUtcIso.trim() === "") {
-      endSec = Math.floor(Date.now() / 1000);
+      // Se não fornecido, usar data de hoje + 1 dia (fim amplo)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      endSec = Math.floor(tomorrow.getTime() / 1000);
     } else {
       endSec = parseUtcToEpochSeconds(endUtcIso);
     }
@@ -2419,39 +2533,54 @@ export async function feesCollectedInRange(
     const ataA = getAssociatedTokenAddressSync(mintA, owner).toBase58();
     const ataB = getAssociatedTokenAddressSync(mintB, owner).toBase58();
 
-    // Se positionId foi fornecido, verificar se a posição pertence ao owner na pool
-    let targetPositionAddress: string | null = null;
-    if (positionId) {
-      console.log(`🔍 Verificando se posição ${positionId} pertence ao owner ${ownerStr} na pool ${poolPkStr}`);
+    // Buscar posições do owner na pool
+    let targetPositionAddresses: string[] = [];
+    let allPositions: any[] = [];
+    
+    try {
+      console.log(`🔍 Buscando posições do owner ${ownerStr} na pool ${poolPkStr}`);
       
-      try {
-        // Buscar posições do owner usando a mesma lógica de getLiquidityOverview
-        const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
-        const { address } = await import('@solana/kit');
+      // Buscar posições do owner usando a mesma lógica de getLiquidityOverview
+      const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+      const { address } = await import('@solana/kit');
+      
+      const ownerAddress = address(ownerStr);
+      const { rpc } = await createRpcConnection();
+      const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+      
+      if (positions && positions.length > 0) {
+        // Filtrar posições que pertencem à pool especificada
+        const poolPositions = positions.filter((pos: any) => 
+          pos.data?.whirlpool?.toString() === poolPkStr
+        );
         
-        const ownerAddress = address(ownerStr);
-        const { rpc } = await createRpcConnection();
-        const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+        console.log(`📊 Encontradas ${poolPositions.length} posições do owner na pool`);
         
-        if (positions && positions.length > 0) {
-          const targetPosition = positions.find((pos: any) => 
-            pos.data?.positionMint?.toString() === positionId &&
-            pos.data?.whirlpool?.toString() === poolPkStr
+        if (positionId) {
+          // Se positionId foi fornecido, buscar apenas essa posição específica
+          const targetPosition = poolPositions.find((pos: any) => 
+            pos.data?.positionMint?.toString() === positionId
           );
           
           if (targetPosition) {
-            targetPositionAddress = targetPosition.address.toString();
-            console.log(`✅ Posição encontrada: ${positionId} -> ${targetPositionAddress}`);
+            targetPositionAddresses = [targetPosition.address.toString()];
+            allPositions = [targetPosition];
+            console.log(`✅ Posição específica encontrada: ${positionId} -> ${targetPosition.address.toString()}`);
           } else {
             throw new Error(`Position ${positionId} not found for owner ${ownerStr} in pool ${poolPkStr}`);
           }
         } else {
-          throw new Error(`No positions found for owner ${ownerStr}`);
+          // Se positionId não foi fornecido, usar todas as posições do owner na pool
+          targetPositionAddresses = poolPositions.map((pos: any) => pos.address.toString());
+          allPositions = poolPositions;
+          console.log(`✅ Usando todas as ${poolPositions.length} posições do owner na pool`);
         }
-      } catch (error) {
-        console.error(`❌ Erro ao verificar posição:`, error);
-        throw new Error(`Failed to verify position: ${(error as Error).message}`);
+      } else {
+        throw new Error(`No positions found for owner ${ownerStr}`);
       }
+    } catch (error) {
+      console.error(`❌ Erro ao buscar posições:`, error);
+      throw new Error(`Failed to fetch positions: ${(error as Error).message}`);
     }
 
     // Decimals
@@ -2474,7 +2603,8 @@ export async function feesCollectedInRange(
       vault: string,
       decs: number,
       tokenLabel: "A" | "B",
-      targetPositionAddr?: string | null
+      targetPositionAddrs?: string[],
+      positions?: any[]
     ): Promise<{ totalRaw: bigint; lines: HistLine[] }> {
       let before: string | undefined;
       let fetched = 0;
@@ -2504,10 +2634,10 @@ export async function feesCollectedInRange(
             .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
           if (!hasOrcaIx) continue;
 
-          // Se targetPositionAddr foi especificado, verificar se a transação envolve essa posição
-          if (targetPositionAddr) {
+          // Se targetPositionAddrs foi especificado, verificar se a transação envolve alguma dessas posições
+          if (targetPositionAddrs && targetPositionAddrs.length > 0) {
             const hasTargetPosition = tx.transaction.message.accountKeys
-              .some(k => k.pubkey.toBase58() === targetPositionAddr);
+              .some(k => targetPositionAddrs.includes(k.pubkey.toBase58()));
             if (!hasTargetPosition) continue;
           }
 
@@ -2519,13 +2649,66 @@ export async function feesCollectedInRange(
             totalRaw += deltaAta;
 
             if (showHistory) {
+              // Extrair positionId da transação
+              let transactionPositionId: string | undefined = undefined;
+              
+              // Primeiro, tentar encontrar position mint diretamente nos account keys
+              for (const accountKey of tx.transaction.message.accountKeys) {
+                const accountStr = accountKey.pubkey.toBase58();
+                // Verificar se este account corresponde a algum position mint das posições conhecidas
+                const matchingPosition = positions?.find((pos: any) => {
+                  const positionMint = pos.data?.positionMint?.toString();
+                  return positionMint === accountStr;
+                });
+                if (matchingPosition) {
+                  transactionPositionId = accountStr;
+                  break;
+                }
+              }
+              
+              // Se não encontrou, tentar nas instruções
+              if (!transactionPositionId) {
+                for (const instruction of tx.transaction.message.instructions) {
+                  if ('accounts' in instruction) {
+                    // Verificar se algum account é um position mint
+                    for (const accountIndex of instruction.accounts) {
+                      if (typeof accountIndex === 'number') {
+                        const accountKey = tx.transaction.message.accountKeys[accountIndex];
+                        if (accountKey) {
+                          const accountStr = accountKey.pubkey.toBase58();
+                          // Verificar se este account corresponde a algum position mint das posições conhecidas
+                          const matchingPosition = positions?.find((pos: any) => {
+                            const positionMint = pos.data?.positionMint?.toString();
+                            return positionMint === accountStr;
+                          });
+                          if (matchingPosition) {
+                            transactionPositionId = accountStr;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  }
+                  if (transactionPositionId) break;
+                }
+              }
+
+              // Se não conseguiu extrair o positionId da transação, usar o positionId fornecido como parâmetro
+              // (útil quando há apenas uma posição ou quando foi especificado um positionId específico)
+              if (!transactionPositionId && positionId) {
+                transactionPositionId = positionId;
+              } else if (!transactionPositionId && positions && positions.length === 1) {
+                // Se há apenas uma posição, usar ela
+                transactionPositionId = positions[0].data?.positionMint?.toString();
+              }
+
               lines.push({
                 token: tokenLabel,
                 signature: s.signature,
                 datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
                 amountRaw: deltaAta.toString(),
                 amount: human(deltaAta, decs),
-                positionId: positionId,
+                positionId: transactionPositionId,
               });
             }
           }
@@ -2545,8 +2728,8 @@ export async function feesCollectedInRange(
     }
 
     const [resA, resB] = await Promise.all([
-      scanAtaForRange(ataA, vaultA, decA, "A", targetPositionAddress),
-      scanAtaForRange(ataB, vaultB, decB, "B", targetPositionAddress),
+      scanAtaForRange(ataA, vaultA, decA, "A", targetPositionAddresses, allPositions),
+      scanAtaForRange(ataB, vaultB, decB, "B", targetPositionAddresses, allPositions),
     ]);
 
     const result: any = {
@@ -2555,7 +2738,9 @@ export async function feesCollectedInRange(
       pool: poolPkStr,
       owner: ownerStr,
       positionId: positionId || null,
-      positionAddress: targetPositionAddress || null,
+      positionAddress: positionId ? targetPositionAddresses[0] || null : null,
+      totalPositions: allPositions.length,
+      positionAddresses: targetPositionAddresses,
       interval_utc: {
         start: new Date(startSec * 1000).toISOString(),
         end: new Date(endSec * 1000).toISOString(),

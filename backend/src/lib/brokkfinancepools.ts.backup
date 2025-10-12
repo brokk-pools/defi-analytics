@@ -10,97 +10,26 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { makeConnection, makeWhirlpoolContext } from './orca.js';
 
 /* ================================
- * 0) ORACLE PRICE PROVIDER
+ * 0) PRICE PROVIDER BÁSICO (para testes)
  * ================================ */
 
-// Price Provider com oráculo real
-const ORACLE_PRICE_PROVIDER = {
-  async getCurrentPrice(mint: string, baseCurrency: string = 'USDT'): Promise<number> {
-    try {
-      // Se for a própria moeda base, retorna 1
-      if (mint === baseCurrency) {
-        return 1;
-      }
-
-      // Mapeamento de endereços para símbolos
-      const mintToSymbol: Record<string, string> = {
-        'So11111111111111111111111111111111111111112': 'SOL',
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-        '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
-        'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'mSOL',
-        '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'ORCA',
-        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONK',
-        'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'JUP',
-        'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': 'PYTH',
-        '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm': 'WIF'
-      };
-
-      const symbol = mintToSymbol[mint];
-      if (!symbol) {
-        console.warn(`⚠️ Símbolo não encontrado para mint: ${mint}`);
-        return 1; // Default
-      }
-
-      // Chamar API do oráculo (exemplo com CoinGecko)
-      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol.toLowerCase()}&vs_currencies=${baseCurrency.toLowerCase()}`);
-      const data = await response.json();
-      
-      if (data[symbol.toLowerCase()] && data[symbol.toLowerCase()][baseCurrency.toLowerCase()]) {
-        return data[symbol.toLowerCase()][baseCurrency.toLowerCase()];
-      }
-
-      console.warn(`⚠️ Preço não encontrado para ${symbol}/${baseCurrency}`);
-      return 1; // Default
-    } catch (error) {
-      console.error(`❌ Erro ao buscar preço para ${mint}:`, error);
-      return 1; // Default em caso de erro
-    }
+// Price Provider constante interno
+const INTERNAL_PRICE_PROVIDER: PriceProvider = {
+  async getCurrentPriceUSDT(mint: string): Promise<number> {
+    // Preços básicos para testes (em USDT)
+    const priceMap: Record<string, number> = {
+      'So11111111111111111111111111111111111111112': 200, // SOL
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1,  // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1,  // USDT
+    };
+    
+    return priceMap[mint] || 1; // Default para 1 USDT se não encontrado
   },
-  
-  async getHistoricalPrice(mint: string, tsSec: number, baseCurrency: string = 'USDT'): Promise<number> {
-    try {
-      // Se for a própria moeda base, retorna 1
-      if (mint === baseCurrency) {
-        return 1;
-      }
 
-      const mintToSymbol: Record<string, string> = {
-        'So11111111111111111111111111111111111111112': 'solana',
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'usd-coin',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'tether',
-        '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'raydium',
-        'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'marinade-staked-sol',
-        '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'orca',
-        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'bonk',
-        'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'jupiter-exchange-solana',
-        'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': 'pyth-network',
-        '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm': 'dogwifcoin'
-      };
-
-      const coinId = mintToSymbol[mint];
-      if (!coinId) {
-        console.warn(`⚠️ Coin ID não encontrado para mint: ${mint}`);
-        return 1; // Default
-      }
-
-      // Converter timestamp para formato ISO
-      const date = new Date(tsSec * 1000).toISOString().split('T')[0];
-      
-      // Chamar API do CoinGecko para preço histórico
-      const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/history?date=${date}`);
-      const data = await response.json();
-      
-      if (data.market_data && data.market_data.current_price && data.market_data.current_price[baseCurrency.toLowerCase()]) {
-        return data.market_data.current_price[baseCurrency.toLowerCase()];
-      }
-
-      console.warn(`⚠️ Preço histórico não encontrado para ${coinId}/${baseCurrency} em ${date}`);
-      return 1; // Default
-    } catch (error) {
-      console.error(`❌ Erro ao buscar preço histórico para ${mint}:`, error);
-      return 1; // Default em caso de erro
-    }
+  async getHistoricalPriceUSDT(mint: string, tsSec: number): Promise<number> {
+    // Para simplificar, retorna o preço atual
+    // Em produção, você integraria com um provedor de preços históricos
+    return this.getCurrentPriceUSDT(mint);
   }
 };
 
@@ -109,10 +38,10 @@ const ORACLE_PRICE_PROVIDER = {
  * ================================ */
 
 export type PriceProvider = {
-  /** Preço ATUAL para um mint em uma moeda base específica (ex.: via Pyth/Jupiter/CoinGecko). */
-  getCurrentPrice(mint: string, baseCurrency?: string): Promise<number>;
-  /** Preço HISTÓRICO para um mint em uma moeda base específica em um timestamp (segundos Epoch UTC). */
-  getHistoricalPrice(mint: string, tsSec: number, baseCurrency?: string): Promise<number>;
+  /** Preço ATUAL em USDT para um mint (ex.: via Pyth/Jupiter). */
+  getCurrentPriceUSDT(mint: string): Promise<number>;
+  /** Preço HISTÓRICO em USDT para um mint em um timestamp (segundos Epoch UTC). */
+  getHistoricalPriceUSDT(mint: string, tsSec: number): Promise<number>;
 };
 
 export type LiquidityEvent = {
@@ -217,7 +146,6 @@ export type CalculatePoolRoiParams = {
   startUtcIso?: string | undefined;    // para janelas de consulta (fees coletadas, gas, etc.)
   endUtcIso?: string | undefined;
   showHistory?: boolean | undefined;   // repassar para feesCollectedInRange
-  baseCurrency?: string;   // moeda base para preços (ex: 'USDT', 'USDC', 'USD') - padrão: 'USDT'
   priceProvider?: PriceProvider;
   // ==== Resultados pré-calculados (opcionais) ====
   preCalculatedOutstandingFees?: OutstandingFeesResult | null;
@@ -259,8 +187,7 @@ export type CalculatePoolRoiResult = {
 export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<CalculatePoolRoiResult> {
   const {
     poolId, owner, positionId, startUtcIso, endUtcIso, showHistory = false,
-    baseCurrency = 'USDT', // Moeda base padrão
-    priceProvider = ORACLE_PRICE_PROVIDER, // Usar oráculo por padrão
+    priceProvider = INTERNAL_PRICE_PROVIDER, // Usar price provider interno por padrão
     preCalculatedOutstandingFees,
     preCalculatedCollectedFees,
     listOwnerPositionsInPool = defaultListOwnerPositionsInPool,       // stub
@@ -284,8 +211,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
   // Preço ATUAL (USDT) dos mints A/B — necessário para "Current USD", fees uncollected USD, etc.
   console.log(`💱 [DEBUG] Buscando preços atuais para tokens:`, { mintA, mintB });
   const [priceNowA, priceNowB] = await Promise.all([
-    priceProvider.getCurrentPrice(mintA, baseCurrency),
-    priceProvider.getCurrentPrice(mintB, baseCurrency),
+    priceProvider.getCurrentPriceUSDT(mintA),
+    priceProvider.getCurrentPriceUSDT(mintB),
   ]);
   console.log(`💰 [DEBUG] Preços encontrados:`, { 
     tokenA: { mint: mintA, price: priceNowA }, 
@@ -414,12 +341,12 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // Valuação simples ao preço atual (para snapshot); ideal: preço histórico por tx
     let unclaimedRewardsUsd = 0;
     for (const r of rewards.unclaimed) {
-      const p = await priceProvider.getCurrentPrice(r.mint, baseCurrency);
+      const p = await priceProvider.getCurrentPriceUSDT(r.mint);
       unclaimedRewardsUsd += Number(r.amountRaw) * p;
     }
     let claimedRewardsUsd = 0;
     for (const r of rewards.claimed) {
-      const p = await priceProvider.getHistoricalPrice(r.mint, r.ts, baseCurrency);
+      const p = await priceProvider.getHistoricalPriceUSDT(r.mint, r.ts);
       claimedRewardsUsd += Number(r.amountRaw) * p;
     }
 
@@ -436,8 +363,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
       investBRaw += ev.tokenB;
       if (firstDepositTs === null || ev.ts < firstDepositTs) firstDepositTs = ev.ts;
       const [pa, pb] = await Promise.all([
-        priceProvider.getHistoricalPrice(mintA, ev.ts, baseCurrency),
-        priceProvider.getHistoricalPrice(mintB, ev.ts, baseCurrency),
+        priceProvider.getHistoricalPriceUSDT(mintA, ev.ts),
+        priceProvider.getHistoricalPriceUSDT(mintB, ev.ts),
       ]);
       investUsdAtDeposit += Number(ev.tokenA) * pa + Number(ev.tokenB) * pb;
     }
@@ -448,8 +375,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
       withdrawnARaw += ev.tokenA;
       withdrawnBRaw += ev.tokenB;
       const [pa, pb] = await Promise.all([
-        priceProvider.getHistoricalPrice(mintA, ev.ts, baseCurrency),
-        priceProvider.getHistoricalPrice(mintB, ev.ts, baseCurrency),
+        priceProvider.getHistoricalPriceUSDT(mintA, ev.ts),
+        priceProvider.getHistoricalPriceUSDT(mintB, ev.ts),
       ]);
       withdrawnUsd += Number(ev.tokenA) * pa + Number(ev.tokenB) * pb;
     }
@@ -457,7 +384,7 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // ===== (F) GAS COSTS =====
     const gasEvents = await getGasEvents(connection, poolId, owner, startTs, endTs, posMint);
     const totalLamports = gasEvents.reduce((acc, g) => acc + g.lamportsFee, 0n);
-    const solNowPrice = await priceProvider.getCurrentPrice("So11111111111111111111111111111111111111112", baseCurrency); // wSOL mint
+    const solNowPrice = await priceProvider.getCurrentPriceUSDT("So11111111111111111111111111111111111111112"); // wSOL mint
     const gasSOL = Number(totalLamports) / 1e9; // lamports → SOL
     const gasUSD = gasSOL * solNowPrice;
 

@@ -90,3 +90,4 @@ Este projeto usa [Semantic Versioning](https://semver.org/lang/pt-BR/). Para as 
 ## Licença
 
 Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalhes.
+

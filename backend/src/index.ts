@@ -26,6 +26,7 @@ import poolsRoutes from './routes/pools.js';
 import poolsDetailsRoutes from './routes/pools-details.js';
 import topPositionsRoutes from './routes/top-positions.js';
 import feesRoutes from './routes/fees.js';
+import brokkAnalyticsRoutes from './routes/brokk-analytics.js';
 
 dotenv.config();
 
@@ -83,6 +84,7 @@ app.use('/pools', poolsRoutes);
 app.use('/poolsdetails', poolsDetailsRoutes);
 app.use('/top-positions', topPositionsRoutes);
 app.use('/fees', feesRoutes);
+app.use('/brokk-analytics', brokkAnalyticsRoutes);
 
 // Health check endpoint with detailed status
 app.get('/health', (req, res) => {
@@ -144,7 +146,9 @@ app.get('/', (req, res) => {
       poolsById: '/pools/:poolId',
       poolsDetails: '/poolsdetails/:poolid?showpositions=true&saveFile=true',
       topPositions: '/top-positions?limit=10',
-      fees: '/fees/:positionId/:poolId',
+      fees: '/fees/:poolId/:owner',
+      feesLegacy: '/fees/position/:positionId/:poolId',
+      brokkAnalytics: '/brokk-analytics/:poolId/:owner',
     },
     documentation: 'https://docs.orca.so/',
     support: 'https://discord.gg/orcaprotocol'
@@ -178,7 +182,9 @@ app.use((req, res) => {
       poolsById: '/pools/:poolId',
       poolsDetails: '/poolsdetails/:poolid?showpositions=true&saveFile=true',
       topPositions: '/top-positions?limit=10',
-      fees: '/fees/:positionId/:poolId',
+      fees: '/fees/:poolId/:owner',
+      feesLegacy: '/fees/position/:positionId/:poolId',
+      brokkAnalytics: '/brokk-analytics/:poolId/:owner',
     }
   });
 });
@@ -225,7 +231,9 @@ async function startServer() {
         console.log(`🏊 Pool by ID: http://${HOST}:${PORT}/pools/:poolId`);
         console.log(`🔍 Pool details: http://${HOST}:${PORT}/poolsdetails/:poolid`);
         console.log(`🏆 Top positions: http://${HOST}:${PORT}/top-positions?limit=10`);
-        console.log(`💰 Fees calculation: http://${HOST}:${PORT}/fees/:positionId/:poolId`);
+        console.log(`💰 Fees calculation: http://${HOST}:${PORT}/fees/:poolId/:owner`);
+        console.log(`💰 Fees calculation (legacy): http://${HOST}:${PORT}/fees/position/:positionId/:poolId`);
+        console.log(`📊 Brokk Analytics: http://${HOST}:${PORT}/brokk-analytics/:poolId/:owner`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📈 Metrics: http://${HOST}:${PORT}/metrics`);
       }

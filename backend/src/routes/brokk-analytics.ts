@@ -5,6 +5,7 @@ import { logger } from '../lib/logger.js';
 
 const router = Router();
 
+
 /**
  * Rota para análise financeira completa de um LP na Orca Whirlpools
  * GET /brokk-analytics/:poolId/:owner
@@ -87,7 +88,7 @@ router.get('/:poolId/:owner', async (req, res) => {
       collectedFees: 'OK'
     });
 
-    // Calcular ROI da pool (sem provedor de preços - será resolvido no brokkfinancepools)
+    // Calcular ROI da pool passando os resultados já calculados
     const roiData = await calculatePoolROI({
       poolId,
       owner,
@@ -95,11 +96,9 @@ router.get('/:poolId/:owner', async (req, res) => {
       startUtcIso,
       endUtcIso,
       showHistory: showHistoryBool,
+      baseCurrency: 'USDT', // Moeda base padrão (pode ser configurável)
       preCalculatedOutstandingFees: outstandingFeesResult,
-      preCalculatedCollectedFees: collectedFeesResult,
-      getOutstandingFeesForPosition,
-      feesCollectedInRange: (poolId: string, owner: string, startUtcIso?: string, endUtcIso?: string, showHistoryBool?: boolean, positionIdStr?: string | null) => 
-        feesCollectedInRange(poolId, owner, startUtcIso, endUtcIso, showHistoryBool, positionIdStr || undefined),
+      preCalculatedCollectedFees: collectedFeesResult
     });
 
     // Preparar resposta
