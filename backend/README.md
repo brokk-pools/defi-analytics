@@ -94,11 +94,49 @@ Retorna overview consolidado de todas as posições de liquidez do proprietário
 - `tickComparison`: Dados de comparação de ticks para visualização
 - `isInRange`: Status de cada posição (ativa/fora do range)
 
-#### Outstanding Fees Calculation
+#### Outstanding Fees Calculation (Primary)
 ```bash
-GET /fees/:positionId/:poolId
+GET /fees/:poolId/:owner
 ```
-Calcula fees pendentes de uma posição específica em tempo real usando o algoritmo oficial do Orca.
+Calcula fees pendentes (não coletadas) para um owner em uma pool específica em tempo real usando o algoritmo oficial do Orca.
+
+**Funcionalidades:**
+- Agrega fees de todas as posições do owner na pool especificada
+- Cálculo em tempo real usando o algoritmo oficial do Orca
+- Tratamento correto de decimais para diferentes tipos de token
+- Suporte para filtro por posição específica
+- Breakdown detalhado por posição quando solicitado
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do owner
+- `positionId` (opcional): Identificador da posição específica (NFT mint)
+- `showPositions` (opcional): Se `true`, retorna detalhes por posição
+
+**Exemplos:**
+```bash
+# Fees de todas as posições do owner na pool
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Fees de uma posição específica
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Detalhes por posição
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showPositions=true"
+```
+
+**Dados retornados:**
+- `totalPositions`: Número de posições encontradas para o owner na pool
+- `positionAddresses`: Array de endereços PDA das posições
+- `tokenA/tokenB`: Informações dos tokens incluindo endereços mint e decimais
+- `totals`: Fees pendentes agregadas (valores raw em unidades mínimas, valores human convertidos)
+- `positions` (se `showPositions=true`): Breakdown detalhado por posição com cálculos individuais de fees
+
+#### Outstanding Fees Calculation (Legacy)
+```bash
+GET /fees/position/:positionId/:poolId
+```
+Calcula fees pendentes de uma posição específica (mantido para compatibilidade).
 
 **Parâmetros:**
 - `positionId` (obrigatório): Identificador da posição (pode ser NFT mint ou endereço da posição)
@@ -106,7 +144,7 @@ Calcula fees pendentes de uma posição específica em tempo real usando o algor
 
 **Exemplo:**
 ```bash
-curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
+curl "http://localhost:3001/fees/position/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 ```
 
 **Dados retornados:**
@@ -127,21 +165,46 @@ curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Cz
 
 #### Collected Fees History
 ```bash
-GET /fees/collected/:poolId/:owner?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true
+GET /fees/collected/:poolId/:owner
 ```
 Consulta fees já coletadas on-chain por um usuário em uma pool específica dentro de um intervalo de tempo UTC.
+
+**Funcionalidades:**
+- Análise de transações on-chain para eventos de coleta de fees
+- Intervalo de tempo flexível com padrões sensatos (1900-01-01 até amanhã se não especificado)
+- Capacidade de filtro por posição específica
+- Histórico detalhado de transações com position IDs
+- Tratamento correto de decimais para diferentes tipos de token
+- Análise de dados blockchain em tempo real
 
 **Parâmetros:**
 - `poolId` (obrigatório): Endereço da pool Whirlpool
 - `owner` (obrigatório): Endereço da carteira do usuário
-- `startUtc` (opcional): Data/hora inicial em formato ISO 8601 (padrão: criação da pool)
-- `endUtc` (opcional): Data/hora final em formato ISO 8601 (padrão: agora)
+- `startUtc` (opcional): Data/hora inicial em formato ISO 8601 (padrão: 1900-01-01T00:00:00Z)
+- `endUtc` (opcional): Data/hora final em formato ISO 8601 (padrão: amanhã)
 - `showHistory` (opcional): Incluir histórico detalhado de transações (boolean)
 - `positionId` (opcional): NFT mint da posição específica para filtrar (se vazio, retorna todas as posições)
+
+**Exemplos:**
+```bash
+# Todas as fees coletadas (todo o histórico)
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Fees coletadas em um período específico
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z"
+
+# Com histórico detalhado
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showHistory=true"
+
+# Para uma posição específica com histórico
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH&showHistory=true"
+```
 
 **Dados retornados:**
 - `positionId`: NFT mint da posição (null se filtrando todas as posições)
 - `positionAddress`: Endereço PDA da posição (null se filtrando todas as posições)
+- `totalPositions`: Número de posições encontradas para o owner na pool
+- `positionAddresses`: Array de endereços PDA das posições
 - `totals.A.raw`: Total de fees coletadas para token A (unidades mínimas)
 - `totals.A.human`: Total de fees coletadas para token A (formato legível)
 - `totals.B.raw`: Total de fees coletadas para token B (unidades mínimas)
@@ -659,7 +722,14 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 
 ## 🔄 Changelog
 
-### v1.5.0 (Atual)
+### v1.6.0 (Atual)
+- ✅ **Rota brokk-analytics refatorada** para remover dependência de provedor de preços
+- ✅ **Arquivo BrokkFinancePools.ts renomeado** para brokkfinancepools.ts (minúsculo)
+- ✅ **Simplificação da rota brokk-analytics** removendo rpcUrl e deixando provedor para brokkfinancepools
+- ✅ **Uso consistente do orca.ts** em todas as rotas de análise
+- ✅ **Documentação atualizada** refletindo mudanças na rota brokk-analytics
+
+### v1.5.0
 - ✅ **Rota wallet refatorada** para usar getLiquidityOverview e retornar formato padronizado
 - ✅ **Consistência total** entre todas as rotas de posição: `/wallet`, `/liquidity`, `/position`, `/top-positions`
 - ✅ **Simplificação da rota wallet** de 116 para 76 linhas com lógica centralizada
@@ -710,4 +780,61 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 - ✅ Estatísticas de liquidez e concentração
 - ✅ Sistema de logging e monitoramento
 - ✅ Rate limiting e segurança
-- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`
+- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
+
+#### Brokk Analytics (Pool ROI Analysis)
+```bash
+GET /brokk-analytics/:poolId/:owner
+```
+Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
+
+**Funcionalidades:**
+- Snapshot financeiro completo do desempenho de LP
+- Métricas por posição (range, investimento, estado atual, fees/rewards, PnL/ROI/APR/IL)
+- Métricas agregadas entre todas as posições
+- Integração de preços em tempo real (provedor configurado no brokkfinancepools)
+- Análise histórica com valorização USD adequada
+- Rastreamento de custos de gas e cálculos de PnL
+- Análise de perda de divergência (comparação LP vs HODL)
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do owner
+- `positionId` (opcional): Identificador da posição específica (NFT mint)
+- `startUtc` (opcional): Data inicial em formato ISO 8601 para período de análise
+- `endUtc` (opcional): Data final em formato ISO 8601 para período de análise
+- `showHistory` (opcional): Se `true`, retorna histórico detalhado de transações
+
+**Exemplos:**
+```bash
+# Análise ROI completa para todas as posições do owner na pool
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Análise ROI para uma posição específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Análise ROI com período específico e histórico
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Dados retornados:**
+- `positions[]`: Array de análise financeira por posição
+- `range`: Faixa de preço (min/max/atual) para a posição
+- `investment`: Valores de investimento inicial e valores USD na época do depósito
+- `current`: Quantidades atuais de tokens e valores USD
+- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
+- `rewards`: Rewards não reivindicados e reivindicados em USD
+- `withdrawn`: Saques de principal em USD
+- `gas`: Custos de gas em SOL e USD
+- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
+- `roiPct`: Percentual de Retorno sobre Investimento
+- `aprPct`: Taxa Percentual Anualizada
+- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
+- `aggregated`: Soma de todas as métricas das posições
+
+**Notas importantes:**
+- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
+- Usa provedor de preços básico para testes (configurável para produção)
+- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
+- Suporte para análise de posição única ou agregação de múltiplas posições
+- Análise histórica com valorização USD adequada por timestamp
