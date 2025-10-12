@@ -13,8 +13,8 @@ import { makeConnection, makeWhirlpoolContext } from './orca.js';
  * 0) ORACLE PRICE PROVIDER
  * ================================ */
 
-// Price Provider com oráculo real
-const ORACLE_PRICE_PROVIDER = {
+// Price Provider usando Helius API
+const HELIUS_PRICE_PROVIDER = {
   async getCurrentPrice(mint: string, baseCurrency: string = 'USDT'): Promise<number> {
     try {
       // Se for a própria moeda base, retorna 1
@@ -22,39 +22,37 @@ const ORACLE_PRICE_PROVIDER = {
         return 1;
       }
 
-      // Mapeamento de endereços para símbolos
-      const mintToSymbol: Record<string, string> = {
-        'So11111111111111111111111111111111111111112': 'SOL',
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-        '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
-        'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'mSOL',
-        '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'ORCA',
-        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONK',
-        'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'JUP',
-        'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': 'PYTH',
-        '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm': 'WIF'
-      };
-
-      const symbol = mintToSymbol[mint];
-      if (!symbol) {
-        console.warn(`⚠️ Símbolo não encontrado para mint: ${mint}`);
-        return 1; // Default
-      }
-
-      // Chamar API do oráculo (exemplo com CoinGecko)
-      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol.toLowerCase()}&vs_currencies=${baseCurrency.toLowerCase()}`);
-      const data = await response.json();
-      
-      if (data[symbol.toLowerCase()] && data[symbol.toLowerCase()][baseCurrency.toLowerCase()]) {
-        return data[symbol.toLowerCase()][baseCurrency.toLowerCase()];
-      }
-
-      console.warn(`⚠️ Preço não encontrado para ${symbol}/${baseCurrency}`);
-      return 1; // Default
+      // Usar timestamp atual para preço atual
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      return await this.getHistoricalPrice(mint, currentTimestamp, baseCurrency);
     } catch (error) {
-      console.error(`❌ Erro ao buscar preço para ${mint}:`, error);
+      console.error(`❌ Erro ao buscar preço atual para ${mint}:`, error);
       return 1; // Default em caso de erro
+    }
+  },
+
+  // Função específica para buscar preços por par com data/hora
+  async getPriceByPair(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
+    try {
+      const ts = timestamp || Math.floor(Date.now() / 1000);
+      
+      // Buscar preços individuais
+      const [priceA, priceB] = await Promise.all([
+        this.getHistoricalPrice(tokenA, ts, 'USD'),
+        this.getHistoricalPrice(tokenB, ts, 'USD')
+      ]);
+
+      // Calcular preço do par (A/B)
+      const pairPrice = priceB > 0 ? priceA / priceB : 0;
+
+      return {
+        priceA,
+        priceB,
+        pairPrice
+      };
+    } catch (error) {
+      console.error(`❌ Erro ao buscar preço do par ${tokenA}/${tokenB}:`, error);
+      return { priceA: 1, priceB: 1, pairPrice: 1 };
     }
   },
   
@@ -65,37 +63,74 @@ const ORACLE_PRICE_PROVIDER = {
         return 1;
       }
 
-      const mintToSymbol: Record<string, string> = {
-        'So11111111111111111111111111111111111111112': 'solana',
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'usd-coin',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'tether',
-        '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'raydium',
-        'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'marinade-staked-sol',
-        '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'orca',
-        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'bonk',
-        'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'jupiter-exchange-solana',
-        'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': 'pyth-network',
-        '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm': 'dogwifcoin'
-      };
-
-      const coinId = mintToSymbol[mint];
-      if (!coinId) {
-        console.warn(`⚠️ Coin ID não encontrado para mint: ${mint}`);
-        return 1; // Default
+      // Obter API key da Helius do .env
+      const heliusApiKey = process.env.HELIUS_API_KEY;
+      if (!heliusApiKey) {
+        console.warn('⚠️ HELIUS_API_KEY não configurada, usando preço padrão');
+        return 1;
       }
 
       // Converter timestamp para formato ISO
-      const date = new Date(tsSec * 1000).toISOString().split('T')[0];
+      const date = new Date(tsSec * 1000).toISOString();
       
-      // Chamar API do CoinGecko para preço histórico
-      const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/history?date=${date}`);
-      const data = await response.json();
-      
-      if (data.market_data && data.market_data.current_price && data.market_data.current_price[baseCurrency.toLowerCase()]) {
-        return data.market_data.current_price[baseCurrency.toLowerCase()];
+      // Chamar API da Helius para preço histórico
+      const response = await fetch(`https://api.helius.xyz/v0/token-metadata?api-key=${heliusApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mintAccounts: [mint],
+          includeOffChain: true,
+          disableCache: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Helius API error: ${response.status} ${response.statusText}`);
       }
 
-      console.warn(`⚠️ Preço histórico não encontrado para ${coinId}/${baseCurrency} em ${date}`);
+      const data = await response.json();
+      
+      if (data && data.length > 0 && data[0].offChainMetadata) {
+        const tokenData = data[0];
+        
+        // Tentar obter preço do Pyth (se disponível)
+        if (tokenData.offChainMetadata.pyth && tokenData.offChainMetadata.pyth.price) {
+          const pythPrice = tokenData.offChainMetadata.pyth.price;
+          console.log(`✅ Preço Pyth encontrado para ${mint}: ${pythPrice}`);
+          return pythPrice;
+        }
+        
+        // Tentar obter preço do Jupiter (se disponível)
+        if (tokenData.offChainMetadata.jupiter && tokenData.offChainMetadata.jupiter.price) {
+          const jupiterPrice = tokenData.offChainMetadata.jupiter.price;
+          console.log(`✅ Preço Jupiter encontrado para ${mint}: ${jupiterPrice}`);
+          return jupiterPrice;
+        }
+      }
+
+      // Fallback: usar API de preços da Helius
+      const priceResponse = await fetch(`https://api.helius.xyz/v0/token-prices?api-key=${heliusApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mints: [mint]
+        })
+      });
+
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json();
+        if (priceData && priceData.length > 0 && priceData[0].price) {
+          const price = priceData[0].price;
+          console.log(`✅ Preço Helius encontrado para ${mint}: ${price}`);
+          return price;
+        }
+      }
+
+      console.warn(`⚠️ Preço não encontrado para ${mint} na Helius`);
       return 1; // Default
     } catch (error) {
       console.error(`❌ Erro ao buscar preço histórico para ${mint}:`, error);
@@ -104,15 +139,146 @@ const ORACLE_PRICE_PROVIDER = {
   }
 };
 
+// Função utilitária para buscar preços de um par específico
+export async function getPairPrice(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
+  return await HELIUS_PRICE_PROVIDER.getPriceByPair(tokenA, tokenB, timestamp);
+}
+
+// Função utilitária para buscar preço de um token específico
+export async function getTokenPrice(mint: string, baseCurrency: string = 'USD', timestamp?: number): Promise<number> {
+  const ts = timestamp || Math.floor(Date.now() / 1000);
+  return await HELIUS_PRICE_PROVIDER.getHistoricalPrice(mint, ts, baseCurrency);
+}
+
+// Função para formatar resposta do brokk-analytics
+export function formatBrokkAnalyticsResponse(roiData: any, parameters: any): any {
+  return {
+    // Metadados da resposta
+    success: true,
+    timestamp: new Date().toISOString(),
+    method: 'calculatePoolROI',
+    version: '1.6.0',
+    
+    // Parâmetros da requisição
+    parameters: {
+      poolId: parameters.poolId,
+      owner: parameters.owner,
+      positionId: parameters.positionId || null,
+      startUtc: parameters.startUtc || null,
+      endUtc: parameters.endUtc || null,
+      showHistory: parameters.showHistory || false,
+      baseCurrency: parameters.baseCurrency || 'USDT'
+    },
+    
+    // Resumo executivo
+    summary: {
+      totalPositions: roiData.positions?.length || 0,
+      totalInvestedUSD: roiData.aggregated?.totalInvestedUSD || 0,
+      totalCurrentValueUSD: roiData.aggregated?.totalCurrentValueUSD || 0,
+      totalFeesCollectedUSD: roiData.aggregated?.totalFeesCollectedUSD || 0,
+      totalFeesUncollectedUSD: roiData.aggregated?.totalFeesUncollectedUSD || 0,
+      totalRewardsUSD: roiData.aggregated?.totalRewardsUSD || 0,
+      totalGasCostsUSD: roiData.aggregated?.totalGasCostsUSD || 0,
+      netPnLUSD: roiData.aggregated?.netPnLUSD || 0,
+      totalROI: roiData.aggregated?.totalROI || 0,
+      totalAPR: roiData.aggregated?.totalAPR || 0,
+      impermanentLoss: roiData.aggregated?.impermanentLoss || 0
+    },
+    
+    // Dados detalhados por posição
+    positions: roiData.positions?.map((pos: any) => ({
+      positionMint: pos.positionMint,
+      poolId: pos.poolId,
+      tokenA: pos.tokenA,
+      tokenB: pos.tokenB,
+      currentTick: pos.currentTick,
+      tickLowerIndex: pos.tickLowerIndex,
+      tickUpperIndex: pos.tickUpperIndex,
+      isInRange: pos.isInRange,
+      status: pos.status,
+      
+      // Valores financeiros
+      financials: {
+        investedUSD: pos.investedUSD || 0,
+        currentValueUSD: pos.currentValueUSD || 0,
+        feesCollectedUSD: pos.feesCollectedUSD || 0,
+        feesUncollectedUSD: pos.feesUncollectedUSD || 0,
+        rewardsUSD: pos.rewardsUSD || 0,
+        gasCostsUSD: pos.gasCostsUSD || 0,
+        netPnLUSD: pos.netPnLUSD || 0,
+        roi: pos.roi || 0,
+        apr: pos.apr || 0,
+        impermanentLoss: pos.impermanentLoss || 0
+      },
+      
+      // Dados de liquidez
+      liquidity: {
+        currentLiquidity: pos.currentLiquidity || '0',
+        tokenAAmount: pos.tokenAAmount || '0',
+        tokenBAmount: pos.tokenBAmount || '0'
+      },
+      
+      // Timestamps
+      timestamps: {
+        createdAt: pos.createdAt || null,
+        lastUpdated: pos.lastUpdated || new Date().toISOString()
+      }
+    })) || [],
+    
+    // Estatísticas agregadas
+    aggregated: roiData.aggregated ? {
+      totalPositions: roiData.aggregated.totalPositions || 0,
+      totalInvestedUSD: roiData.aggregated.totalInvestedUSD || 0,
+      totalCurrentValueUSD: roiData.aggregated.totalCurrentValueUSD || 0,
+      totalFeesCollectedUSD: roiData.aggregated.totalFeesCollectedUSD || 0,
+      totalFeesUncollectedUSD: roiData.aggregated.totalFeesUncollectedUSD || 0,
+      totalRewardsUSD: roiData.aggregated.totalRewardsUSD || 0,
+      totalGasCostsUSD: roiData.aggregated.totalGasCostsUSD || 0,
+      netPnLUSD: roiData.aggregated.netPnLUSD || 0,
+      totalROI: roiData.aggregated.totalROI || 0,
+      totalAPR: roiData.aggregated.totalAPR || 0,
+      impermanentLoss: roiData.aggregated.impermanentLoss || 0,
+      
+      // Métricas adicionais
+      averageROI: roiData.aggregated.averageROI || 0,
+      bestPositionROI: roiData.aggregated.bestPositionROI || 0,
+      worstPositionROI: roiData.aggregated.worstPositionROI || 0,
+      activePositions: roiData.aggregated.activePositions || 0,
+      outOfRangePositions: roiData.aggregated.outOfRangePositions || 0
+    } : null,
+    
+    // Dados da pool
+    pool: roiData.pool ? {
+      address: roiData.pool.address,
+      tokenA: roiData.pool.tokenA,
+      tokenB: roiData.pool.tokenB,
+      feeRate: roiData.pool.feeRate,
+      tickSpacing: roiData.pool.tickSpacing,
+      currentTick: roiData.pool.currentTick,
+      sqrtPrice: roiData.pool.sqrtPrice
+    } : null,
+    
+    // Metadados de processamento
+    processing: {
+      calculationTime: roiData.processing?.calculationTime || null,
+      dataSource: 'Helius API + Orca SDK',
+      priceProvider: 'Helius (Pyth/Jupiter)',
+      baseCurrency: parameters.baseCurrency || 'USDT'
+    }
+  };
+}
+
 /* ================================
  * 1) TIPOS DE APOIO (contratos)
  * ================================ */
 
 export type PriceProvider = {
-  /** Preço ATUAL para um mint em uma moeda base específica (ex.: via Pyth/Jupiter/CoinGecko). */
+  /** Preço ATUAL para um mint em uma moeda base específica (ex.: via Pyth/Jupiter/Helius). */
   getCurrentPrice(mint: string, baseCurrency?: string): Promise<number>;
   /** Preço HISTÓRICO para um mint em uma moeda base específica em um timestamp (segundos Epoch UTC). */
   getHistoricalPrice(mint: string, tsSec: number, baseCurrency?: string): Promise<number>;
+  /** Preços por par com data/hora específica (opcional) */
+  getPriceByPair?(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }>;
 };
 
 export type LiquidityEvent = {
@@ -260,7 +426,7 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
   const {
     poolId, owner, positionId, startUtcIso, endUtcIso, showHistory = false,
     baseCurrency = 'USDT', // Moeda base padrão
-    priceProvider = ORACLE_PRICE_PROVIDER, // Usar oráculo por padrão
+    priceProvider = HELIUS_PRICE_PROVIDER, // Usar Helius por padrão
     preCalculatedOutstandingFees,
     preCalculatedCollectedFees,
     listOwnerPositionsInPool = defaultListOwnerPositionsInPool,       // stub

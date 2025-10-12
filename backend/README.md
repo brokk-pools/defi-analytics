@@ -348,8 +348,11 @@ curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crr
 
 **Notas importantes:**
 - Consulta diretamente a blockchain Solana via RPC
-- Analisa transações das ATAs do usuário
+- Analisa transações do owner (não das ATAs) para melhor performance
 - Filtra apenas transações relacionadas ao programa Orca Whirlpools
+- Detecta fees coletadas através de logs do Anchor (`"Instruction: CollectFees"`)
+- Analisa inner instructions para detectar transferências dos vaults da pool
+- Detecta transferências de ambos os tokens (A e B) na mesma transação
 - Se `positionId` for fornecido, filtra apenas transações dessa posição específica
 - Se `positionId` for vazio, retorna fees de todas as posições do usuário na pool
 - Valores em formato raw e human-readable
@@ -910,7 +913,14 @@ curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6P
 
 ## 🔄 Changelog
 
-### v1.7.0 (Atual)
+### v1.7.1 (Atual)
+- ✅ **Correção crítica na detecção de fees coletadas** - agora detecta corretamente ambos os tokens (A e B)
+- ✅ **Melhoria na análise de transações** - busca por owner em vez de ATAs para melhor performance
+- ✅ **Detecção via logs do Anchor** - usa `"Instruction: CollectFees"` para identificar transações relevantes
+- ✅ **Análise de inner instructions** - detecta transferências dos vaults da pool independente do destino
+- ✅ **Documentação atualizada** com detalhes sobre o novo algoritmo de detecção de fees
+
+### v1.7.0
 - ✅ **Provedor de preços Helius implementado** com integração Pyth/Jupiter
 - ✅ **Suporte a preços históricos** com timestamp específico
 - ✅ **Funções utilitárias** para buscar preços de tokens e pares

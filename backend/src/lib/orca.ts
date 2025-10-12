@@ -2344,6 +2344,24 @@ function mapDeltaForAccount(tx: ParsedTransactionWithMeta, account: string): big
   return delta;
 }
 
+function mapDeltaForNativeAccount(tx: ParsedTransactionWithMeta, account: string): bigint {
+  const preBalances = tx.meta?.preBalances ?? [];
+  const postBalances = tx.meta?.postBalances ?? [];
+  let delta = 0n;
+  
+  for (let i = 0; i < postBalances.length; i++) {
+    const key = tx.transaction.message.accountKeys[i]?.pubkey.toBase58();
+    if (key === account) {
+      const afterAmt = BigInt(postBalances[i] ?? 0);
+      const beforeAmt = BigInt(preBalances[i] ?? 0);
+      const change = afterAmt - beforeAmt;
+      delta += change; // + received; - sent
+    }
+  }
+  
+  return delta;
+}
+
 async function getMintDecimals(conn: Connection, mint: PublicKey): Promise<number> {
   const acc = await conn.getParsedAccountInfo(mint);
   const info = (acc.value as any)?.data?.parsed?.info;
@@ -2601,142 +2619,184 @@ export async function feesCollectedInRange(
       positionId?: string | undefined; // NFT mint da posição
     };
 
-    async function scanAtaForRange(
-      ata: string,
-      vault: string,
-      decs: number,
-      tokenLabel: "A" | "B",
+
+    // Função auxiliar para extrair positionId de uma transação
+    function extractPositionId(tx: any, positions?: any[]): string | undefined {
+      // Primeiro, tentar encontrar position mint diretamente nos account keys
+      for (const accountKey of tx.transaction.message.accountKeys) {
+        const accountStr = accountKey.pubkey.toBase58();
+        // Verificar se este account corresponde a algum position mint das posições conhecidas
+        const matchingPosition = positions?.find((pos: any) => {
+          const positionMint = pos.data?.positionMint?.toString();
+          return positionMint === accountStr;
+        });
+        if (matchingPosition) {
+          return accountStr;
+        }
+      }
+      
+      // Se não encontrou e há um positionId específico, usar ele
+      if (positionId) {
+        return positionId;
+      } else if (positions && positions.length === 1) {
+        // Se há apenas uma posição, usar ela
+        return positions[0].data?.positionMint?.toString();
+      }
+      
+      return undefined;
+    }
+
+    // Nova abordagem: buscar transações do Owner e filtrar apenas as que interagem com ATAs A ou B
+    async function scanTransactionsForBothTokens(
+      ataA: string,
+      vaultA: string,
+      decA: number,
+      ataB: string,
+      vaultB: string,
+      decB: number,
       targetPositionAddrs?: string[],
       positions?: any[]
-    ): Promise<{ totalRaw: bigint; lines: HistLine[] }> {
-      let before: string | undefined;
-      let fetched = 0;
-      let totalRaw: bigint = 0n;
-      const lines: HistLine[] = [];
+    ): Promise<[{ totalRaw: bigint; lines: HistLine[] }, { totalRaw: bigint; lines: HistLine[] }]> {
+      
+      let totalRawA: bigint = 0n;
+      let totalRawB: bigint = 0n;
+      const linesA: HistLine[] = [];
+      const linesB: HistLine[] = [];
 
-    while (true) {
-        const sigs = await connection.getSignaturesForAddress(
-          new PublicKey(ata),
-          before ? { before, limit: 1000 } : { limit: 1000 }
+      console.log(`🔍 [NEW APPROACH] Scanning transactions for owner: ${ownerStr}`);
+      console.log(`🔍 [NEW APPROACH] Looking for interactions with ATA A: ${ataA}`);
+      console.log(`🔍 [NEW APPROACH] Looking for interactions with ATA B: ${ataB}`);
+      console.log(`🔍 [NEW APPROACH] Looking for transfers from Vault A: ${vaultA}`);
+      console.log(`🔍 [NEW APPROACH] Looking for transfers from Vault B: ${vaultB}`);
+
+      // Buscar transações do Owner (não das ATAs)
+      const ownerSignatures = await connection.getSignaturesForAddress(
+        owner,
+        { limit: Math.min(MAX_SIGS_PER_ATA, 1000) }
+      );
+
+      console.log(`🔍 [NEW APPROACH] Found ${ownerSignatures.length} transactions for owner`);
+
+      // Processar cada transação do owner
+      for (const sig of ownerSignatures) {
+        const bt = sig.blockTime ?? null;
+        
+        if (bt && bt < startSec) continue;
+        if (bt && bt > endSec) continue;
+
+        const tx = await connection.getParsedTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0,
+        });
+        if (!tx || !tx.meta) continue;
+
+        // Verificar se a transação interage com o Whirlpools Program
+        const hasOrcaIx = tx.transaction.message.accountKeys
+          .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
+        if (!hasOrcaIx) continue;
+
+        // Verificar se a transação contém logs de collect_fees do Anchor
+        const hasCollectFeesLog = tx.meta.logMessages?.some(log => 
+          log.includes("Instruction: CollectFees")
         );
-        if (sigs.length === 0) break;
+        
+        if (!hasCollectFeesLog) continue;
 
-        for (const s of sigs) {
-          if (fetched++ >= MAX_SIGS_PER_ATA) break;
+        console.log(`🔍 [COLLECT FEES] Found collect_fees log in transaction: ${sig.signature}`);
 
-          const bt = s.blockTime ?? null;
-          
-          if (bt && bt < startSec) { before = undefined; break; }
-          if (bt && bt > endSec) { continue; }
-
-          const tx = await connection.getParsedTransaction(s.signature, {
-            maxSupportedTransactionVersion: 0,
-          });
-          if (!tx || !tx.meta) continue;
-
-          const hasOrcaIx = tx.transaction.message.accountKeys
-            .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
-          if (!hasOrcaIx) continue;
-
-          // Se targetPositionAddrs foi especificado, verificar se a transação envolve alguma dessas posições
-          if (targetPositionAddrs && targetPositionAddrs.length > 0) {
-            const hasTargetPosition = tx.transaction.message.accountKeys
-              .some(k => targetPositionAddrs.includes(k.pubkey.toBase58()));
-            if (!hasTargetPosition) continue;
-          }
-
-          const deltaAta = mapDeltaForAccount(tx, ata);     // + received
-          const deltaVault = mapDeltaForAccount(tx, vault); // - left vault
-
-          // Detectar fees coletadas - condição mais robusta
-          // Uma fee é coletada quando há um aumento na ATA do usuário
-          if (deltaAta > 0n) {
-            if (bt !== null && (bt < startSec || bt > endSec)) continue;
-            totalRaw += deltaAta;
-
-            if (showHistory) {
-              // Extrair positionId da transação
-              let transactionPositionId: string | undefined = undefined;
-              
-              // Primeiro, tentar encontrar position mint diretamente nos account keys
-              for (const accountKey of tx.transaction.message.accountKeys) {
-                const accountStr = accountKey.pubkey.toBase58();
-                // Verificar se este account corresponde a algum position mint das posições conhecidas
-                const matchingPosition = positions?.find((pos: any) => {
-                  const positionMint = pos.data?.positionMint?.toString();
-                  return positionMint === accountStr;
-                });
-                if (matchingPosition) {
-                  transactionPositionId = accountStr;
-                  break;
-                }
-              }
-              
-              // Se não encontrou, tentar nas instruções
-              if (!transactionPositionId) {
-                for (const instruction of tx.transaction.message.instructions) {
-                  if ('accounts' in instruction) {
-                    // Verificar se algum account é um position mint
-                    for (const accountIndex of instruction.accounts) {
-                      if (typeof accountIndex === 'number') {
-                        const accountKey = tx.transaction.message.accountKeys[accountIndex];
-                        if (accountKey) {
-                          const accountStr = accountKey.pubkey.toBase58();
-                          // Verificar se este account corresponde a algum position mint das posições conhecidas
-                          const matchingPosition = positions?.find((pos: any) => {
-                            const positionMint = pos.data?.positionMint?.toString();
-                            return positionMint === accountStr;
-                          });
-                          if (matchingPosition) {
-                            transactionPositionId = accountStr;
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  }
-                  if (transactionPositionId) break;
-                }
-              }
-
-              // Se não conseguiu extrair o positionId da transação, usar o positionId fornecido como parâmetro
-              // (útil quando há apenas uma posição ou quando foi especificado um positionId específico)
-              if (!transactionPositionId && positionId) {
-                transactionPositionId = positionId;
-              } else if (!transactionPositionId && positions && positions.length === 1) {
-                // Se há apenas uma posição, usar ela
-                transactionPositionId = positions[0].data?.positionMint?.toString();
-              }
-
-              lines.push({
-                token: tokenLabel,
-                signature: s.signature,
-                datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
-                amountRaw: deltaAta.toString(),
-                amount: human(deltaAta, decs),
-                positionId: transactionPositionId,
-              });
+        // Analisar inner instructions para detectar transferências dos vaults para as ATAs
+        const innerInstructions = tx.meta?.innerInstructions ?? [];
+        let credited = { A: 0n, B: 0n };
+        
+        for (const group of innerInstructions) {
+          for (const instruction of group.instructions as any[]) {
+            if (instruction.program !== "spl-token" || instruction.parsed?.type !== "transfer") continue;
+            
+            const src = instruction.parsed.info.source;
+            const dst = instruction.parsed.info.destination;
+            const amt = BigInt(instruction.parsed.info.amount);
+            
+            // Verificar se é transferência do vault A para ATA A
+            if (src === vaultA) {
+              credited.A += amt;
+              console.log(`🔍 [COLLECT FEES] Token A transfer: ${amt} from vault to ATA`);
+            }
+            
+            // Verificar se é transferência do vault B para ATA B
+            if (src === vaultB) {
+              credited.B += amt;
+              console.log(`🔍 [COLLECT FEES] Token B transfer: ${amt} from vault to ATA`);
             }
           }
         }
+        
+        // Se não houve transferências dos vaults, pular esta transação
+        if (credited.A === 0n && credited.B === 0n) continue;
 
-        if (before === undefined && fetched >= MAX_SIGS_PER_ATA) break;
-        if (sigs.length > 0) before = sigs[sigs.length - 1]?.signature;
-        else break;
+        // Se targetPositionAddrs foi especificado, verificar se a transação envolve alguma dessas posições
+        if (targetPositionAddrs && targetPositionAddrs.length > 0) {
+          const accountKeys = tx.transaction.message.accountKeys.map(k => k.pubkey.toBase58());
+          const hasTargetPosition = accountKeys.some(addr => targetPositionAddrs.includes(addr));
+          if (!hasTargetPosition) continue;
+        }
+
+        console.log(`🔍 [COLLECT FEES] Transaction ${sig.signature}: creditedA=${credited.A}, creditedB=${credited.B}`);
+
+        // Processar Token A se houver crédito
+        if (credited.A > 0n) {
+          totalRawA += credited.A;
+
+          if (showHistory) {
+            const transactionPositionId = extractPositionId(tx, positions);
+            linesA.push({
+              token: "A",
+              signature: sig.signature,
+              datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
+              amountRaw: credited.A.toString(),
+              amount: human(credited.A, decA),
+              positionId: transactionPositionId,
+            });
+          }
+        }
+
+        // Processar Token B se houver crédito
+        if (credited.B > 0n) {
+          totalRawB += credited.B;
+
+          if (showHistory) {
+            const transactionPositionId = extractPositionId(tx, positions);
+            linesB.push({
+              token: "B",
+              signature: sig.signature,
+              datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
+              amountRaw: credited.B.toString(),
+              amount: human(credited.B, decB),
+              positionId: transactionPositionId,
+            });
+          }
+        }
       }
 
       // Sort history by ascending date (if any)
       if (showHistory) {
-        lines.sort((a, b) => (a.datetimeUTC < b.datetimeUTC ? -1 : 1));
+        linesA.sort((a, b) => (a.datetimeUTC < b.datetimeUTC ? -1 : 1));
+        linesB.sort((a, b) => (a.datetimeUTC < b.datetimeUTC ? -1 : 1));
       }
 
-      return { totalRaw, lines };
+      console.log(`🔍 [NEW APPROACH] Final results: A=${totalRawA}, B=${totalRawB}`);
+
+      return [
+        { totalRaw: totalRawA, lines: linesA },
+        { totalRaw: totalRawB, lines: linesB }
+      ];
     }
 
-    const [resA, resB] = await Promise.all([
-      scanAtaForRange(ataA, vaultA, decA, "A", targetPositionAddresses, allPositions),
-      scanAtaForRange(ataB, vaultB, decB, "B", targetPositionAddresses, allPositions),
-    ]);
+    // Escanear transações uma única vez e analisar ambas as ATAs
+    const [resA, resB] = await scanTransactionsForBothTokens(
+      ataA, vaultA, decA, 
+      ataB, vaultB, decB, 
+      targetPositionAddresses, allPositions
+    );
+
 
     const result: any = {
       timestamp: new Date().toISOString(),
