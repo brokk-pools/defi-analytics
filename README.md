@@ -154,31 +154,330 @@ GET /pools/:poolId
 GET /top-positions
 ```
 
-### Liquidity Operations
+### 📊 Liquidity Operations
 ```
 GET /liquidity/:publicKey
 ```
 
-### Outstanding Fees Calculation
-```
-GET /fees/:positionId/:poolId
+**Purpose**: Get comprehensive liquidity overview for a wallet address including all Orca Whirlpool positions.
+
+**Parameters**:
+- `publicKey`: Wallet address to query positions for
+
+**Features**:
+- Real-time position data with current tick information
+- Fee calculations (collected, pending, total)
+- Reward information and growth tracking
+- Range status monitoring (in-range/out-of-range)
+- Tick comparison and distance calculations
+
+**Example Request**:
+```bash
+curl "http://localhost:3001/liquidity/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 ```
 
-### Collected Fees History
+### 💰 Outstanding Fees Calculation (Primary)
 ```
-GET /fees/collected/:poolId/:owner
+GET /fees/:poolId/:owner
 ```
 
-**Purpose**: Calculate outstanding fees for a specific Orca Whirlpool position in real-time.
+**Purpose**: Calculate outstanding (uncollected) fees for an owner across all positions in a specific Orca Whirlpool pool.
+
+**Parameters**:
+- `poolId` (required): Whirlpool address where the positions exist
+- `owner` (required): Owner wallet address
+- `positionId` (optional): Specific position identifier (NFT mint address) to filter results
+- `showPositions` (optional): If `true`, returns detailed breakdown by position
+
+**Features**:
+- Aggregates fees from all positions of the owner in the specified pool
+- Real-time calculation using Orca's official algorithm
+- Proper decimal handling for different token types
+- Support for filtering by specific position
+- Detailed position breakdown when requested
+
+**Example Request**:
+```bash
+# Get outstanding fees for all positions of an owner in a pool
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Get outstanding fees for a specific position
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Get detailed breakdown by position
+curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showPositions=true"
+```
+
+**Response Format**:
+```json
+{
+  "timestamp": "2025-10-13T13:59:24.000Z",
+  "method": "getOutstandingFeesForOwner",
+  "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "positionId": null,
+  "totalPositions": 1,
+  "positionAddresses": ["APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83"],
+  "tokenA": { 
+    "mint": "So11111111111111111111111111111111111111112",
+    "decimals": 9
+  },
+  "tokenB": { 
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "decimals": 6
+  },
+  "totals": {
+    "A": { "raw": "0", "human": 0 },
+    "B": { "raw": "0", "human": 0 },
+    "note": "A+B sum has no single unit (distinct tokens)."
+  },
+  "positions": [
+    {
+      "positionId": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
+      "positionAddress": "APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83",
+      "fees": {
+        "feeOwedAComputedNow": "0",
+        "feeOwedBComputedNow": "0",
+        "currentTick": -17145,
+        "tickLowerIndex": -14644,
+        "tickUpperIndex": -14392
+      }
+    }
+  ],
+  "success": true
+}
+```
+
+**Field Descriptions**:
+- `totalPositions`: Number of positions found for the owner in the pool
+- `positionAddresses`: Array of position PDA addresses
+- `tokenA/tokenB`: Token information including mint addresses and decimal places
+- `totals`: Aggregated outstanding fees for all positions (raw values in smallest units, human values converted)
+- `positions` (if `showPositions=true`): Detailed breakdown by position with individual fee calculations
+
+### 💰 Outstanding Fees Calculation (Legacy)
+```
+GET /fees/position/:positionId/:poolId
+```
+
+**Purpose**: Calculate outstanding fees for a specific Orca Whirlpool position (legacy endpoint maintained for compatibility).
 
 **Parameters**:
 - `positionId`: Position identifier (can be either NFT mint address or position PDA address)
 - `poolId`: Whirlpool address where the position exists
 
+**Features**:
+- Direct position fee calculation using Orca's official algorithm
+- Support for both NFT mint and position PDA addresses
+- Real-time tick data and fee growth calculations
+- Detailed calculation breakdown for debugging
+
 **Example Request**:
 ```bash
-curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
+curl "http://localhost:3001/fees/position/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 ```
+
+### 📈 Collected Fees History
+```
+GET /fees/collected/:poolId/:owner
+```
+
+**Purpose**: Query on-chain collected fees for an owner in a specific Orca Whirlpool pool within a UTC time range.
+
+**Parameters**:
+- `poolId` (required): Whirlpool address where the positions exist
+- `owner` (required): Owner wallet address
+- `startUtc` (optional): Start date in ISO 8601 format (default: 1900-01-01T00:00:00Z)
+- `endUtc` (optional): End date in ISO 8601 format (default: tomorrow)
+- `positionId` (optional): Specific position identifier (NFT mint address) to filter results
+- `showHistory` (optional): If `true`, returns detailed transaction history
+
+**Features**:
+- On-chain transaction analysis for fee collection events
+- Flexible time range with sensible defaults
+- Position-specific filtering capability
+- Detailed transaction history with position IDs
+- Proper decimal handling for different token types
+- Real-time blockchain data analysis
+
+**Example Requests**:
+```bash
+# Get all collected fees for an owner in a pool (all time)
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Get collected fees for a specific time range
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z"
+
+# Get collected fees for a specific position with history
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH&showHistory=true"
+```
+
+**Response Format**:
+```json
+{
+  "timestamp": "2025-10-13T13:59:24.000Z",
+  "method": "feesCollectedInRange",
+  "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "positionId": null,
+  "positionAddress": null,
+  "totalPositions": 1,
+  "positionAddresses": ["APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83"],
+  "interval_utc": {
+    "start": "1900-01-01T00:00:00.000Z",
+    "end": "2025-10-13T13:59:24.000Z"
+  },
+  "tokenA": { 
+    "mint": "So11111111111111111111111111111111111111112",
+    "ata": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "decimals": 9
+  },
+  "tokenB": { 
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "ata": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "decimals": 6
+  },
+  "totals": {
+    "A": { "raw": "0", "human": 0 },
+    "B": { "raw": "0", "human": 0 },
+    "note": "A+B sum has no single unit (distinct tokens)."
+  },
+  "history": {
+    "A": [],
+    "B": [
+      {
+        "token": "B",
+        "signature": "5JsuEa9LJ6ExMmXsUBxgyPYe3rYgQpuRoxt3zdU6nSW6bLowB26U821kZnofN247qc7no3Jv6DU3LMXFF4bwX4M8",
+        "datetimeUTC": "2025-10-12T13:38:07.000Z",
+        "amountRaw": "39646",
+        "amount": 0.039646,
+        "positionId": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+      }
+    ]
+  },
+  "success": true
+}
+```
+
+**Field Descriptions**:
+- `interval_utc`: Time range used for the query
+- `tokenA/tokenB`: Token information including mint addresses, ATAs, and decimal places
+- `totals`: Aggregated collected fees for all positions (raw values in smallest units, human values converted)
+- `history` (if `showHistory=true`): Detailed transaction history with position IDs, signatures, and amounts
+- `totalPositions`: Number of positions found for the owner in the pool
+- `positionAddresses`: Array of position PDA addresses
+
+### 📊 Brokk Analytics (Pool ROI Analysis)
+```
+GET /brokk-analytics/:poolId/:owner
+```
+
+**Purpose**: Comprehensive financial analysis of LP performance in Orca Whirlpools (Revert Finance style).
+
+**Parameters**:
+- `poolId` (required): Whirlpool address where the positions exist
+- `owner` (required): Owner wallet address
+- `positionId` (optional): Specific position identifier (NFT mint address) to filter results
+- `startUtc` (optional): Start date in ISO 8601 format for analysis period
+- `endUtc` (optional): End date in ISO 8601 format for analysis period
+- `showHistory` (optional): If `true`, returns detailed transaction history
+
+**Features**:
+- Complete financial snapshot of LP performance
+- Position-level metrics (range, investment, current state, fees/rewards, PnL/ROI/APR/IL)
+- Aggregated metrics across all positions
+- Real-time price integration with configurable price providers
+- Historical analysis with proper USD valuation
+- Gas cost tracking and PnL calculations
+- Divergence loss analysis (LP vs HODL comparison)
+
+**Example Requests**:
+```bash
+# Complete ROI analysis for all positions of an owner in a pool
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# ROI analysis for a specific position
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# ROI analysis with specific time range and history
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Response Format**:
+```json
+{
+  "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  "positions": [
+    {
+      "positionMint": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
+      "range": {
+        "minPrice": 0.0001,
+        "maxPrice": 0.0002,
+        "currentPrice": 0.00015
+      },
+      "investment": {
+        "tokenA": { "qtyRaw": "1000000000", "qty": 1, "usdAtDeposit": 200 },
+        "tokenB": { "qtyRaw": "1000000", "qty": 1, "usdAtDeposit": 1 },
+        "tsFirstDeposit": 1697123456
+      },
+      "current": {
+        "tokenA": { "qtyRaw": "950000000", "qty": 0.95, "usdNow": 190 },
+        "tokenB": { "qtyRaw": "1050000", "qty": 1.05, "usdNow": 1.05 }
+      },
+      "fees": {
+        "collected": { "A": { "raw": "5000000", "usd": 1 }, "B": { "raw": "1000", "usd": 0.001 } },
+        "uncollected": { "A": { "raw": "2000000", "usd": 0.4 }, "B": { "raw": "500", "usd": 0.0005 } },
+        "reinvested": { "A": { "raw": "0", "usd": 0 }, "B": { "raw": "0", "usd": 0 } },
+        "total": { "A": { "raw": "7000000", "usd": 1.4 }, "B": { "raw": "1500", "usd": 0.0015 } }
+      },
+      "rewards": {
+        "unclaimedUSDT": 0,
+        "claimedUSDT": 0
+      },
+      "withdrawn": {
+        "tokenA": { "raw": "0", "usdAtWithdrawal": 0 },
+        "tokenB": { "raw": "0", "usdAtWithdrawal": 0 }
+      },
+      "gas": { "sol": 0.001, "usd": 0.2 },
+      "pnlExcludingGasUSDT": -8.35,
+      "roiPct": -4.15,
+      "aprPct": -15.12,
+      "divergenceLossUSDT": -0.5
+    }
+  ],
+  "aggregated": {
+    "investmentUSDT": 201,
+    "currentUSDT": 191.05,
+    "totalFeesUSDT": 1.4015,
+    "rewardsUSDT": 0,
+    "withdrawnUSDT": 0,
+    "gasUSDT": 0.2,
+    "pnlExcludingGasUSDT": -8.35,
+    "roiPct": -4.15,
+    "aprPct": -15.12,
+    "divergenceLossUSDT": -0.5
+  },
+  "success": true,
+  "timestamp": "2025-10-13T14:00:00.000Z",
+  "method": "calculatePoolROI"
+}
+```
+
+**Field Descriptions**:
+- `positions[]`: Array of position-level financial analysis
+- `range`: Price range (min/max/current) for the position
+- `investment`: Initial investment amounts and USD values at deposit time
+- `current`: Current token amounts and USD values
+- `fees`: Collected, uncollected, reinvested, and total fees in USD
+- `rewards`: Unclaimed and claimed rewards in USD
+- `withdrawn`: Principal withdrawals in USD
+- `gas`: Gas costs in SOL and USD
+- `pnlExcludingGasUSDT`: Profit/Loss excluding gas costs
+- `roiPct`: Return on Investment percentage
+- `aprPct`: Annualized Percentage Rate
+- `divergenceLossUSDT`: Impermanent Loss (LP value vs HODL value)
+- `aggregated`: Sum of all positions' metrics
 
 **Response Format**:
 ```json

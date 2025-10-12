@@ -2336,7 +2336,10 @@ function mapDeltaForAccount(tx: ParsedTransactionWithMeta, account: string): big
       const afterAmt = BigInt(pb.uiTokenAmount.amount);
       const beforeAmt = preMap.get(idx) ?? 0n;
       const key = tx.transaction.message.accountKeys[idx]?.pubkey.toBase58();
-      if (key === account) delta += (afterAmt - beforeAmt); // + received; - sent
+      if (key === account) {
+        const change = afterAmt - beforeAmt;
+        delta += change; // + received; - sent
+      }
     }
   return delta;
 }
@@ -2611,7 +2614,7 @@ export async function feesCollectedInRange(
       let totalRaw: bigint = 0n;
       const lines: HistLine[] = [];
 
-      while (true) {
+    while (true) {
         const sigs = await connection.getSignaturesForAddress(
           new PublicKey(ata),
           before ? { before, limit: 1000 } : { limit: 1000 }
@@ -2622,6 +2625,7 @@ export async function feesCollectedInRange(
           if (fetched++ >= MAX_SIGS_PER_ATA) break;
 
           const bt = s.blockTime ?? null;
+          
           if (bt && bt < startSec) { before = undefined; break; }
           if (bt && bt > endSec) { continue; }
 
@@ -2644,7 +2648,9 @@ export async function feesCollectedInRange(
           const deltaAta = mapDeltaForAccount(tx, ata);     // + received
           const deltaVault = mapDeltaForAccount(tx, vault); // - left vault
 
-          if (deltaAta > 0n && deltaVault < 0n) {
+          // Detectar fees coletadas - condição mais robusta
+          // Uma fee é coletada quando há um aumento na ATA do usuário
+          if (deltaAta > 0n) {
             if (bt !== null && (bt < startSec || bt > endSec)) continue;
             totalRaw += deltaAta;
 
