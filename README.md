@@ -159,6 +159,143 @@ GET /top-positions
 GET /liquidity/:publicKey
 ```
 
+### Outstanding Fees Calculation
+```
+GET /fees/:positionId/:poolId
+```
+
+**Purpose**: Calculate outstanding fees for a specific Orca Whirlpool position in real-time.
+
+**Parameters**:
+- `positionId`: Position identifier (can be either NFT mint address or position PDA address)
+- `poolId`: Whirlpool address where the position exists
+
+**Example Request**:
+```bash
+curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
+```
+
+**Response Format**:
+```json
+{
+  "timestamp": "2025-10-12T13:11:46.584Z",
+  "method": "getOutstandingFeesForPosition",
+  "position": "APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83",
+  "originalPositionParam": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
+  "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  "currentTick": -17050,
+  "tickLowerIndex": -14644,
+  "tickUpperIndex": -14392,
+  "tokenMintA": "So11111111111111111111111111111111111111112",
+  "tokenMintB": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "feeOwedAOnChain": "0",
+  "feeOwedBOnChain": "0",
+  "feeOwedAComputedNow": "169616",
+  "feeOwedBComputedNow": "39646",
+  "liquidity": "768138776",
+  "feeGrowthGlobalA": "10622423207700544455",
+  "feeGrowthGlobalB": "1421136515907037356",
+  "feeGrowthCheckpointA": "566422009244651338",
+  "feeGrowthCheckpointB": "140659841755404768",
+  "calculations": {
+    "feeGrowthInsideA": "570495320585071107",
+    "feeGrowthInsideB": "141611953903622772",
+    "deltaA": "4073311340419769",
+    "deltaB": "952112148218004",
+    "variableA": "169616",
+    "variableB": "39646",
+    "tickLower": {
+      "feeGrowthOutsideA": "592600795228215020",
+      "feeGrowthOutsideB": "146968036410605518"
+    },
+    "tickUpper": {
+      "feeGrowthOutsideA": "22105474643143913",
+      "feeGrowthOutsideB": "5356082506982746"
+    }
+  },
+  "success": true
+}
+```
+
+**Field Descriptions**:
+
+**Basic Information**:
+- `timestamp`: ISO timestamp of the calculation
+- `method`: Method name used for the calculation
+- `position`: Actual position PDA address (derived if NFT mint was provided)
+- `originalPositionParam`: Original parameter passed (NFT mint or position address)
+- `pool`: Whirlpool address
+- `success`: Boolean indicating if the calculation was successful
+
+**Position Range Information**:
+- `currentTick`: Current tick index of the pool (integer)
+- `tickLowerIndex`: Lower bound of the position's tick range (integer)
+- `tickUpperIndex`: Upper bound of the position's tick range (integer)
+
+**Token Information**:
+- `tokenMintA`: Mint address of token A in the pool
+- `tokenMintB`: Mint address of token B in the pool
+
+**Fee Information (in smallest token units)**:
+- `feeOwedAOnChain`: Fees already recorded on-chain for token A (string, smallest units)
+- `feeOwedBOnChain`: Fees already recorded on-chain for token B (string, smallest units)
+- `feeOwedAComputedNow`: Total fees owed for token A including pending (string, smallest units)
+- `feeOwedBComputedNow`: Total fees owed for token B including pending (string, smallest units)
+
+**Liquidity Information**:
+- `liquidity`: Position's liquidity amount (string, raw units)
+
+**Fee Growth Information (Q64.64 format)**:
+- `feeGrowthGlobalA`: Global fee growth for token A (string, Q64.64 format)
+- `feeGrowthGlobalB`: Global fee growth for token B (string, Q64.64 format)
+- `feeGrowthCheckpointA`: Position's fee growth checkpoint for token A (string, Q64.64 format)
+- `feeGrowthCheckpointB`: Position's fee growth checkpoint for token B (string, Q64.64 format)
+
+**Detailed Calculations**:
+- `calculations.feeGrowthInsideA`: Fee growth inside position range for token A (string, Q64.64 format)
+- `calculations.feeGrowthInsideB`: Fee growth inside position range for token B (string, Q64.64 format)
+- `calculations.deltaA`: Difference in fee growth for token A (string, Q64.64 format)
+- `calculations.deltaB`: Difference in fee growth for token B (string, Q64.64 format)
+- `calculations.variableA`: Variable fees for token A (string, smallest units)
+- `calculations.variableB`: Variable fees for token B (string, smallest units)
+- `calculations.tickLower.feeGrowthOutsideA`: Fee growth outside lower tick for token A (string, Q64.64 format)
+- `calculations.tickLower.feeGrowthOutsideB`: Fee growth outside lower tick for token B (string, Q64.64 format)
+- `calculations.tickUpper.feeGrowthOutsideA`: Fee growth outside upper tick for token A (string, Q64.64 format)
+- `calculations.tickUpper.feeGrowthOutsideB`: Fee growth outside upper tick for token B (string, Q64.64 format)
+
+**Important Notes for Frontend Integration**:
+
+1. **Token Units**: All fee amounts (`feeOwedAOnChain`, `feeOwedBOnChain`, `feeOwedAComputedNow`, `feeOwedBComputedNow`) are in the smallest units of each token. You need to divide by `10^decimals` to get human-readable amounts.
+
+2. **Q64.64 Format**: Fee growth values are in Q64.64 fixed-point format. These are used for internal calculations and typically don't need to be displayed to users.
+
+3. **Position Status**: Check if `currentTick` is between `tickLowerIndex` and `tickUpperIndex` to determine if the position is active (earning fees).
+
+4. **Fee Calculation**: The difference between `feeOwedAComputedNow` and `feeOwedAOnChain` represents the pending fees that haven't been collected yet.
+
+5. **Error Handling**: The API returns appropriate HTTP status codes and error messages for invalid parameters or positions not found.
+
+**Usage Examples**:
+
+```javascript
+// Calculate fees for a position
+const response = await fetch('/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE');
+const data = await response.json();
+
+// Convert fees to human-readable format (assuming 6 decimals for USDC)
+const tokenADecimals = 9; // SOL has 9 decimals
+const tokenBDecimals = 6; // USDC has 6 decimals
+
+const feesA = parseFloat(data.feeOwedAComputedNow) / Math.pow(10, tokenADecimals);
+const feesB = parseFloat(data.feeOwedBComputedNow) / Math.pow(10, tokenBDecimals);
+
+console.log(`Pending fees: ${feesA} SOL, ${feesB} USDC`);
+
+// Check if position is active
+const isActive = data.currentTick >= data.tickLowerIndex && data.currentTick <= data.tickUpperIndex;
+console.log(`Position is ${isActive ? 'active' : 'inactive'}`);
+```
+
 ## 🗄️ Database Schema
 
 ```sql
@@ -300,8 +437,14 @@ npm run build
 
 ### Código Fonte
 - [Routes](./backend/src/routes/) - Endpoints da API
+  - [Fees Route](./backend/src/routes/fees.ts) - Outstanding fees calculation
+  - [Position Route](./backend/src/routes/position.ts) - Position details
+  - [Liquidity Route](./backend/src/routes/liquidity.ts) - Liquidity overview
+  - [Wallet Route](./backend/src/routes/wallet.ts) - Wallet positions
+  - [Pools Route](./backend/src/routes/pools.ts) - Pool information
 - [Lib](./backend/src/lib/) - Utilitários e integrações
-- [Types](./backend/src/lib/types.ts) - Definições TypeScript
+  - [Orca Integration](./backend/src/lib/orca.ts) - Orca SDK integration and fee calculations
+  - [Types](./backend/src/lib/types.ts) - Definições TypeScript
 
 ## 📖 Learn More
 

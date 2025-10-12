@@ -94,6 +94,37 @@ Retorna overview consolidado de todas as posições de liquidez do proprietário
 - `tickComparison`: Dados de comparação de ticks para visualização
 - `isInRange`: Status de cada posição (ativa/fora do range)
 
+#### Outstanding Fees Calculation
+```bash
+GET /fees/:positionId/:poolId
+```
+Calcula fees pendentes de uma posição específica em tempo real usando o algoritmo oficial do Orca.
+
+**Parâmetros:**
+- `positionId` (obrigatório): Identificador da posição (pode ser NFT mint ou endereço da posição)
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/fees/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
+```
+
+**Dados retornados:**
+- `feeOwedAOnChain`: Fees já registradas on-chain para token A (unidades mínimas)
+- `feeOwedBOnChain`: Fees já registradas on-chain para token B (unidades mínimas)
+- `feeOwedAComputedNow`: Total de fees para token A incluindo pendentes (unidades mínimas)
+- `feeOwedBComputedNow`: Total de fees para token B incluindo pendentes (unidades mínimas)
+- `calculations`: Cálculos intermediários detalhados (Q64.64 format)
+- `currentTick`: Tick atual da pool
+- `tickLowerIndex`/`tickUpperIndex`: Range da posição
+- `tokenMintA`/`tokenMintB`: Endereços dos tokens
+
+**Notas importantes:**
+- Todos os valores de fees estão em unidades mínimas dos tokens
+- Para exibir valores legíveis, divida por `10^decimals` do token
+- Valores Q64.64 são para cálculos internos, não precisam ser exibidos
+- A diferença entre `ComputedNow` e `OnChain` representa fees pendentes
+
 #### Pools (API Orca)
 ```bash
 GET /pools?sortBy=volume&sortDirection=desc
