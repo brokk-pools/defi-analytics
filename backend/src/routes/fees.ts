@@ -91,9 +91,9 @@ router.get('/:positionId/:poolId', async (req, res) => {
 router.get('/collected/:poolId/:owner', async (req, res) => {
   try {
     const { poolId, owner } = req.params;
-    const { startUtc, endUtc, showHistory } = req.query;
+    const { startUtc, endUtc, showHistory, positionId } = req.query;
 
-    logger.info(`💰 Calculating collected fees for owner: ${owner} in pool: ${poolId}`);
+    logger.info(`💰 Calculating collected fees for owner: ${owner} in pool: ${poolId}${positionId ? ` for position: ${positionId}` : ''}`);
 
     // Validar parâmetros obrigatórios
     if (!poolId || poolId.length < 32) {
@@ -114,6 +114,15 @@ router.get('/collected/:poolId/:owner', async (req, res) => {
     const startUtcIso = startUtc as string || undefined;
     const endUtcIso = endUtc as string || undefined;
     const showHistoryBool = showHistory === 'true';
+    const positionIdStr = positionId as string || undefined;
+
+    // Validar positionId se fornecido
+    if (positionIdStr && positionIdStr.length < 32) {
+      return res.status(400).json({
+        error: 'Invalid position ID',
+        message: 'Position ID must be a valid Solana public key (NFT mint)'
+      });
+    }
 
     // Validar formato de datas se fornecidas
     if (startUtcIso) {
@@ -142,7 +151,8 @@ router.get('/collected/:poolId/:owner', async (req, res) => {
       owner,
       startUtcIso,
       endUtcIso,
-      showHistoryBool
+      showHistoryBool,
+      positionIdStr
     );
 
     // Preparar resposta

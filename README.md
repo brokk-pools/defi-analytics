@@ -309,10 +309,15 @@ console.log(`Position is ${isActive ? 'active' : 'inactive'}`);
 - `startUtc`: Start date in ISO 8601 format (optional, defaults to pool creation)
 - `endUtc`: End date in ISO 8601 format (optional, defaults to now)
 - `showHistory`: Include detailed transaction history (optional, boolean)
+- `positionId`: Specific position NFT mint to filter by (optional, if empty returns all positions)
 
-**Example Request**:
+**Example Requests**:
 ```bash
-curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+# All positions for user in pool
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Specific position with date range and history
+curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true&positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
 ```
 
 **Response Format**:
@@ -322,6 +327,8 @@ curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crr
   "method": "feesCollectedInRange",
   "pool": "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
   "owner": "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc",
+  "positionId": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
+  "positionAddress": "APNnhsnAL49HeQpKkQEWcHCp1gh9biDagabMrUc3NC83",
   "interval_utc": {
     "start": "2025-10-12T13:33:27.000Z",
     "end": "2025-10-12T13:34:19.000Z"
@@ -356,6 +363,8 @@ curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crr
 - `method`: Method name used for the calculation
 - `pool`: Whirlpool address
 - `owner`: User wallet address
+- `positionId`: Position NFT mint (null if filtering all positions)
+- `positionAddress`: Position PDA address (null if filtering all positions)
 - `success`: Boolean indicating if the calculation was successful
 
 **Time Range**:
@@ -372,7 +381,7 @@ curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crr
 - `totals.B.human`: Total collected fees for token B (number, human-readable)
 
 **Transaction History** (if `showHistory=true`):
-- `history.A`/`history.B`: Array of transaction details including signature, datetime, and amounts
+- `history.A`/`history.B`: Array of transaction details including signature, datetime, amounts, and positionId
 
 **Usage Examples**:
 
@@ -388,6 +397,14 @@ const responseWithHistory = await fetch('/fees/collected/Czfq3xZZDmsdGdUyrNLtRhG
 const dataWithHistory = await responseWithHistory.json();
 
 console.log(`Total transactions: ${dataWithHistory.history.A.length + dataWithHistory.history.B.length}`);
+
+// Get fees for a specific position
+const responseSpecific = await fetch('/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH&showHistory=true');
+const dataSpecific = await responseSpecific.json();
+
+console.log(`Position ID: ${dataSpecific.positionId}`);
+console.log(`Position Address: ${dataSpecific.positionAddress}`);
+console.log(`Collected fees for this position: ${dataSpecific.totals.A.human} SOL, ${dataSpecific.totals.B.human} USDC`);
 ```
 
 ## 🗄️ Database Schema

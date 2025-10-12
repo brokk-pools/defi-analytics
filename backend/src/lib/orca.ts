@@ -2373,10 +2373,11 @@ export async function feesCollectedInRange(
   ownerStr: string,
   startUtcIso?: string,
   endUtcIso?: string,
-  showHistory: boolean = false
+  showHistory: boolean = false,
+  positionId?: string
 ): Promise<any> {
   try {
-    console.log(`💰 Calculating collected fees for owner: ${ownerStr} in pool: ${poolPkStr}`);
+    console.log(`💰 Calculating collected fees for owner: ${ownerStr} in pool: ${poolPkStr}${positionId ? ` for position: ${positionId}` : ''}`);
     console.log(`📅 Range: ${startUtcIso || 'pool creation'} to ${endUtcIso || 'now'}`);
     console.log(`📊 Show history: ${showHistory}`);
     
@@ -2418,6 +2419,41 @@ export async function feesCollectedInRange(
     const ataA = getAssociatedTokenAddressSync(mintA, owner).toBase58();
     const ataB = getAssociatedTokenAddressSync(mintB, owner).toBase58();
 
+    // Se positionId foi fornecido, verificar se a posição pertence ao owner na pool
+    let targetPositionAddress: string | null = null;
+    if (positionId) {
+      console.log(`🔍 Verificando se posição ${positionId} pertence ao owner ${ownerStr} na pool ${poolPkStr}`);
+      
+      try {
+        // Buscar posições do owner usando a mesma lógica de getLiquidityOverview
+        const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+        const { address } = await import('@solana/kit');
+        
+        const ownerAddress = address(ownerStr);
+        const { rpc } = await createRpcConnection();
+        const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+        
+        if (positions && positions.length > 0) {
+          const targetPosition = positions.find((pos: any) => 
+            pos.data?.positionMint?.toString() === positionId &&
+            pos.data?.whirlpool?.toString() === poolPkStr
+          );
+          
+          if (targetPosition) {
+            targetPositionAddress = targetPosition.address.toString();
+            console.log(`✅ Posição encontrada: ${positionId} -> ${targetPositionAddress}`);
+          } else {
+            throw new Error(`Position ${positionId} not found for owner ${ownerStr} in pool ${poolPkStr}`);
+          }
+        } else {
+          throw new Error(`No positions found for owner ${ownerStr}`);
+        }
+      } catch (error) {
+        console.error(`❌ Erro ao verificar posição:`, error);
+        throw new Error(`Failed to verify position: ${(error as Error).message}`);
+      }
+    }
+
     // Decimals
     const [decA, decB] = await Promise.all([
       getMintDecimals(connection, mintA),
@@ -2430,13 +2466,15 @@ export async function feesCollectedInRange(
       datetimeUTC: string; // ISO
       amountRaw: string;
       amount: number;
+      positionId?: string | undefined; // NFT mint da posição
     };
 
     async function scanAtaForRange(
       ata: string,
       vault: string,
       decs: number,
-      tokenLabel: "A" | "B"
+      tokenLabel: "A" | "B",
+      targetPositionAddr?: string | null
     ): Promise<{ totalRaw: bigint; lines: HistLine[] }> {
       let before: string | undefined;
       let fetched = 0;
@@ -2466,6 +2504,13 @@ export async function feesCollectedInRange(
             .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
           if (!hasOrcaIx) continue;
 
+          // Se targetPositionAddr foi especificado, verificar se a transação envolve essa posição
+          if (targetPositionAddr) {
+            const hasTargetPosition = tx.transaction.message.accountKeys
+              .some(k => k.pubkey.toBase58() === targetPositionAddr);
+            if (!hasTargetPosition) continue;
+          }
+
           const deltaAta = mapDeltaForAccount(tx, ata);     // + received
           const deltaVault = mapDeltaForAccount(tx, vault); // - left vault
 
@@ -2480,6 +2525,7 @@ export async function feesCollectedInRange(
                 datetimeUTC: new Date((bt ?? 0) * 1000).toISOString(),
                 amountRaw: deltaAta.toString(),
                 amount: human(deltaAta, decs),
+                positionId: positionId,
               });
             }
           }
@@ -2499,8 +2545,8 @@ export async function feesCollectedInRange(
     }
 
     const [resA, resB] = await Promise.all([
-      scanAtaForRange(ataA, vaultA, decA, "A"),
-      scanAtaForRange(ataB, vaultB, decB, "B"),
+      scanAtaForRange(ataA, vaultA, decA, "A", targetPositionAddress),
+      scanAtaForRange(ataB, vaultB, decB, "B", targetPositionAddress),
     ]);
 
     const result: any = {
@@ -2508,6 +2554,8 @@ export async function feesCollectedInRange(
       method: 'feesCollectedInRange',
       pool: poolPkStr,
       owner: ownerStr,
+      positionId: positionId || null,
+      positionAddress: targetPositionAddress || null,
       interval_utc: {
         start: new Date(startSec * 1000).toISOString(),
         end: new Date(endSec * 1000).toISOString(),

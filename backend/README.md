@@ -137,8 +137,11 @@ Consulta fees já coletadas on-chain por um usuário em uma pool específica den
 - `startUtc` (opcional): Data/hora inicial em formato ISO 8601 (padrão: criação da pool)
 - `endUtc` (opcional): Data/hora final em formato ISO 8601 (padrão: agora)
 - `showHistory` (opcional): Incluir histórico detalhado de transações (boolean)
+- `positionId` (opcional): NFT mint da posição específica para filtrar (se vazio, retorna todas as posições)
 
 **Dados retornados:**
+- `positionId`: NFT mint da posição (null se filtrando todas as posições)
+- `positionAddress`: Endereço PDA da posição (null se filtrando todas as posições)
 - `totals.A.raw`: Total de fees coletadas para token A (unidades mínimas)
 - `totals.A.human`: Total de fees coletadas para token A (formato legível)
 - `totals.B.raw`: Total de fees coletadas para token B (unidades mínimas)
@@ -151,8 +154,10 @@ Consulta fees já coletadas on-chain por um usuário em uma pool específica den
 - Consulta diretamente a blockchain Solana via RPC
 - Analisa transações das ATAs do usuário
 - Filtra apenas transações relacionadas ao programa Orca Whirlpools
+- Se `positionId` for fornecido, filtra apenas transações dessa posição específica
+- Se `positionId` for vazio, retorna fees de todas as posições do usuário na pool
 - Valores em formato raw e human-readable
-- Histórico inclui signature, datetime e valores de cada transação
+- Histórico inclui signature, datetime, valores e positionId de cada transação
 
 #### Pools (API Orca)
 ```bash
