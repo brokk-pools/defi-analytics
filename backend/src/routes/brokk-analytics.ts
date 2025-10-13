@@ -69,9 +69,11 @@ router.get('/:poolId/:owner', async (req, res) => {
 
     // Chamar as funções primeiro e armazenar os resultados
     logger.info(`🔍 [DEBUG] Chamando getOutstandingFeesForPosition para pool: ${poolId}, position: ${positionIdStr || 'todas'}`);
-    const outstandingFeesResult = positionIdStr 
-      ? await getOutstandingFeesForPosition(poolId, positionIdStr)
-      : null; // Se não há positionId específico, será chamado dentro do calculatePoolROI
+    let outstandingFeesResult = null;
+    if (positionIdStr) {
+      outstandingFeesResult = await getOutstandingFeesForPosition(poolId, positionIdStr);
+    }
+    // Se não há positionId específico, será calculado internamente no calculatePoolROI
 
     logger.info(`📈 [DEBUG] Chamando feesCollectedInRange para pool: ${poolId}, owner: ${owner}`);
     const collectedFeesResult = await feesCollectedInRange(
@@ -97,7 +99,7 @@ router.get('/:poolId/:owner', async (req, res) => {
       endUtcIso,
       showHistory: showHistoryBool,
       baseCurrency: 'USDT', // Moeda base padrão (pode ser configurável)
-      preCalculatedOutstandingFees: outstandingFeesResult,
+      preCalculatedOutstandingFees: positionIdStr ? outstandingFeesResult : undefined,
       preCalculatedCollectedFees: collectedFeesResult
     });
 

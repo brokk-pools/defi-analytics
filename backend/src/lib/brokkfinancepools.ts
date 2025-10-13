@@ -447,6 +447,20 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
   const mintA = poolData.tokenMintA.toBase58();
   const mintB = poolData.tokenMintB.toBase58();
 
+  // Buscar decimais dos tokens para cálculos de preço
+  const [tokenInfoA, tokenInfoB] = await Promise.all([
+    connection.getParsedAccountInfo(new PublicKey(mintA)),
+    connection.getParsedAccountInfo(new PublicKey(mintB))
+  ]);
+  
+  const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
+  const decB = (tokenInfoB.value?.data as any)?.parsed?.info?.decimals || 6;
+  
+  console.log(`🔢 [DEBUG] Decimais dos tokens:`, { 
+    tokenA: { mint: mintA, decimals: decA }, 
+    tokenB: { mint: mintB, decimals: decB } 
+  });
+
   // Preço ATUAL (USDT) dos mints A/B — necessário para "Current USD", fees uncollected USD, etc.
   console.log(`💱 [DEBUG] Buscando preços atuais para tokens:`, { mintA, mintB });
   const [priceNowA, priceNowB] = await Promise.all([
@@ -490,11 +504,30 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     const tickUpper = position.tickUpperIndex;
 
     // ===== (A) LIMIT PRICES =====
-    // Para simplificar, vamos usar valores básicos por enquanto
-    // TODO: Implementar cálculo correto de preços usando PriceMath
-    const minPrice = 0.0001; // Placeholder
-    const maxPrice = 0.0002; // Placeholder
-    const currentPrice = 0.00015; // Placeholder
+    // Calcular preços reais usando PriceMath do SDK do Orca
+    const currentTickIndex = poolData.tickCurrentIndex;
+    
+    // Preço atual da pool (tokenB/tokenA)
+    const currentPrice = Number(PriceMath.sqrtPriceX64ToPrice(poolData.sqrtPrice, decA, decB).toFixed());
+    
+    // Preços dos limites da posição (tokenB/tokenA)
+    const lowerPrice = Number(PriceMath.tickIndexToPrice(tickLower, decA, decB).toFixed());
+    const upperPrice = Number(PriceMath.tickIndexToPrice(tickUpper, decA, decB).toFixed());
+    
+    // Determinar min/max baseado na direção do par
+    const minPrice = Math.min(lowerPrice, upperPrice);
+    const maxPrice = Math.max(lowerPrice, upperPrice);
+    
+    console.log(`💰 [DEBUG] Preços calculados para posição ${posMint}:`, {
+      currentPrice,
+      lowerPrice,
+      upperPrice,
+      minPrice,
+      maxPrice,
+      currentTickIndex,
+      tickLower,
+      tickUpper
+    });
 
     // ===== (B) CURRENT TOKEN AMOUNTS (DERIVADO DA LIQUIDEZ) =====
     // Fórmula (via SDK): dado (L, sqrtP, tickLower, tickUpper) ⇒ retorna { tokenA, tokenB }
@@ -520,12 +553,18 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // (C1) Fees UNCOLLECTED (pendentes agora) — sua função já computa corretamente contra feeGrowth
     console.log(`📊 [DEBUG] Buscando fees pendentes...`);
     let outstandingFees;
-    // Usar resultado pré-calculado (obrigatório)
-    if (!preCalculatedOutstandingFees) {
-      throw new Error(`Outstanding fees not provided for position ${posMint}`);
+    
+    if (preCalculatedOutstandingFees) {
+      // Usar resultado pré-calculado (quando positionId específico foi fornecido)
+      console.log(`✅ [DEBUG] Usando fees pendentes pré-calculadas`);
+      outstandingFees = preCalculatedOutstandingFees;
+    } else {
+      // Calcular fees internamente (quando analisando todas as posições do owner)
+      console.log(`🔍 [DEBUG] Calculando fees pendentes internamente para posição ${posMint}`);
+      const { getOutstandingFeesForPosition } = await import('./orca.js');
+      // Usar o PDA da posição (posPda) em vez do NFT mint (posMint)
+      outstandingFees = await getOutstandingFeesForPosition(poolId, posPda.toBase58());
     }
-    console.log(`✅ [DEBUG] Usando fees pendentes pré-calculadas`);
-    outstandingFees = preCalculatedOutstandingFees;
     console.log(`💰 [DEBUG] Fees pendentes encontradas:`, {
       tokenA: outstandingFees.feeOwedAComputedNow,
       tokenB: outstandingFees.feeOwedBComputedNow
