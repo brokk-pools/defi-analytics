@@ -28,6 +28,7 @@ import topPositionsRoutes from './routes/top-positions.js';
 import feesRoutes from './routes/fees.js';
 import brokkAnalyticsRoutes from './routes/brokk-analytics.js';
 import transactionsRoutes from './routes/transactions.js';
+import populateTokensRoutes from './routes/populate-tokens-coingecko.js';
 
 dotenv.config();
 
@@ -87,6 +88,7 @@ app.use('/top-positions', topPositionsRoutes);
 app.use('/fees', feesRoutes);
 app.use('/brokk-analytics', brokkAnalyticsRoutes);
 app.use('/transactions', transactionsRoutes);
+app.use('/populate-tokens-coingecko', populateTokensRoutes);
 
 // Health check endpoint with detailed status
 app.get('/health', (req, res) => {
@@ -151,6 +153,8 @@ app.get('/', (req, res) => {
       fees: '/fees/:poolId/:owner',
       feesLegacy: '/fees/position/:positionId/:poolId',
       brokkAnalytics: '/brokk-analytics/:poolId/:owner',
+      transactions: '/transactions/:owner/:positionMint',
+      populateTokens: '/populate-tokens-coingecko',
     },
     documentation: 'https://docs.orca.so/',
     support: 'https://discord.gg/orcaprotocol'
