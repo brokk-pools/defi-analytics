@@ -1,83 +1,138 @@
-import { Connection, PublicKey, Keypair } from "@solana/web3.js";
-import { SwitchboardProgram, AggregatorAccount } from "@switchboard-xyz/solana.js";
+import { db } from './db.js';
 
-// Mapeamento de tokens Solana para aggregators Switchboard USD
-const SOLANA_TO_SWITCHBOARD_AGGREGATOR: Record<string, string> = {
-  'So11111111111111111111111111111111111111112': 'GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR', // SOL/USD
-  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': '3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL', // USDT/USD
-  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD', // USDC/USD
-  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': '8ihFLu5FimgTQ1Unh4dVyEHUGodJ5gJQCrQf4KUVB9bN', // BONK/USD
-  'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'E4v1BBgoso9s64TQvmy1AgaM3HYxi1GkmTqgXW8dmFf3', // MSOL/USD
-  '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB', // ETH/USD
-  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'g6eRCbboSwK4tSWngn773RCMexr1APQr4uA9bGZBYfo', // JUP/USD
-};
-
-// Função para obter conexão RPC
-function getRpcConnection(): Connection {
-  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
-  const apiKey = process.env.HELIUS_API_KEY;
-  
-  let finalRpcUrl: string;
-  if (rpcProvider === 'helius') {
-    finalRpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
-    console.log('✅ Using Helius RPC for Switchboard price calculation (no rate limiting)');
-  } else {
-    finalRpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
-    console.log(`✅ Using RPC ${rpcProvider} for Switchboard price calculation`);
-  }
-  
-  return new Connection(finalRpcUrl, "confirmed");
+interface CoinGeckoCurrentPrice {
+  [coingeckoId: string]: {
+    usd: number;
+  };
 }
 
-// Função para obter preço USD de um token
-export async function getPriceUSD(token: string, timestamp?: number): Promise<number> {
-  const aggregator = SOLANA_TO_SWITCHBOARD_AGGREGATOR[token];
-  if (!aggregator) {
-    console.warn(`⚠️ Aggregator Switchboard não encontrado para ${token}`);
-    return 0;
-  }
-  
-  try {
-    const connection = getRpcConnection();
-    const payer = Keypair.generate(); // Dummy keypair para leitura
-    const program = await SwitchboardProgram.load(connection, payer);
-    
-    const agg = new AggregatorAccount(program, new PublicKey(aggregator));
-    const value = await agg.fetchLatestValue();
-    
-    if (value == null) {
-      throw new Error("Valor nulo em aggregator.");
-    }
-    
-    return Number(value);
-  } catch (error) {
-    console.error(`❌ Erro ao buscar preço USD para ${token}:`, error);
-    return 0;
-  }
-}
-
-// Função para obter preço de um par de tokens (A/B)
-export async function getPairPrice(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
-  try {
-    const [priceA, priceB] = await Promise.all([
-      getPriceUSD(tokenA, timestamp),
-      getPriceUSD(tokenB, timestamp)
-    ]);
-    
-    if (priceA === 0 || priceB === 0) {
-      console.warn(`⚠️ Preço não encontrado: tokenA=${tokenA} (${priceA}), tokenB=${tokenB} (${priceB})`);
-      return { priceA: 0, priceB: 0, pairPrice: 0 };
-    }
-    
-    const pairPrice = priceA / priceB; // A/B = (A/USD) / (B/USD)
-    
-    return {
-      priceA,
-      priceB,
-      pairPrice
+interface CoinGeckoHistoricalPrice {
+  id: string;
+  symbol: string;
+  name: string;
+  market_data: {
+    current_price: {
+      usd: number;
     };
+  };
+}
+
+/**
+ * Busca o ID do CoinGecko para um token Solana na tabela token_metadata
+ */
+async function getCoinGeckoId(tokenAddress: string): Promise<string | null> {
+  try {
+    const result = await db.query(
+      'SELECT coingecko_id FROM token_metadata WHERE token = $1',
+      [tokenAddress]
+    );
+    
+    if (result.rows.length === 0) {
+      console.warn(`⚠️ Token ${tokenAddress} não encontrado na tabela token_metadata`);
+      return null;
+    }
+    
+    return result.rows[0].coingecko_id;
   } catch (error) {
-    console.error(`❌ Erro ao buscar preço do par ${tokenA}/${tokenB}:`, error);
-    return { priceA: 0, priceB: 0, pairPrice: 0 };
+    console.error(`❌ Erro ao buscar CoinGecko ID para ${tokenAddress}:`, error);
+    return null;
+  }
+}
+
+/**
+ * 1) Função para obter preço atual de um token em USD via CoinGecko
+ * @param tokenAddress - Endereço do token Solana
+ * @returns Preço atual em USD ou 0 se não encontrado
+ */
+export async function getCurrentPrice(tokenAddress: string): Promise<number> {
+  try {
+    // Buscar o ID do CoinGecko na tabela token_metadata
+    const coingeckoId = await getCoinGeckoId(tokenAddress);
+    if (!coingeckoId) {
+      return 0;
+    }
+    
+    // Buscar preço atual na API do CoinGecko
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+    }
+    
+    const data: CoinGeckoCurrentPrice = await response.json();
+    
+    if (!data[coingeckoId] || !data[coingeckoId].usd) {
+      console.warn(`⚠️ Preço não encontrado para ${coingeckoId} na API do CoinGecko`);
+      return 0;
+    }
+    
+    const price = data[coingeckoId].usd;
+    console.log(`✅ Preço atual ${coingeckoId}: $${price}`);
+    return price;
+    
+  } catch (error) {
+    console.error(`❌ Erro ao buscar preço atual para ${tokenAddress}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * 2) Função para obter preço histórico de um token em USD via CoinGecko
+ * @param tokenAddress - Endereço do token Solana
+ * @param date - Data no formato DD-MM-YYYY (ex: "01-10-2025")
+ * @returns Preço histórico em USD ou 0 se não encontrado
+ */
+export async function getHistoricalPrice(tokenAddress: string, date: string): Promise<number> {
+  try {
+    // Buscar o ID do CoinGecko na tabela token_metadata
+    const coingeckoId = await getCoinGeckoId(tokenAddress);
+    if (!coingeckoId) {
+      return 0;
+    }
+    
+    // Buscar preço histórico na API do CoinGecko
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${date}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+    }
+    
+    const data: CoinGeckoHistoricalPrice = await response.json();
+    
+    if (!data.market_data || !data.market_data.current_price || !data.market_data.current_price.usd) {
+      console.warn(`⚠️ Preço histórico não encontrado para ${coingeckoId} na data ${date}`);
+      return 0;
+    }
+    
+    const price = data.market_data.current_price.usd;
+    console.log(`✅ Preço histórico ${coingeckoId} em ${date}: $${price}`);
+    return price;
+    
+  } catch (error) {
+    console.error(`❌ Erro ao buscar preço histórico para ${tokenAddress} em ${date}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Função auxiliar para obter preço baseado em timestamp
+ * Se timestamp for fornecido, busca preço histórico, senão busca preço atual
+ */
+export async function getPriceUSD(tokenAddress: string, timestamp?: number): Promise<number> {
+  if (timestamp) {
+    // Converter timestamp para formato DD-MM-YYYY
+    const date = new Date(timestamp * 1000);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const dateString = `${day}-${month}-${year}`;
+    
+    return await getHistoricalPrice(tokenAddress, dateString);
+  } else {
+    return await getCurrentPrice(tokenAddress);
   }
 }
