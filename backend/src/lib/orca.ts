@@ -13,6 +13,16 @@ import {
   PriceMath,
 } from "@orca-so/whirlpools-sdk";
 import { AnchorProvider } from "@coral-xyz/anchor";
+import { getPriceUSD } from './CalculationPrice.js';
+
+const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+
+// On-chain operations detected via Anchor logMessages
+export type OnChainOperationsPositions =
+  | "COLLECT_FEES"
+  | "INCREASE_LIQUIDITY"
+  | "DECREASE_LIQUIDITY"
+  | "OPEN_POSITION";
 
 export function makeConnection(): Connection {
   let url = process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
@@ -51,6 +61,233 @@ export function makeWhirlpoolClient() {
 
 export function getProgramId(): PublicKey {
   return ORCA_WHIRLPOOL_PROGRAM_ID;
+}
+
+/**
+ * Scaneia transações do owner relacionadas a uma position específica
+ * e retorna uma lista de operações (CollectFees/Increase/Decrease/OpenPosition)
+ * com somatórios por token A/B. Calcula internamente pool, vaults e ATAs.
+ */
+export async function GetInnerTransactionsFromOwnerAndPosition(
+  ownerStr: string,
+  positionMintStr: string,
+  operations: OnChainOperationsPositions[],
+  startUtcIso?: string,
+  endUtcIso?: string,
+  tokenConvert?: string
+): Promise<{
+  metadata: {
+    pool: string;
+    positionPda: string;
+    tokenA: { mint: string; decimals: number; ata: string; vault: string };
+    tokenB: { mint: string; decimals: number; ata: string; vault: string };
+    owner: string;
+    tokenConvert: string;
+  };
+  items: Array<{
+    signature: string;
+    datetimeUTC: string;
+    operation: OnChainOperationsPositions;
+    amounts: { A: string; B: string; A_VALUE_CONVERT?: number; B_VALUE_CONVERT?: number; TOKEN_CONVERT?: string }; // raw amounts + converted
+  }>;
+}> {
+  const connection = makeConnection();
+  const ctx = makeWhirlpoolContext();
+  const client = buildWhirlpoolClient(ctx);
+
+  const owner = new PublicKey(ownerStr);
+  const posMint = new PublicKey(positionMintStr);
+
+  // Derivar PDA da position e descobrir pool
+  const posPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, posMint).publicKey;
+  const positionAcc = await ctx.fetcher.getPosition(posPda);
+  if (!positionAcc) {
+    return {
+      metadata: {
+        pool: '',
+        positionPda: posPda.toBase58(),
+        tokenA: { mint: '', decimals: 0, ata: '', vault: '' },
+        tokenB: { mint: '', decimals: 0, ata: '', vault: '' },
+        owner: ownerStr,
+        tokenConvert: (tokenConvert && tokenConvert.trim().length > 0) ? tokenConvert : BASE_CURRENCY,
+      },
+      items: [],
+    };
+  }
+
+  const poolPk = positionAcc.whirlpool;
+  const pool = await client.getPool(poolPk);
+  const d = pool.getData();
+
+  const mintA = d.tokenMintA;
+  const mintB = d.tokenMintB;
+  const vaultA = d.tokenVaultA.toBase58();
+  const vaultB = d.tokenVaultB.toBase58();
+
+  const ataA = getAssociatedTokenAddressSync(mintA, owner).toBase58();
+  const ataB = getAssociatedTokenAddressSync(mintB, owner).toBase58();
+
+  // Debug dos endereços/mints envolvidos
+  console.log('🔎 [TRANSACTIONS DEBUG] Resolved pool and token addresses:', {
+    pool: poolPk.toBase58(),
+    positionPda: posPda.toBase58(),
+    tokenA: {
+      mint: mintA.toBase58(),
+      ata: ataA,
+      vault: vaultA,
+    },
+    tokenB: {
+      mint: mintB.toBase58(),
+      ata: ataB,
+      vault: vaultB,
+    },
+    owner: ownerStr,
+  });
+
+  const [decA, decB] = await Promise.all([
+    getMintDecimals(connection, mintA),
+    getMintDecimals(connection, mintB),
+  ]);
+
+  // Intervalo UTC
+  let startSec: number;
+  let endSec: number;
+  if (!startUtcIso || startUtcIso.trim() === '') {
+    startSec = parseUtcToEpochSeconds('1900-01-01T00:00:00Z');
+  } else {
+    startSec = parseUtcToEpochSeconds(startUtcIso);
+  }
+  if (!endUtcIso || endUtcIso.trim() === '') {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    endSec = Math.floor(tomorrow.getTime() / 1000);
+  } else {
+    endSec = parseUtcToEpochSeconds(endUtcIso);
+  }
+
+  // Helper para converter quantidade decimal (Helius) em raw BigInt
+  const decimalToRawBigInt = (val: any, decimals: number): bigint => {
+    if (typeof val === 'number') {
+      const [intPart, fracPart = ''] = String(val).split('.');
+      const frac = (fracPart + '0'.repeat(decimals)).slice(0, decimals);
+      return BigInt(intPart + frac);
+    }
+    const s = String(val);
+    if (!s.includes('.')) return BigInt(s) * BigInt(10) ** BigInt(decimals);
+    const [i, f] = s.split('.');
+    const frac = (f + '0'.repeat(decimals)).slice(0, decimals);
+    return BigInt(i + frac);
+  };
+
+  const requestedOps = new Set(
+    (operations && operations.length > 0
+      ? operations
+      : (['COLLECT_FEES','INCREASE_LIQUIDITY','DECREASE_LIQUIDITY','OPEN_POSITION'] as OnChainOperationsPositions[]))
+  );
+
+  const items: Array<{
+    signature: string;
+    datetimeUTC: string;
+    operation: OnChainOperationsPositions;
+    amounts: { A: string; B: string; A_VALUE_CONVERT?: number; B_VALUE_CONVERT?: number; TOKEN_CONVERT?: string };
+  }> = [];
+
+  // =====================
+  // Helius transactions
+  // =====================
+  const apiKey = process.env.HELIUS_API_KEY || '';
+  const baseUrl = process.env.HELIUS_REST_BASE || 'https://api.helius.xyz';
+
+  for (const op of requestedOps) {
+    const url = `${baseUrl}/v0/addresses/${ownerStr}/transactions?source=ORCA&type=${encodeURIComponent(op)}${apiKey ? `&api-key=${encodeURIComponent(apiKey)}` : ''}&limit=100`;
+    console.log('🔎 [TRANSACTIONS DEBUG] Helius request URL:', url);
+    const resp = await fetch(url);
+    if (!resp.ok) continue;
+    const txs = await resp.json() as any[];
+
+    for (const tx of txs) {
+      const ts = Number(tx.timestamp || 0);
+      if (ts && ts < startSec) continue;
+      if (ts && ts > endSec) continue;
+
+      // Log rápido por transação
+      if (tx?.signature) {
+        console.log('🔎 [TRANSACTIONS DEBUG] Processing tx:', {
+          signature: tx.signature,
+          op,
+          ts,
+          tokenTransfersCount: Array.isArray(tx.tokenTransfers) ? tx.tokenTransfers.length : 0,
+        });
+      }
+
+      // Agregação por token via tokenTransfers
+      let sumA: bigint = 0n;
+      let sumB: bigint = 0n;
+      const transfers: any[] = tx.tokenTransfers || [];
+
+      for (const tr of transfers) {
+        const mint = tr.mint as string | undefined;
+        const fromAcc = tr.fromTokenAccount as string | undefined;
+        const toAcc = tr.toTokenAccount as string | undefined;
+        const tokenAmount = tr.tokenAmount; // decimal
+
+        const isA = mint === mintA.toBase58();
+        const isB = mint === mintB.toBase58();
+
+        if (tokenAmount == null) continue;
+        const amtRaw = isA ? decimalToRawBigInt(tokenAmount, decA) : isB ? decimalToRawBigInt(tokenAmount, decB) : 0n;
+
+        // Restaurar filtros por contexto da operação para evitar contagens infladas
+        if (op === 'COLLECT_FEES' || op === 'DECREASE_LIQUIDITY') {
+          if (isA && fromAcc === vaultA) sumA += amtRaw;
+          if (isB && fromAcc === vaultB) sumB += amtRaw;
+        } else if (op === 'INCREASE_LIQUIDITY') {
+          if (isA && fromAcc === ataA) sumA += amtRaw;
+          if (isB && fromAcc === ataB) sumB += amtRaw;
+        } else if (op === 'OPEN_POSITION') {
+          // normalmente não há movimentação A/B relevante para owner
+        }
+      }
+
+      if (sumA > 0n || sumB > 0n) {
+
+        const base = (tokenConvert && tokenConvert.trim().length > 0) ? tokenConvert : BASE_CURRENCY;
+
+        const [priceA, priceB] = await Promise.all([
+          getPriceUSD(mintA.toBase58(), ts),
+          getPriceUSD(mintB.toBase58(), ts)
+        ]);
+        const aHuman = Number(sumA) / Math.pow(10, decA);
+        const bHuman = Number(sumB) / Math.pow(10, decB);
+        const aConverted = aHuman * priceA;
+        const bConverted = bHuman * priceB;
+        items.push({
+          signature: tx.signature,
+          datetimeUTC: new Date(ts * 1000).toISOString(),
+          operation: op,
+          amounts: {
+            A: sumA.toString(),
+            B: sumB.toString(),
+            A_VALUE_CONVERT: aConverted,
+            B_VALUE_CONVERT: bConverted,
+            TOKEN_CONVERT: base,
+          },
+        });
+      }
+    }
+  }
+
+  return {
+    metadata: {
+      pool: poolPk.toBase58(),
+      positionPda: posPda.toBase58(),
+      tokenA: { mint: mintA.toBase58(), decimals: decA, ata: ataA, vault: vaultA },
+      tokenB: { mint: mintB.toBase58(), decimals: decB, ata: ataB, vault: vaultB },
+      owner: ownerStr,
+      tokenConvert: (tokenConvert && tokenConvert.trim().length > 0) ? tokenConvert : BASE_CURRENCY,
+    },
+    items,
+  };
 }
 
 export async function getPositionsByOwner(connection: Connection, owner: string): Promise<any[]> {

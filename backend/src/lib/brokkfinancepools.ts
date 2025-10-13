@@ -9,145 +9,119 @@ import {
 import { Connection, PublicKey } from "@solana/web3.js";
 import { makeConnection, makeWhirlpoolContext } from './orca.js';
 
+
+const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 /* ================================
  * 0) ORACLE PRICE PROVIDER
  * ================================ */
 
-// Price Provider usando Helius API
-const HELIUS_PRICE_PROVIDER = {
-  async getCurrentPrice(mint: string, baseCurrency: string = 'USDT'): Promise<number> {
-    try {
-      // Se for a própria moeda base, retorna 1
-      if (mint === baseCurrency) {
-        return 1;
-      }
 
-      // Usar timestamp atual para preço atual
-      const currentTimestamp = Math.floor(Date.now() / 1000);
-      return await this.getHistoricalPrice(mint, currentTimestamp, baseCurrency);
-    } catch (error) {
-      console.error(`❌ Erro ao buscar preço atual para ${mint}:`, error);
-      return 1; // Default em caso de erro
-    }
-  },
-
-  // Função específica para buscar preços por par com data/hora
-  async getPriceByPair(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
-    try {
-      const ts = timestamp || Math.floor(Date.now() / 1000);
-      
-      // Buscar preços individuais
-      const [priceA, priceB] = await Promise.all([
-        this.getHistoricalPrice(tokenA, ts, 'USD'),
-        this.getHistoricalPrice(tokenB, ts, 'USD')
-      ]);
-
-      // Calcular preço do par (A/B)
-      const pairPrice = priceB > 0 ? priceA / priceB : 0;
-
-      return {
-        priceA,
-        priceB,
-        pairPrice
-      };
-    } catch (error) {
-      console.error(`❌ Erro ao buscar preço do par ${tokenA}/${tokenB}:`, error);
-      return { priceA: 1, priceB: 1, pairPrice: 1 };
-    }
-  },
-  
-  async getHistoricalPrice(mint: string, tsSec: number, baseCurrency: string = 'USDT'): Promise<number> {
-    try {
-      // Se for a própria moeda base, retorna 1
-      if (mint === baseCurrency) {
-        return 1;
-      }
-
-      // Obter API key da Helius do .env
-      const heliusApiKey = process.env.HELIUS_API_KEY;
-      if (!heliusApiKey) {
-        console.warn('⚠️ HELIUS_API_KEY não configurada, usando preço padrão');
-        return 1;
-      }
-
-      // Converter timestamp para formato ISO
-      const date = new Date(tsSec * 1000).toISOString();
-      
-      // Chamar API da Helius para preço histórico
-      const response = await fetch(`https://api.helius.xyz/v0/token-metadata?api-key=${heliusApiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mintAccounts: [mint],
-          includeOffChain: true,
-          disableCache: false
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Helius API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (data && data.length > 0 && data[0].offChainMetadata) {
-        const tokenData = data[0];
-        
-        // Tentar obter preço do Pyth (se disponível)
-        if (tokenData.offChainMetadata.pyth && tokenData.offChainMetadata.pyth.price) {
-          const pythPrice = tokenData.offChainMetadata.pyth.price;
-          console.log(`✅ Preço Pyth encontrado para ${mint}: ${pythPrice}`);
-          return pythPrice;
-        }
-        
-        // Tentar obter preço do Jupiter (se disponível)
-        if (tokenData.offChainMetadata.jupiter && tokenData.offChainMetadata.jupiter.price) {
-          const jupiterPrice = tokenData.offChainMetadata.jupiter.price;
-          console.log(`✅ Preço Jupiter encontrado para ${mint}: ${jupiterPrice}`);
-          return jupiterPrice;
-        }
-      }
-
-      // Fallback: usar API de preços da Helius
-      const priceResponse = await fetch(`https://api.helius.xyz/v0/token-prices?api-key=${heliusApiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mints: [mint]
-        })
-      });
-
-      if (priceResponse.ok) {
-        const priceData = await priceResponse.json();
-        if (priceData && priceData.length > 0 && priceData[0].price) {
-          const price = priceData[0].price;
-          console.log(`✅ Preço Helius encontrado para ${mint}: ${price}`);
-          return price;
-        }
-      }
-
-      console.warn(`⚠️ Preço não encontrado para ${mint} na Helius`);
-      return 1; // Default
-    } catch (error) {
-      console.error(`❌ Erro ao buscar preço histórico para ${mint}:`, error);
-      return 1; // Default em caso de erro
-    }
-  }
+// Mapeamento de tokens Solana para price accounts do Pyth
+const SOLANA_TO_PYTH_PRICE_ACCOUNT: Record<string, string> = {
+  'So11111111111111111111111111111111111111112': 'H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG', // SOL/USD
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': '3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL', // USDT/USD
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD', // USDC/USD
+  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': '8ihFLu5FimgTQ1Unh4dVyEHUGodJ5gJQCrQf4KUVB9bN', // BONK/USD
+  'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'E4v1BBgoso9s64TQvmy1AgaM3HYxi1GkmTqgXW8dmFf3', // MSOL/USD
+  '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB', // ETH/USD
+  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'g6eRCbboSwK4tSWngn773RCMexr1APQr4uA9bGZBYfo', // JUP/USD
 };
 
 // Função utilitária para buscar preços de um par específico
 export async function getPairPrice(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
-  return await HELIUS_PRICE_PROVIDER.getPriceByPair(tokenA, tokenB, timestamp);
+  const { getPairPricePyth } = await import('./CalculationPrice.js');
+  
+  // Usar o mesmo RPC configurado no projeto
+  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
+  const apiKey = process.env.HELIUS_API_KEY;
+  
+  let rpcUrl: string;
+  if (rpcProvider === 'helius') {
+    rpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
+  } else {
+    rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
+  }
+  
+  const priceAccountA = SOLANA_TO_PYTH_PRICE_ACCOUNT[tokenA];
+  const priceAccountB = SOLANA_TO_PYTH_PRICE_ACCOUNT[tokenB];
+  
+  if (!priceAccountA || !priceAccountB) {
+    console.warn(`⚠️ Price accounts Pyth não encontrados para ${tokenA} ou ${tokenB}`);
+    return { priceA: 0, priceB: 0, pairPrice: 0 };
+  }
+  
+  try {
+    const result = await getPairPricePyth(rpcUrl, priceAccountA, priceAccountB);
+    return {
+      priceA: result.aUSD,
+      priceB: result.bUSD,
+      pairPrice: result.priceAB
+    };
+  } catch (error) {
+    console.error(`❌ Erro ao buscar preço do par ${tokenA}/${tokenB}:`, error);
+    return { priceA: 0, priceB: 0, pairPrice: 0 };
+  }
 }
 
 // Função utilitária para buscar preço de um token específico
-export async function getTokenPrice(mint: string, baseCurrency: string = 'USD', timestamp?: number): Promise<number> {
-  const ts = timestamp || Math.floor(Date.now() / 1000);
-  return await HELIUS_PRICE_PROVIDER.getHistoricalPrice(mint, ts, baseCurrency);
+export async function getTokenPrice(tokenA: string, tokenB: string, timestamp: number): Promise<number> {
+  // Se tokenA e tokenB são iguais, retorna 1
+  if (tokenA === tokenB) {
+    return 1;
+  }
+  
+  // Buscar preços de ambos os tokens em USD via Pyth
+  const [priceA, priceB] = await Promise.all([
+    getTokenPriceUSD(tokenA, timestamp),
+    getTokenPriceUSD(tokenB, timestamp)
+  ]);
+  
+  // Se algum preço não foi encontrado, retorna 0
+  if (priceA === 0 || priceB === 0) {
+    console.warn(`⚠️ Preço não encontrado: tokenA=${tokenA} (${priceA}), tokenB=${tokenB} (${priceB})`);
+    return 0;
+  }
+  
+  // Retorna o preço de tokenA em termos de tokenB
+  return priceA / priceB;
+}
+
+// Função auxiliar para buscar preço de um token em USD
+async function getTokenPriceUSD(mint: string, timestamp: number): Promise<number> {
+  const { getPairPricePyth } = await import('./CalculationPrice.js');
+  
+  // Usar o mesmo RPC configurado no projeto
+  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
+  const apiKey = process.env.HELIUS_API_KEY;
+  
+  let rpcUrl: string;
+  if (rpcProvider === 'helius') {
+    rpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
+  } else {
+    rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
+  }
+  
+  const priceAccount = SOLANA_TO_PYTH_PRICE_ACCOUNT[mint];
+  if (!priceAccount) {
+    console.warn(`⚠️ Price account Pyth não encontrado para ${mint}`);
+    return 0;
+  }
+  
+  // USDT price account para conversão
+  const usdtPriceAccount = SOLANA_TO_PYTH_PRICE_ACCOUNT['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'];
+  
+  if (!usdtPriceAccount) {
+    console.warn(`⚠️ USDT price account não encontrado`);
+    return 0;
+  }
+  
+  try {
+    const result = await getPairPricePyth(rpcUrl, priceAccount, usdtPriceAccount);
+    return result.aUSD;
+  } catch (error) {
+    console.error(`❌ Erro ao buscar preço USD para ${mint}:`, error);
+    return 0;
+  }
 }
 
 // Função para formatar resposta do brokk-analytics
@@ -426,7 +400,7 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
   const {
     poolId, owner, positionId, startUtcIso, endUtcIso, showHistory = false,
     baseCurrency = 'USDT', // Moeda base padrão
-    priceProvider = HELIUS_PRICE_PROVIDER, // Usar Helius por padrão
+    priceProvider = undefined, // Não usar provider externo, usar Pyth diretamente
     preCalculatedOutstandingFees,
     preCalculatedCollectedFees,
     listOwnerPositionsInPool = defaultListOwnerPositionsInPool,       // stub
@@ -464,8 +438,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
   // Preço ATUAL (USDT) dos mints A/B — necessário para "Current USD", fees uncollected USD, etc.
   console.log(`💱 [DEBUG] Buscando preços atuais para tokens:`, { mintA, mintB });
   const [priceNowA, priceNowB] = await Promise.all([
-    priceProvider.getCurrentPrice(mintA, baseCurrency),
-    priceProvider.getCurrentPrice(mintB, baseCurrency),
+    getTokenPriceUSD(mintA, Math.floor(Date.now() / 1000)),
+    getTokenPriceUSD(mintB, Math.floor(Date.now() / 1000)),
   ]);
   console.log(`💰 [DEBUG] Preços encontrados:`, { 
     tokenA: { mint: mintA, price: priceNowA }, 
@@ -582,8 +556,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     if (!preCalculatedCollectedFees) {
       throw new Error(`Collected fees not provided for position ${posMint}`);
     }
-    console.log(`✅ [DEBUG] Usando fees coletadas pré-calculadas`);
-    collectedFees = preCalculatedCollectedFees;
+      console.log(`✅ [DEBUG] Usando fees coletadas pré-calculadas`);
+      collectedFees = preCalculatedCollectedFees;
     console.log(`💸 [DEBUG] Fees coletadas encontradas:`, {
       tokenA: collectedFees.totals.A,
       tokenB: collectedFees.totals.B
@@ -619,12 +593,12 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // Valuação simples ao preço atual (para snapshot); ideal: preço histórico por tx
     let unclaimedRewardsUsd = 0;
     for (const r of rewards.unclaimed) {
-      const p = await priceProvider.getCurrentPrice(r.mint, baseCurrency);
+      const p = await getTokenPriceUSD(r.mint, Math.floor(Date.now() / 1000));
       unclaimedRewardsUsd += Number(r.amountRaw) * p;
     }
     let claimedRewardsUsd = 0;
     for (const r of rewards.claimed) {
-      const p = await priceProvider.getHistoricalPrice(r.mint, r.ts, baseCurrency);
+      const p = await getTokenPriceUSD(r.mint, r.ts);
       claimedRewardsUsd += Number(r.amountRaw) * p;
     }
 
@@ -641,8 +615,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
       investBRaw += ev.tokenB;
       if (firstDepositTs === null || ev.ts < firstDepositTs) firstDepositTs = ev.ts;
       const [pa, pb] = await Promise.all([
-        priceProvider.getHistoricalPrice(mintA, ev.ts, baseCurrency),
-        priceProvider.getHistoricalPrice(mintB, ev.ts, baseCurrency),
+        getTokenPriceUSD(mintA, ev.ts),
+        getTokenPriceUSD(mintB, ev.ts),
       ]);
       investUsdAtDeposit += Number(ev.tokenA) * pa + Number(ev.tokenB) * pb;
     }
@@ -653,8 +627,8 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
       withdrawnARaw += ev.tokenA;
       withdrawnBRaw += ev.tokenB;
       const [pa, pb] = await Promise.all([
-        priceProvider.getHistoricalPrice(mintA, ev.ts, baseCurrency),
-        priceProvider.getHistoricalPrice(mintB, ev.ts, baseCurrency),
+        getTokenPriceUSD(mintA, ev.ts),
+        getTokenPriceUSD(mintB, ev.ts),
       ]);
       withdrawnUsd += Number(ev.tokenA) * pa + Number(ev.tokenB) * pb;
     }
@@ -662,7 +636,7 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // ===== (F) GAS COSTS =====
     const gasEvents = await getGasEvents(connection, poolId, owner, startTs, endTs, posMint);
     const totalLamports = gasEvents.reduce((acc, g) => acc + g.lamportsFee, 0n);
-    const solNowPrice = await priceProvider.getCurrentPrice("So11111111111111111111111111111111111111112", baseCurrency); // wSOL mint
+    const solNowPrice = await getTokenPriceUSD("So11111111111111111111111111111111111111112", Math.floor(Date.now() / 1000)); // wSOL mint
     const gasSOL = Number(totalLamports) / 1e9; // lamports → SOL
     const gasUSD = gasSOL * solNowPrice;
 
@@ -807,16 +781,179 @@ async function defaultListOwnerPositionsInPool(connection: Connection, pool: str
  *  Retornar tokenA/tokenB em RAW e timestamp de cada evento.
  */
 async function defaultGetLiquidityEvents(
-  _c: Connection,
-  _pool: string,
-  _positionMint: string,
-  _owner: string,
-  _startTs?: number,
-  _endTs?: number
+  connection: Connection,
+  pool: string,
+  positionMint: string,
+  owner: string,
+  startTs?: number,
+  endTs?: number
 ): Promise<LiquidityEvent[]> {
-  // TODO: usar getSignaturesForAddress(ATA do position NFT? ou scanning por instruções do programa)
-  // Dica: filtrar pelas ixs do programa Orca e decodificar os logs/inner ixs SPL Token.
+  try {
+    console.log(`🔍 [DEBUG] Buscando eventos de liquidez para posição: ${positionMint}`);
+    
+    // Buscar dados da pool para obter os mints dos tokens
+    const { makeWhirlpoolContext } = await import('./orca.js');
+    const { PublicKey } = await import('@solana/web3.js');
+    
+    const ctx = await makeWhirlpoolContext();
+    const poolPk = new PublicKey(pool);
+    const poolData = await ctx.fetcher.getPool(poolPk);
+    
+    if (!poolData) {
+      console.warn(`⚠️ [DEBUG] Pool data not found for pool: ${pool}`);
   return [];
+    }
+    
+    console.log(`🔍 [DEBUG] Pool data:`, {
+      tokenMintA: poolData.tokenMintA.toBase58(),
+      tokenMintB: poolData.tokenMintB.toBase58()
+    });
+    
+    // Buscar transações do owner que interagem com o programa Orca Whirlpools
+    const ownerPk = new PublicKey(owner);
+    const signatures = await connection.getSignaturesForAddress(ownerPk, {
+      limit: 1000
+    });
+    
+    const events: LiquidityEvent[] = [];
+    
+    for (const sig of signatures) {
+      const bt = sig.blockTime ?? null;
+      
+      // Filtrar por período se especificado
+      if (startTs && bt && bt < startTs) continue;
+      if (endTs && bt && bt > endTs) continue;
+      
+      try {
+        const tx = await connection.getParsedTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0,
+        });
+        
+        if (!tx || !tx.meta) continue;
+        
+        // Verificar se a transação interage com o Whirlpools Program
+        const hasOrcaIx = tx.transaction.message.accountKeys
+          .some(k => k.pubkey.toBase58() === ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
+        if (!hasOrcaIx) continue;
+        
+        // Verificar se envolve a posição específica (usar PDA da posição)
+        const accountKeys = tx.transaction.message.accountKeys.map(k => k.pubkey.toBase58());
+        
+        // Derivar PDA da posição a partir do NFT mint
+        const { PDAUtil } = await import('@orca-so/whirlpools-sdk');
+        const posMintPk = new PublicKey(positionMint);
+        const posPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, posMintPk).publicKey;
+        
+        if (!accountKeys.includes(posPda.toBase58())) continue;
+        
+        // Analisar logs para detectar increase/decrease
+        const logMessages = tx.meta.logMessages || [];
+        
+        // Detectar increase liquidity
+        if (logMessages.some(log => log.includes("Instruction: IncreaseLiquidity"))) {
+          console.log(`📈 [DEBUG] Found increase liquidity in transaction: ${sig.signature}`);
+          
+          // Analisar inner instructions para detectar transferências de tokens
+          const innerInstructions = tx.meta.innerInstructions || [];
+          let tokenAAmount = 0n;
+          let tokenBAmount = 0n;
+          
+          console.log(`🔍 [DEBUG] Analyzing inner instructions for increase liquidity in tx: ${sig.signature}`);
+          
+          for (const group of innerInstructions) {
+            for (const instruction of group.instructions as any[]) {
+              if (instruction.program === "spl-token" && instruction.parsed?.type === "transfer") {
+                const amount = BigInt(instruction.parsed.info.amount);
+                const source = instruction.parsed.info.source;
+                const destination = instruction.parsed.info.destination;
+                const mint = instruction.parsed.info.mint;
+                
+                console.log(`🔍 [DEBUG] Found transfer: ${amount} from ${source} to ${destination}, mint: ${mint}`);
+                
+                // Para increase liquidity, procuramos transferências que vão PARA a pool (vaults)
+                // ou que vêm DO owner (investimento)
+                if (source === owner || destination.includes('vault') || destination.includes('pool')) {
+                  // Determinar se é token A ou B baseado no mint
+                  if (mint) {
+                    // Comparar com os mints da pool para determinar qual é A ou B
+                    if (mint === poolData.tokenMintA.toBase58()) {
+                      tokenAAmount += amount;
+                      console.log(`🔍 [DEBUG] Token A amount: ${tokenAAmount}`);
+                    } else if (mint === poolData.tokenMintB.toBase58()) {
+                      tokenBAmount += amount;
+                      console.log(`🔍 [DEBUG] Token B amount: ${tokenBAmount}`);
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          if (tokenAAmount > 0n || tokenBAmount > 0n) {
+            events.push({
+              kind: "increase",
+              tokenA: tokenAAmount,
+              tokenB: tokenBAmount,
+              ts: bt || Math.floor(Date.now() / 1000),
+              sig: sig.signature
+            });
+          }
+        }
+        
+        // Detectar decrease liquidity
+        if (logMessages.some(log => log.includes("Instruction: DecreaseLiquidity"))) {
+          console.log(`📉 [DEBUG] Found decrease liquidity in transaction: ${sig.signature}`);
+          
+          // Similar logic for decrease
+          const innerInstructions = tx.meta.innerInstructions || [];
+          let tokenAAmount = 0n;
+          let tokenBAmount = 0n;
+          
+          for (const group of innerInstructions) {
+            for (const instruction of group.instructions as any[]) {
+              if (instruction.program === "spl-token" && instruction.parsed?.type === "transfer") {
+                const amount = BigInt(instruction.parsed.info.amount);
+                const destination = instruction.parsed.info.destination;
+                
+                // Verificar se é transferência para o owner (retirada)
+                if (destination === owner) {
+                  const mint = instruction.parsed.info.mint;
+                  if (mint) {
+                    if (tokenAAmount === 0n) {
+                      tokenAAmount = amount;
+                    } else if (tokenBAmount === 0n) {
+                      tokenBAmount = amount;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          if (tokenAAmount > 0n || tokenBAmount > 0n) {
+            events.push({
+              kind: "decrease",
+              tokenA: tokenAAmount,
+              tokenB: tokenBAmount,
+              ts: bt || Math.floor(Date.now() / 1000),
+              sig: sig.signature
+            });
+          }
+        }
+        
+      } catch (error) {
+        console.warn(`⚠️ [DEBUG] Error processing transaction ${sig.signature}:`, error);
+        continue;
+      }
+    }
+    
+    console.log(`📊 [DEBUG] Found ${events.length} liquidity events for position ${positionMint}`);
+    return events;
+    
+  } catch (error) {
+    console.warn('Error getting liquidity events:', error);
+  return [];
+  }
 }
 
 /** Soma fees de gas (lamports) nas txs relevantes (increase/decrease/collect/close).

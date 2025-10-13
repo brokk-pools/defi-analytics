@@ -27,6 +27,7 @@ import poolsDetailsRoutes from './routes/pools-details.js';
 import topPositionsRoutes from './routes/top-positions.js';
 import feesRoutes from './routes/fees.js';
 import brokkAnalyticsRoutes from './routes/brokk-analytics.js';
+import transactionsRoutes from './routes/transactions.js';
 
 dotenv.config();
 
@@ -85,6 +86,7 @@ app.use('/poolsdetails', poolsDetailsRoutes);
 app.use('/top-positions', topPositionsRoutes);
 app.use('/fees', feesRoutes);
 app.use('/brokk-analytics', brokkAnalyticsRoutes);
+app.use('/transactions', transactionsRoutes);
 
 // Health check endpoint with detailed status
 app.get('/health', (req, res) => {
