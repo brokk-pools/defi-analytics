@@ -46,6 +46,75 @@ export async function getTokenPrice(tokenA: string, tokenB: string, timestamp?: 
   return priceA / priceB;
 }
 
+// Função para calcular analytics usando GetInnerTransactionsFromPosition
+export async function calculateAnalyticsFromTransactions(
+  positionMint: string,
+  startUtcIso?: string,
+  endUtcIso?: string
+): Promise<{
+  investment: { A: number; B: number; A_USD: number; B_USD: number };
+  feesCollected: { A: number; B: number; A_USD: number; B_USD: number };
+  withdraw: { A: number; B: number; A_USD: number; B_USD: number };
+}> {
+  try {
+    // Buscar transações de INCREASE_LIQUIDITY (investment)
+    const investmentResult = await GetInnerTransactionsFromPosition(
+      positionMint,
+      ['INCREASE_LIQUIDITY'],
+      startUtcIso,
+      endUtcIso
+    );
+
+    // Buscar transações de COLLECT_FEES (fees collected)
+    const feesCollectedResult = await GetInnerTransactionsFromPosition(
+      positionMint,
+      ['COLLECT_FEES'],
+      startUtcIso,
+      endUtcIso
+    );
+
+    // Buscar transações de DECREASE_LIQUIDITY (withdraw)
+    const withdrawResult = await GetInnerTransactionsFromPosition(
+      positionMint,
+      ['DECREASE_LIQUIDITY'],
+      startUtcIso,
+      endUtcIso
+    );
+
+    // Calcular totais para investment
+    const investment = {
+      A: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
+      B: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+      A_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
+      B_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
+    };
+
+    // Calcular totais para fees collected
+    const feesCollected = {
+      A: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
+      B: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+      A_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
+      B_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
+    };
+
+    // Calcular totais para withdraw
+    const withdraw = {
+      A: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
+      B: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+      A_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
+      B_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
+    };
+
+    return {
+      investment,
+      feesCollected,
+      withdraw
+    };
+  } catch (error) {
+    console.error('❌ Error calculating analytics from transactions:', error);
+    throw error;
+  }
+}
 
 // Função para formatar resposta do brokk-analytics
 export function formatBrokkAnalyticsResponse(roiData: any, parameters: any): any {
@@ -441,33 +510,7 @@ export async function calculateAnalytics(
         const positionMint = (account.account.data as any)?.positionMint?.toString();
         if (!positionMint) return null;
         
-        // Calcular analytics diretamente
-        const [investmentResult, feesCollectedResult, withdrawResult] = await Promise.all([
-          GetInnerTransactionsFromPosition(positionMint, ['INCREASE_LIQUIDITY'], startUtcIso, endUtcIso),
-          GetInnerTransactionsFromPosition(positionMint, ['COLLECT_FEES'], startUtcIso, endUtcIso),
-          GetInnerTransactionsFromPosition(positionMint, ['DECREASE_LIQUIDITY'], startUtcIso, endUtcIso)
-        ]);
-
-        const analytics = {
-          investment: {
-            A: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-            B: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
-            A_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
-            B_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
-          },
-          feesCollected: {
-            A: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-            B: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
-            A_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
-            B_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
-          },
-          withdraw: {
-            A: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-            B: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
-            A_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
-            B_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
-          }
-        };
+        const analytics = await calculateAnalyticsFromTransactions(positionMint, startUtcIso, endUtcIso);
         const outstandingFees = await getOutstandingFeesForPosition(poolId, positionMint);
         
         const [priceA, priceB] = await Promise.all([

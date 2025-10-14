@@ -5,6 +5,34 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.8.0] - 2025-01-14
+
+### Adicionado
+- ✅ **Sistema de cache inteligente** para preços da CoinGecko API
+- ✅ **Cache em memória** com TTL configurável (5 minutos)
+- ✅ **Fallback automático** para cache expirado em caso de rate limits
+- ✅ **Tratamento de rate limits** (erro 429) com recuperação automática
+- ✅ **Logs detalhados** para monitoramento de performance do cache
+- ✅ **Chaves de cache inteligentes** separadas para preços atuais e históricos
+
+### Modificado
+- 🔄 **Migração completa** de Helius API para CoinGecko API
+- 🔄 **Função `getCurrentPrice()`** agora com sistema de cache integrado
+- 🔄 **Função `getHistoricalPrice()`** com cache para preços históricos
+- 🔄 **Tratamento de erros** melhorado com fallback para cache
+- 🔄 **Documentação atualizada** refletindo mudanças de API
+- 🔄 **Configuração simplificada** sem necessidade de chaves de API
+
+### Removido
+- ❌ **Dependência da Helius API** para preços
+- ❌ **Configuração HELIUS_API_KEY** do .env
+- ❌ **Referências à Helius** na documentação
+
+### Corrigido
+- 🐛 **Rate limit issues** resolvidos com sistema de cache
+- 🐛 **Falhas de preços** em caso de limite de API excedido
+- 🐛 **Performance** melhorada com cache inteligente
+
 ## [1.0.0] - 2024-01-11
 
 ### Adicionado

@@ -26,7 +26,7 @@ import poolsRoutes from './routes/pools.js';
 import poolsDetailsRoutes from './routes/pools-details.js';
 import topPositionsRoutes from './routes/top-positions.js';
 import feesRoutes from './routes/fees.js';
-import brokkAnalyticsRoutes from './routes/brokk-analytics.js';
+import analyticsRoutes from './routes/analytics.js';
 import transactionsRoutes from './routes/transactions.js';
 import populateTokensRoutes from './routes/populate-tokens-coingecko.js';
 
@@ -86,7 +86,7 @@ app.use('/pools', poolsRoutes);
 app.use('/poolsdetails', poolsDetailsRoutes);
 app.use('/top-positions', topPositionsRoutes);
 app.use('/fees', feesRoutes);
-app.use('/brokk-analytics', brokkAnalyticsRoutes);
+app.use('/analytics', analyticsRoutes);
 app.use('/transactions', transactionsRoutes);
 app.use('/populate-tokens-coingecko', populateTokensRoutes);
 
@@ -152,7 +152,7 @@ app.get('/', (req, res) => {
       topPositions: '/top-positions?limit=10',
       fees: '/fees/:poolId/:owner',
       feesLegacy: '/fees/position/:positionId/:poolId',
-      brokkAnalytics: '/brokk-analytics/:poolId/:owner',
+      analytics: '/analytics/:poolId/:owner',
       transactions: '/transactions/:owner/:positionMint',
       populateTokens: '/populate-tokens-coingecko',
     },
@@ -190,7 +190,7 @@ app.use((req, res) => {
       topPositions: '/top-positions?limit=10',
       fees: '/fees/:poolId/:owner',
       feesLegacy: '/fees/position/:positionId/:poolId',
-      brokkAnalytics: '/brokk-analytics/:poolId/:owner',
+      analytics: '/analytics/:poolId/:owner',
     }
   });
 });
@@ -239,7 +239,7 @@ async function startServer() {
         console.log(`🏆 Top positions: http://${HOST}:${PORT}/top-positions?limit=10`);
         console.log(`💰 Fees calculation: http://${HOST}:${PORT}/fees/:poolId/:owner`);
         console.log(`💰 Fees calculation (legacy): http://${HOST}:${PORT}/fees/position/:positionId/:poolId`);
-        console.log(`📊 Brokk Analytics: http://${HOST}:${PORT}/brokk-analytics/:poolId/:owner`);
+        console.log(`📊 Analytics: http://${HOST}:${PORT}/analytics/:poolId/:owner`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📈 Metrics: http://${HOST}:${PORT}/metrics`);
       }

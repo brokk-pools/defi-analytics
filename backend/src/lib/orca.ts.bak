@@ -17,25 +17,6 @@ import { getPriceUSD } from './CalculationPrice.js';
 
 const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
-// Constantes para cálculo de fees
-const Q64 = 2n ** 64n;
-
-// Funções auxiliares para cálculo de fees
-function toBN(value: any): bigint {
-  if (typeof value === 'bigint') return value;
-  if (typeof value === 'string') return BigInt(value);
-  if (typeof value === 'number') return BigInt(value);
-  if (value && typeof value === 'object' && value.toString) {
-    return BigInt(value.toString());
-  }
-  return BigInt(0);
-}
-
-function subMod(a: bigint, b: bigint): bigint {
-  const result = a - b;
-  return result < 0n ? result + (2n ** 128n) : result;
-}
-
 // Token Program 2022 address
 const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 
@@ -2426,37 +2407,24 @@ async function processPositionData(position: any): Promise<any> {
 
 // ============== Fees Calculation Functions ==============
 
+const Q64 = 1n << 64n;
+
+type BNLike = bigint | number | string;
+
+function toBN(x: BNLike): bigint {
+  return typeof x === 'bigint' ? x : BigInt(x);
+}
+
+function subMod(a: bigint, b: bigint): bigint {
+  // feeGrowth* são u128 em Q64.64; aqui ignoramos wrap/underflow por simplicidade
+  return a - b;
+}
+
 /**
  * Função para calcular fees pendentes de uma posição específica
  * Baseada no código fornecido pelo usuário
  */
 // Nova função que aceita apenas positionId e calcula fees diretamente
-// Nova função que aceita apenas positionId para fees coletadas
-export async function getCollectedFeesForPositionById(
-  positionPkStr: string,
-  startUtcIso?: string,
-  endUtcIso?: string
-): Promise<any> {
-  try {
-    console.log(`💰 Calculando fees coletadas para posição: ${positionPkStr}`);
-    
-    // Usar GetInnerTransactionsFromPosition diretamente
-    const transactionsResult = await GetInnerTransactionsFromPosition(
-      positionPkStr,
-      ['COLLECT_FEES'],
-      startUtcIso,
-      endUtcIso
-    );
-    
-    console.log(`✅ Fees coletadas calculadas com sucesso para posição: ${positionPkStr}`);
-    return transactionsResult;
-
-  } catch (error) {
-    console.error('❌ Error calculating collected fees by position ID:', error);
-    throw error;
-  }
-}
-
 export async function getOutstandingFeesForPositionById(
   positionPkStr: string
 ): Promise<any> {
@@ -2466,7 +2434,6 @@ export async function getOutstandingFeesForPositionById(
     const connection = makeConnection();
     const ctx = makeWhirlpoolContext();
     const client = buildWhirlpoolClient(ctx);
-    
 
     // Tentar determinar se positionPkStr é um NFT mint ou endereço da posição
     let posPk: PublicKey;
@@ -2488,96 +2455,13 @@ export async function getOutstandingFeesForPositionById(
     const position = await client.getPosition(positionPdaPk);
     const positionData = position.getData();
     
-    // Buscar a pool para obter os mints dos tokens
-    const pool = await client.getPool(positionData.whirlpool);
-    const poolData = pool.getData();
-    const poolPk = positionData.whirlpool;
-    const mintA = poolData.tokenMintA;
-    const mintB = poolData.tokenMintB;
-    
-    // Extrair dados da posição
-    const {
-      liquidity,
-      tickLowerIndex,
-      tickUpperIndex,
-      feeGrowthCheckpointA,
-      feeGrowthCheckpointB,
-      feeOwedA,
-      feeOwedB,
-    } = positionData;
-
-    const currentTick = poolData.tickCurrentIndex;
-
-    // ----- Carregar ticks lower/upper (pegando os TickArrays corretos)
-    function tickArrayStartFor(tickIndex: number, tickSpacing: number) {
-      const TICKS_PER_ARRAY = 88;
-      const span = tickSpacing * TICKS_PER_ARRAY;
-      return Math.floor(tickIndex / span) * span;
-    }
-
-    async function loadTick(tickIndex: number) {
-      const start = tickArrayStartFor(tickIndex, poolData.tickSpacing);
-      const { publicKey } = PDAUtil.getTickArrayFromTickIndex(
-        start,
-        poolData.tickSpacing,
-        poolPk,
-        ORCA_WHIRLPOOL_PROGRAM_ID
-      );
-      const tickArray = await client.getFetcher().getTickArray(publicKey);
-      if (!tickArray) throw new Error(`TickArray not initialized at start=${start}`);
-      const rel = (tickIndex - start) / poolData.tickSpacing; // 0..87
-      const tick = tickArray.ticks[rel];
-      if (!tick || !tick.initialized) {
-        // Se o tick não estiver inicializado, feeGrowthOutside = 0 por definição
-        return {
-          feeGrowthOutsideA: 0n,
-          feeGrowthOutsideB: 0n,
-        };
-      }
-      return {
-        feeGrowthOutsideA: toBN(tick.feeGrowthOutsideA),
-        feeGrowthOutsideB: toBN(tick.feeGrowthOutsideB),
-      };
-    }
-
-    const lower = await loadTick(tickLowerIndex);
-    const upper = await loadTick(tickUpperIndex);
-
-    // ----- feeGrowthInside para A e B (Q64.64, u128)
-    const gA = toBN(poolData.feeGrowthGlobalA);
-    const gB = toBN(poolData.feeGrowthGlobalB);
-
-    function inside(g: bigint, lo: bigint, up: bigint): bigint {
-      if (currentTick < tickLowerIndex) {
-        return subMod(lo, up);
-      } else if (currentTick >= tickUpperIndex) {
-        return subMod(up, lo);
-      } else {
-        return g - lo - up;
-      }
-    }
-
-    const insideA = inside(gA, lower.feeGrowthOutsideA, upper.feeGrowthOutsideA);
-    const insideB = inside(gB, lower.feeGrowthOutsideB, upper.feeGrowthOutsideB);
-
-    // ----- Cálculo dos fees a receber agora
-    const L = toBN(liquidity);
-    const checkA = toBN(feeGrowthCheckpointA);
-    const checkB = toBN(feeGrowthCheckpointB);
-
-    const deltaA = insideA - checkA; // Q64.64
-    const deltaB = insideB - checkB; // Q64.64
-
-    const variableA = (L * deltaA) / Q64;
-    const variableB = (L * deltaB) / Q64;
-
-    const owedA = toBN(feeOwedA) + (variableA < 0n ? 0n : variableA);
-    const owedB = toBN(feeOwedB) + (variableB < 0n ? 0n : variableB);
+    // Calcular fees pendentes diretamente da posição
+    const fees = await position.getOutstandingFees();
     
     // Buscar decimais dos tokens
     const [tokenInfoA, tokenInfoB] = await Promise.all([
-      connection.getParsedAccountInfo(mintA),
-      connection.getParsedAccountInfo(mintB)
+      connection.getParsedAccountInfo(positionData.tokenMintA),
+      connection.getParsedAccountInfo(positionData.tokenMintB)
     ]);
     
     const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
@@ -2585,12 +2469,12 @@ export async function getOutstandingFeesForPositionById(
 
     // Calcular preços atuais para USD
     const [priceA, priceB] = await Promise.all([
-      getPriceUSD(mintA.toBase58()),
-      getPriceUSD(mintB.toBase58())
+      getPriceUSD(positionData.tokenMintA.toBase58()),
+      getPriceUSD(positionData.tokenMintB.toBase58())
     ]);
     
-    const totalA_human = Number(owedA) / Math.pow(10, decA);
-    const totalB_human = Number(owedB) / Math.pow(10, decB);
+    const totalA_human = Number(fees.feeOwedA) / Math.pow(10, decA);
+    const totalB_human = Number(fees.feeOwedB) / Math.pow(10, decB);
     const totalA_USD = totalA_human * priceA;
     const totalB_USD = totalB_human * priceB;
 
@@ -2599,11 +2483,11 @@ export async function getOutstandingFeesForPositionById(
       method: 'getOutstandingFeesForPositionById',
       positionId: positionPkStr,
       positionAddress: positionPdaPk.toBase58(),
-      tokenA: { mint: mintA.toBase58(), decimals: decA },
-      tokenB: { mint: mintB.toBase58(), decimals: decB },
+      tokenA: { mint: positionData.tokenMintA.toBase58(), decimals: decA },
+      tokenB: { mint: positionData.tokenMintB.toBase58(), decimals: decB },
       totals: {
-        A: Number(owedA),
-        B: Number(owedB),
+        A: totalA_human,
+        B: totalB_human,
         A_USD: totalA_USD,
         B_USD: totalB_USD
       },
@@ -2650,14 +2534,130 @@ export async function getOutstandingFeesForPosition(
     const position = await client.getPosition(positionPdaPk);
     const positionData = position.getData();
     
-    // Buscar a pool para obter os mints dos tokens
-    const pool = await client.getPool(positionData.whirlpool);
-    const poolData = pool.getData();
-    const poolPk = positionData.whirlpool;
-    const mintA = poolData.tokenMintA;
-    const mintB = poolData.tokenMintB;
+    // Calcular fees pendentes diretamente da posição
+    const fees = await position.getOutstandingFees();
     
-    // Extrair dados da posição
+    // Buscar decimais dos tokens
+    const [tokenInfoA, tokenInfoB] = await Promise.all([
+      connection.getParsedAccountInfo(positionData.tokenMintA),
+      connection.getParsedAccountInfo(positionData.tokenMintB)
+    ]);
+    
+    const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
+    const decB = (tokenInfoB.value?.data as any)?.parsed?.info?.decimals || 6;
+
+    // Calcular preços atuais para USD
+    const [priceA, priceB] = await Promise.all([
+      getPriceUSD(positionData.tokenMintA.toBase58()),
+      getPriceUSD(positionData.tokenMintB.toBase58())
+    ]);
+    
+    const totalA_human = Number(fees.feeOwedA) / Math.pow(10, decA);
+    const totalB_human = Number(fees.feeOwedB) / Math.pow(10, decB);
+    const totalA_USD = totalA_human * priceA;
+    const totalB_USD = totalB_human * priceB;
+
+    const result = {
+      timestamp: new Date().toISOString(),
+      method: 'getOutstandingFeesForPosition',
+      positionId: positionPkStr,
+      positionAddress: positionPdaPk.toBase58(),
+      tokenA: { mint: positionData.tokenMintA.toBase58(), decimals: decA },
+      tokenB: { mint: positionData.tokenMintB.toBase58(), decimals: decB },
+      totals: {
+        A: totalA_human,
+        B: totalB_human,
+        A_USD: totalA_USD,
+        B_USD: totalB_USD
+      },
+      success: true
+    };
+
+    console.log(`✅ Fees pendentes calculadas com sucesso para posição: ${positionPkStr}`);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error calculating outstanding fees:', error);
+    throw error;
+  }
+}
+
+    
+    let pos;
+    try {
+      // Tentar buscar a posição diretamente
+      pos = await client.getFetcher().getPosition(posPk);
+      if (!pos) {
+        throw new Error("Position not found at direct address");
+      }
+      console.log(`✅ Posição encontrada diretamente: ${positionPkStr}`);
+    } catch (directError) {
+      console.log(`⚠️ Não foi possível encontrar posição diretamente, tentando buscar via NFT mint...`);
+      
+      // Se falhar, tentar buscar a posição usando a mesma lógica da rota position
+      try {
+        console.log(`🔍 Buscando posição via fetchPositionsForOwner para NFT mint: ${positionPkStr}`);
+        
+        // Usar a mesma abordagem que funciona em getPositionDetailsData
+        const { fetchPositionsForOwner } = await import('@orca-so/whirlpools');
+        const { address } = await import('@solana/kit');
+        
+        // Criar conexão RPC reutilizável
+        const { rpc } = await createRpcConnection();
+        
+        // Buscar em owners conhecidos (isso é uma limitação, mas funciona para o MVP)
+        const knownOwners = [
+          '6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY',
+          '2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc'
+        ];
+        
+        let foundPosition = null;
+        
+        for (const owner of knownOwners) {
+          try {
+            console.log(`🔍 Buscando posições para owner: ${owner}`);
+            const ownerAddress = address(owner);
+            const positions = await fetchPositionsForOwner(rpc, ownerAddress);
+            
+            if (positions && positions.length > 0) {
+              const targetPosition = positions.find((pos: any) => 
+                pos.data?.positionMint?.toString() === positionPkStr
+              );
+              
+              if (targetPosition) {
+                console.log(`✅ Posição encontrada para owner: ${owner}`);
+                foundPosition = targetPosition;
+                break;
+              }
+            }
+          } catch (ownerError) {
+            console.log(`⚠️ Erro ao buscar posições para owner ${owner}:`, ownerError);
+            continue;
+          }
+        }
+        
+        if (!foundPosition) {
+          throw new Error(`Position with mint ${positionPkStr} not found in any known owner`);
+        }
+        
+        // Usar o endereço da posição encontrada
+        posPk = new PublicKey(foundPosition.address.toString());
+        actualPositionPkStr = foundPosition.address.toString();
+        
+        console.log(`🔍 Usando endereço da posição encontrada: ${actualPositionPkStr}`);
+        
+        pos = await client.getFetcher().getPosition(posPk);
+        if (!pos) {
+          throw new Error("Position not found after fetching via owner search");
+        }
+        console.log(`✅ Posição encontrada via busca por owner`);
+        
+      } catch (searchError) {
+        console.log(`❌ Erro na busca por owner:`, searchError);
+        throw new Error(`Position not found. Tried direct address and owner search. Original: ${positionPkStr}. Search error: ${(searchError as Error).message}`);
+      }
+    }
+
     const {
       liquidity,
       tickLowerIndex,
@@ -2666,7 +2666,7 @@ export async function getOutstandingFeesForPosition(
       feeGrowthCheckpointB,
       feeOwedA,
       feeOwedB,
-    } = positionData;
+    } = pos;
 
     const currentTick = poolData.tickCurrentIndex;
 
@@ -2735,52 +2735,57 @@ export async function getOutstandingFeesForPosition(
 
     const owedA = toBN(feeOwedA) + (variableA < 0n ? 0n : variableA);
     const owedB = toBN(feeOwedB) + (variableB < 0n ? 0n : variableB);
-    
-    // Buscar decimais dos tokens
-    const [tokenInfoA, tokenInfoB] = await Promise.all([
-      connection.getParsedAccountInfo(mintA),
-      connection.getParsedAccountInfo(mintB)
-    ]);
-    
-    const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
-    const decB = (tokenInfoB.value?.data as any)?.parsed?.info?.decimals || 6;
-
-    // Calcular preços atuais para USD
-    const [priceA, priceB] = await Promise.all([
-      getPriceUSD(mintA.toBase58()),
-      getPriceUSD(mintB.toBase58())
-    ]);
-    
-    const totalA_human = Number(owedA) / Math.pow(10, decA);
-    const totalB_human = Number(owedB) / Math.pow(10, decB);
-    const totalA_USD = totalA_human * priceA;
-    const totalB_USD = totalB_human * priceB;
 
     const result = {
       timestamp: new Date().toISOString(),
       method: 'getOutstandingFeesForPosition',
-      positionId: positionPkStr,
-      positionAddress: positionPdaPk.toBase58(),
-      tokenA: { mint: mintA.toBase58(), decimals: decA },
-      tokenB: { mint: mintB.toBase58(), decimals: decB },
-      totals: {
-        A: totalA_human,
-        B: totalB_human,
-        A_USD: totalA_USD,
-        B_USD: totalB_USD
-      },
-      success: true
+      position: actualPositionPkStr,
+      originalPositionParam: positionPkStr,
+      pool: poolPkStr,
+      currentTick,
+      tickLowerIndex,
+      tickUpperIndex,
+      // tokens:
+      tokenMintA: poolData.tokenMintA.toBase58(),
+      tokenMintB: poolData.tokenMintB.toBase58(),
+      // fees pendentes (em unidades mínimas dos tokens):
+      feeOwedAOnChain: feeOwedA.toString(),
+      feeOwedBOnChain: feeOwedB.toString(),
+      feeOwedAComputedNow: owedA.toString(),
+      feeOwedBComputedNow: owedB.toString(),
+      // Informações adicionais para análise
+      liquidity: liquidity.toString(),
+      feeGrowthGlobalA: poolData.feeGrowthGlobalA.toString(),
+      feeGrowthGlobalB: poolData.feeGrowthGlobalB.toString(),
+      feeGrowthCheckpointA: feeGrowthCheckpointA.toString(),
+      feeGrowthCheckpointB: feeGrowthCheckpointB.toString(),
+      // Cálculos intermediários
+      calculations: {
+        feeGrowthInsideA: insideA.toString(),
+        feeGrowthInsideB: insideB.toString(),
+        deltaA: deltaA.toString(),
+        deltaB: deltaB.toString(),
+        variableA: variableA.toString(),
+        variableB: variableB.toString(),
+        tickLower: {
+          feeGrowthOutsideA: lower.feeGrowthOutsideA.toString(),
+          feeGrowthOutsideB: lower.feeGrowthOutsideB.toString()
+        },
+        tickUpper: {
+          feeGrowthOutsideA: upper.feeGrowthOutsideA.toString(),
+          feeGrowthOutsideB: upper.feeGrowthOutsideB.toString()
+        }
+      }
     };
 
-    console.log(`✅ Fees pendentes calculadas com sucesso para posição: ${positionPkStr}`);
+    console.log(`✅ Fees calculadas com sucesso para posição: ${positionPkStr}`);
     return result;
 
   } catch (error) {
-    console.error('❌ Error calculating outstanding fees:', error);
-    throw error;
+    console.error('❌ Erro ao calcular fees pendentes:', error);
+    throw new Error(`Failed to calculate outstanding fees: ${(error as Error).message}`);
   }
 }
-
 
 // ============== Fees Collected Functions ==============
 

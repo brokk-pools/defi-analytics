@@ -7,15 +7,21 @@ const router = Router();
 // Rota para buscar pools
 router.get('/', async (req, res) => {
   try {
-    const { poolId, sortBy, sortDirection } = req.query;
+    // Construir string de query parameters a partir de todos os parâmetros da requisição
+    const queryParams = new URLSearchParams();
+    
+    // Adicionar todos os parâmetros de query da requisição
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value as string);
+      }
+    });
+    
+    const queryString = queryParams.toString();
     
     logger.info('🔍 Buscando pools da Orca via API oficial...');
     
-    const data = await fetchPoolsFromOrcaAPI(
-      poolId as string, 
-      sortBy as string, 
-      sortDirection as string
-    );
+    const data = await fetchPoolsFromOrcaAPI(queryString);
     
     // A API da Orca v2 retorna { data: [...], meta: {...} }
     const pools = data.data || data;
@@ -27,10 +33,7 @@ router.get('/', async (req, res) => {
       source: 'https://api.orca.so/v2/solana/pools',
       totalPools: totalPools,
       hasMore: data.hasMore || false,
-      queryParams: {
-        sortBy: sortBy || null,
-        sortDirection: sortDirection || null
-      },
+      queryParams: queryString || null,
       data: pools
     };
     
@@ -51,15 +54,29 @@ router.get('/:poolId', async (req, res) => {
   try {
     const { poolId } = req.params;
     
+    // Construir string de query parameters incluindo o poolId como filtro
+    const queryParams = new URLSearchParams();
+    queryParams.append('address', poolId);
+    
+    // Adicionar outros parâmetros de query se existirem
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value as string);
+      }
+    });
+    
+    const queryString = queryParams.toString();
+    
     logger.info(`🔍 Buscando pool específica: ${poolId}`);
     
-    const data = await fetchPoolsFromOrcaAPI(poolId);
+    const data = await fetchPoolsFromOrcaAPI(queryString);
     
     const result = {
       timestamp: new Date().toISOString(),
       method: 'Orca API',
       source: `https://api.orca.so/v2/solana/pools`,
       totalPools: 1,
+      queryParams: queryString,
       data: data
     };
     

@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { calculatePoolROI } from '../lib/brokkfinancepools.js';
-import { getOutstandingFeesForPosition, feesCollectedInRange } from '../lib/orca.js';
+import { calculateAnalytics } from '../lib/brokkfinancepools.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
@@ -8,14 +7,14 @@ const router = Router();
 
 /**
  * Rota para análise financeira completa de um LP na Orca Whirlpools
- * GET /brokk-analytics/:poolId/:owner
+ * GET /analytics/:poolId/:owner
  */
 router.get('/:poolId/:owner', async (req, res) => {
   try {
     const { poolId, owner } = req.params;
-    const { positionId, startUtc, endUtc, showHistory } = req.query;
+    const { positionId, startUtc, endUtc } = req.query;
 
-    logger.info(`📊 Calculating pool ROI analytics for owner: ${owner} in pool: ${poolId}${positionId ? ` for position: ${positionId}` : ''}`);
+    logger.info(`📊 Calculating analytics for owner: ${owner} in pool: ${poolId}${positionId ? ` for position: ${positionId}` : ''}`);
 
     // Validar parâmetros obrigatórios
     if (!poolId || poolId.length < 32) {
@@ -36,7 +35,6 @@ router.get('/:poolId/:owner', async (req, res) => {
     const positionIdStr = positionId as string || undefined;
     const startUtcIso = startUtc as string || undefined;
     const endUtcIso = endUtc as string || undefined;
-    const showHistoryBool = showHistory === 'true';
 
     // Validar positionId se fornecido
     if (positionIdStr && positionIdStr.length < 32) {
@@ -67,65 +65,22 @@ router.get('/:poolId/:owner', async (req, res) => {
       }
     }
 
-    // Chamar as funções primeiro e armazenar os resultados
-    logger.info(`🔍 [DEBUG] Chamando getOutstandingFeesForPosition para pool: ${poolId}, position: ${positionIdStr || 'todas'}`);
-    let outstandingFeesResult = null;
-    if (positionIdStr) {
-      outstandingFeesResult = await getOutstandingFeesForPosition(poolId, positionIdStr);
-    }
-    // Se não há positionId específico, será calculado internamente no calculatePoolROI
-
-    logger.info(`📈 [DEBUG] Chamando feesCollectedInRange para pool: ${poolId}, owner: ${owner}`);
-    const collectedFeesResult = await feesCollectedInRange(
-      poolId, 
-      owner, 
-      startUtcIso, 
-      endUtcIso, 
-      showHistoryBool, 
-      positionIdStr || undefined
-    );
-
-    logger.info(`✅ [DEBUG] Resultados obtidos:`, {
-      outstandingFees: outstandingFeesResult ? 'OK' : 'Será calculado internamente',
-      collectedFees: 'OK'
-    });
-
-    // Calcular ROI da pool passando os resultados já calculados
-    const roiData = await calculatePoolROI({
+    // Calcular analytics usando a função centralizada
+    const analyticsData = await calculateAnalytics(
       poolId,
       owner,
-      positionId: positionIdStr || undefined,
+      positionIdStr,
       startUtcIso,
-      endUtcIso,
-      showHistory: showHistoryBool,
-      baseCurrency: 'USDT', // Moeda base padrão (pode ser configurável)
-      preCalculatedOutstandingFees: positionIdStr ? outstandingFeesResult : undefined,
-      preCalculatedCollectedFees: collectedFeesResult
-    });
+      endUtcIso
+    );
 
-    // Preparar resposta
-    const response = {
-      ...roiData,
-      success: true,
-      timestamp: new Date().toISOString(),
-      method: 'calculatePoolROI',
-      parameters: {
-        poolId,
-        owner,
-        positionId: positionIdStr || null,
-        startUtc: startUtcIso || null,
-        endUtc: endUtcIso || null,
-        showHistory: showHistoryBool,
-      }
-    };
-
-    res.json(response);
+    res.json(analyticsData);
 
   } catch (error: any) {
-    logger.error('❌ Error calculating pool ROI analytics:', error);
+    logger.error('❌ Error calculating analytics:', error);
 
     let errorResponse: any = {
-      error: 'Failed to calculate pool ROI analytics',
+      error: 'Failed to calculate analytics',
       message: error.message || 'Unknown error',
       timestamp: new Date().toISOString()
     };

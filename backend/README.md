@@ -1,11 +1,38 @@
 # 🐋 Orca Whirlpools Analytics Backend
 
-Backend completo para análise avançada de pools e posições do Orca Whirlpools na Solana, com integração de preços em tempo real via Helius API e análise financeira detalhada.
+Backend completo para análise avançada de pools e posições do Orca Whirlpools na Solana, com integração de preços em tempo real via CoinGecko API, sistema de cache inteligente e análise financeira detalhada.
 
 ## 📚 Documentação da API
 
 Para documentação completa da API com exemplos detalhados, parâmetros e respostas, consulte:
 **[📖 Documentação Completa da API](./README.md#-apis-e-endpoints)**
+
+### 🔗 Integração com API Original da Orca
+
+Este backend integra diretamente com a **API oficial da Orca** para fornecer dados atualizados e precisos. Para referência completa da API original, consulte:
+
+**[🌐 Documentação Oficial da API da Orca](https://api.orca.so/docs)**
+
+**Endpoints principais utilizados:**
+- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Lista de pools e dados de mercado
+- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Dados específicos de uma pool
+- **[Lock API](https://api.orca.so/docs#tag/whirlpools/get/lock/{address})** - Dados de lock e staking
+- **V2 API** - Dados atualizados de pools e estatísticas
+
+**Funcionalidades da integração:**
+- ✅ **Passagem transparente de parâmetros** - Todos os query parameters da API da Orca são suportados
+- ✅ **Fallback automático** - Em caso de erro, tenta novamente sem parâmetros
+- ✅ **Rate limiting** - Respeita os limites da API da Orca
+- ✅ **Cache inteligente** - Otimiza performance quando possível
+
+**Exemplo de uso com parâmetros da API da Orca:**
+```bash
+# Todos estes parâmetros são passados diretamente para a API da Orca
+curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc&stats=5m&includeBlocked=true&limit=10"
+
+# Para uma pool específica com parâmetros adicionais
+curl "http://localhost:3001/pools/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?stats=5m&includeBlocked=true"
+```
 
 ## 🎯 Visão Geral
 
@@ -21,7 +48,7 @@ Este backend fornece APIs RESTful para análise de dados do Orca Whirlpools, inc
 ### Pré-requisitos
 - **Node.js 20+** (recomendado 20.18.0+)
 - **PostgreSQL 14+** 
-- **Chave de API da Helius** (obrigatória para preços em tempo real)
+- **Conexão com internet** (para preços via CoinGecko API)
 - **Git** para clonagem do repositório
 
 ### Instalação Rápida
@@ -50,8 +77,8 @@ npm run dev
 # Database PostgreSQL
 DATABASE_URL=postgresql://username:password@localhost:5432/orca_whirlpools
 
-# Helius API (OBRIGATÓRIA para preços em tempo real)
-HELIUS_API_KEY=sua_chave_helius_aqui
+# CoinGecko API (automática, sem chave necessária)
+# Sistema de cache implementado para otimizar performance
 
 # ===========================================
 # CONFIGURAÇÕES DO SERVIDOR
@@ -88,30 +115,42 @@ curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4R
 
 **🎯 Pronto!** O servidor estará rodando em `http://localhost:3001` com todas as APIs disponíveis.
 
-## 🔑 Configuração da Helius API
+## 💰 Sistema de Preços e Cache
 
-### Por que usar a Helius API?
-- **Preços em tempo real** via Pyth e Jupiter
-- **Dados históricos** com timestamps específicos
-- **Rate limits generosos** para aplicações
-- **Integração nativa** com Solana
-- **Performance otimizada** para DeFi
+### Integração com CoinGecko API
 
-### Como obter uma chave:
-1. Acesse [helius.xyz](https://helius.xyz)
-2. Crie uma conta gratuita
-3. Gere uma API key
-4. Adicione no seu `.env`:
-   ```bash
-   HELIUS_API_KEY=sua_chave_aqui
-   ```
+O sistema utiliza a **CoinGecko API** para preços em tempo real com:
+- **Cache inteligente** com TTL de 5 minutos
+- **Fallback automático** em caso de rate limits
+- **Preços históricos** com suporte a datas específicas
+- **Resistência a falhas** com cache de emergência
 
-### Funcionalidades habilitadas com Helius:
+### Sistema de Cache
+
+**Características:**
+- ✅ **Cache em memória** com TTL configurável (5 minutos)
+- ✅ **Chaves inteligentes** separadas para preços atuais e históricos
+- ✅ **Fallback para cache expirado** quando API falha
+- ✅ **Logs detalhados** para monitoramento de performance
+- ✅ **Tratamento de rate limits** (erro 429) com recuperação automática
+
+**Configuração:**
+```typescript
+// Cache TTL: 5 minutos
+const CACHE_TTL = 5 * 60 * 1000;
+
+// Chaves de cache:
+// - Preços atuais: tokenAddress
+// - Preços históricos: tokenAddress_date
+```
+
+### Funcionalidades habilitadas:
 - ✅ **Preços em tempo real** para todos os tokens
 - ✅ **Análise histórica** com preços precisos
 - ✅ **Cálculo de ROI/APR** com dados reais
 - ✅ **Análise de impermanent loss**
 - ✅ **Métricas financeiras** em USD
+- ✅ **Performance otimizada** com cache
 
 ## 🚀 Funcionalidades
 
@@ -119,7 +158,7 @@ curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4R
 - **Dados completos de pools** com informações detalhadas de ticks e liquidez
 - **Análise de range** para visualizações de concentração de liquidez
 - **Estatísticas de liquidez** com métricas de distribuição
-- **Cálculo de preços precisos** via Helius API (Pyth/Jupiter)
+- **Cálculo de preços precisos** via CoinGecko API com cache inteligente
 - **Suporte a preços históricos** com timestamp específico
 - **Análise de pares** com cálculo de preços relativos
 
@@ -142,7 +181,7 @@ curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4R
 
 ### 🔄 Integração e Performance
 - **SDK oficial do Orca** para dados precisos e atualizados
-- **Helius API** para preços em tempo real e dados históricos
+- **CoinGecko API** para preços em tempo real com sistema de cache
 - **Conexão RPC otimizada** com suporte a múltiplos provedores
 - **Rate limiting** para proteção contra abuso
 - **Logs estruturados** para monitoramento e debugging
@@ -219,7 +258,7 @@ GET /liquidity/:owner?saveFile=true
 - **Posições:** lista de todas as posições com dados detalhados
 - **Estatísticas:** totais de liquidez, fees, posições ativas/inativas
 - **Análise de range:** posições dentro/fora do range atual
-- **Valores em USD:** calculados via Helius API
+- **Valores em USD:** calculados via CoinGecko API com cache
 - **Tick comparison:** dados para visualização de range
 
 **Exemplo:**
@@ -365,10 +404,15 @@ GET /pools/:poolId
 ```
 Busca dados de pools usando a API oficial da Orca.
 
+**Referência da API original:**
+- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Lista de pools
+- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Pool específica
+
 **Parâmetros:**
 - `sortBy` (opcional): Campo para ordenação (volume, liquidity, etc.)
 - `sortDirection` (opcional): `asc` ou `desc`
 - `poolId` (obrigatório para rota específica): ID da pool
+- **Todos os parâmetros da API da Orca** são suportados automaticamente
 
 #### Pool Details
 ```bash
