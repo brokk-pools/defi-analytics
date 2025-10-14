@@ -2500,8 +2500,19 @@ async function processPositionData(position: any): Promise<any> {
       tokenB: (BigInt(feeOwedB) + BigInt(feesPending.tokenB)).toString()
     };
 
+    // Calcular PositionAddress (PDA da posição)
+    let positionAddress = 'unknown';
+    try {
+      const positionMintPubkey = new PublicKey(positionMint);
+      const positionPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionMintPubkey);
+      positionAddress = positionPda.publicKey.toBase58();
+    } catch (error) {
+      console.warn(`⚠️ Erro ao calcular PositionAddress para ${positionMint}:`, error);
+    }
+
     return {
       positionMint: positionMint,
+      positionAddress: positionAddress,
       whirlpool: whirlpool,
       tickLowerIndex: tickLowerIndex,
       tickUpperIndex: tickUpperIndex,
