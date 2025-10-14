@@ -99,6 +99,12 @@ export async function GetInnerTransactionsFromPosition(
   const posMint = new PublicKey(positionMintStr);
 
   // Derivar PDA da position e descobrir pool
+  //Posicoes fechadas nao vem no SDK da Orca - Temos que ter outra abrdagem para posicoes fechadas
+
+  const posPda2 = PDAUtil.getPositionMetadata(posMint).publicKey;
+
+  console.log('🔍 PDA da position metadata:', posPda2.toBase58());
+
   const posPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, posMint).publicKey;
   const positionAcc = await ctx.fetcher.getPosition(posPda);
   if (!positionAcc) {
@@ -310,105 +316,6 @@ export async function GetInnerTransactionsFromPosition(
     },
     items,
   };
-}
-
-export async function getPositionsByOwner(connection: Connection, owner: string): Promise<any[]> {
-  try {
-    const ownerPubkey = new PublicKey(owner);
-    const client = makeWhirlpoolClient();
-    
-    console.log(`🔍 Searching for positions for wallet: ${owner}`);
-    
-    // Use getProgramAccounts to find all position accounts
-    // First, get all position accounts (216 bytes)
-    const positionAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
-      filters: [
-        {
-          dataSize: 216, // Position account size
-        },
-      ],
-    });
-    
-    console.log(`📊 Found ${positionAccounts.length} total position accounts`);
-    
-    // Filter by owner manually (since we need to check the owner field)
-    const ownerPositionAccounts = positionAccounts.filter(account => {
-      try {
-        // The owner field is at offset 8-40 (32 bytes) in the position account
-        const ownerBytes = account.account.data.slice(8, 40);
-        const accountOwner = new PublicKey(ownerBytes);
-        return accountOwner.equals(ownerPubkey);
-      } catch (error) {
-        return false;
-      }
-    });
-    
-    console.log(`📊 Found ${ownerPositionAccounts.length} position accounts for owner`);
-    
-    const positions = [];
-    
-    // Process each position account
-    for (const account of ownerPositionAccounts) {
-      try {
-        const positionAddress = account.pubkey.toString();
-        console.log(`🔍 Processing position account: ${positionAddress}`);
-        
-        // Try to get position data using SDK (may fail for closed positions)
-        let positionData = null;
-        let mint = null;
-        
-        try {
-          const position = await client.getPosition(account.pubkey);
-          if (position) {
-            positionData = position.getData();
-            // Get the position mint from the position data
-            mint = positionData.positionMint?.toString();
-            console.log(`✅ Found active position: ${mint} at ${positionAddress}`);
-          }
-        } catch (sdkError) {
-          console.log(`⚠️ Position ${positionAddress} exists but SDK can't fetch (likely closed): ${sdkError}`);
-          
-          // For closed positions, we need to derive the mint from the position address
-          // The position PDA is derived from the mint, so we need to reverse-engineer it
-          // This is complex, so we'll use a placeholder for now
-          mint = `closed-${positionAddress.slice(0, 8)}`;
-        }
-        
-        // Add position even if SDK can't fetch it (closed positions)
-          positions.push({
-          mint: mint || `unknown-${positionAddress.slice(0, 8)}`,
-          positionAddress: positionAddress,
-          whirlpool: positionData?.whirlpool?.toString() || 'unknown',
-          tickLowerIndex: positionData?.tickLowerIndex || 0,
-          tickUpperIndex: positionData?.tickUpperIndex || 0,
-          liquidity: positionData?.liquidity?.toString() || '0',
-          feeGrowthCheckpointA: positionData?.feeGrowthCheckpointA?.toString() || '0',
-          feeGrowthCheckpointB: positionData?.feeGrowthCheckpointB?.toString() || '0',
-          feeOwedA: positionData?.feeOwedA?.toString() || '0',
-          feeOwedB: positionData?.feeOwedB?.toString() || '0',
-          isClosed: !positionData, // Flag to indicate if position is closed
-          rewardInfos: positionData?.rewardInfos?.map((reward, index) => ({
-            index,
-            rewardMint: "unknown",
-            rewardVault: "unknown", 
-            authority: "unknown",
-          })) || []
-        });
-        
-      } catch (error) {
-        console.log(`⚠️ Error processing position account ${account.pubkey.toString()}:`, error);
-        // Continue processing other positions
-        continue;
-      }
-    }
-    
-    console.log(`🌊 Found ${positions.length} Orca Whirlpool positions`);
-    return positions;
-    
-  } catch (error) {
-    console.error('Error in getPositionsByOwner:', error);
-    return [];
-  }
 }
 
 export async function getPositionData(connection: Connection, positionMint: string): Promise<any> {
@@ -723,57 +630,8 @@ export async function getLiquidityOverview(owner: string) {
     const activePositionsFromSDK = await fetchPositionsForOwner(rpc, ownerAddress);
     console.log(`📊 Encontradas ${activePositionsFromSDK?.length || 0} posições ativas`);
 
-    // Buscar TODAS as posições (incluindo fechadas) usando getProgramAccounts
-    const allPositions = await getPositionsByOwner(connection, owner);
-    console.log(`📊 Encontradas ${allPositions?.length || 0} posições totais (incluindo fechadas)`);
-    
-    // Debug: verificar se há posições fechadas
-    if (allPositions && allPositions.length > 0) {
-      console.log(`🔍 Posições encontradas por getPositionsByOwner:`, allPositions.map(p => ({ mint: p.mint, isClosed: p.isClosed })));
-    }
-    
-    // Nota: Posições fechadas podem não aparecer mais no programa Orca
-    // pois são deletadas quando a liquidez é removida completamente
-    console.log(`ℹ️ Nota: Posições fechadas podem não aparecer se foram deletadas do programa`);
-
-    // Combinar posições ativas e todas as posições, removendo duplicatas
-    const combinedPositions = [...(activePositionsFromSDK || [])];
-    
-    // Adicionar posições que não estão nas ativas (posições fechadas/zero liquidez)
-    for (const allPos of allPositions || []) {
-      console.log(`🔍 Verificando posição: ${allPos.mint} (isClosed: ${allPos.isClosed})`);
-      
-      const isAlreadyIncluded = activePositionsFromSDK?.some(activePos => {
-        const activeMint = 'positionMint' in activePos.data ? activePos.data.positionMint?.toString() : null;
-        const isMatch = activeMint === allPos.mint;
-        console.log(`🔍 Comparando: ${activeMint} === ${allPos.mint} = ${isMatch}`);
-        return isMatch;
-      });
-      
-      console.log(`🔍 Posição ${allPos.mint} já incluída: ${isAlreadyIncluded}`);
-      
-      if (!isAlreadyIncluded) {
-        console.log(`✅ Adicionando posição fechada: ${allPos.mint}`);
-        // Converter formato de getPositionsByOwner para formato esperado
-        combinedPositions.push({
-          data: {
-            positionMint: allPos.mint,
-            whirlpool: allPos.whirlpool,
-            tickLowerIndex: allPos.tickLowerIndex,
-            tickUpperIndex: allPos.tickUpperIndex,
-            liquidity: allPos.liquidity,
-            feeOwedA: allPos.feeOwedA,
-            feeOwedB: allPos.feeOwedB
-          }
-        } as any);
-      }
-    }
-
-    const positions = combinedPositions;
-    console.log(`📊 Total de posições combinadas: ${positions?.length || 0}`);
-
     // Processar posições para obter informações básicas
-    const processedPositions = await Promise.all((positions || []).map(async (position: any) => {
+    const processedPositions = await Promise.all((activePositionsFromSDK || []).map(async (position: any) => {
       try {
         console.log('🔍 Processando posição completa:', {
           address: position.address?.toString(),
@@ -1026,26 +884,6 @@ export async function getLiquidityOverview(owner: string) {
         out_of_range_positions: outOfRangePositions.length,
         active_percentage: processedPositions.length > 0 ? 
           ((activePositionsFiltered.length / processedPositions.length) * 100).toFixed(2) + '%' : '0%',
-        total_whirlpool_fees: {
-          collected: {
-            tokenA: totalFeesCollectedA.toString(),
-            tokenB: totalFeesCollectedB.toString()
-          },
-          pending: {
-            tokenA: totalFeesPendingA.toString(),
-            tokenB: totalFeesPendingB.toString()
-          },
-          total: {
-            tokenA: (totalFeesCollectedA + totalFeesPendingA).toString(),
-            tokenB: (totalFeesCollectedB + totalFeesPendingB).toString()
-          }
-        },
-        total_whirlpool_rewards: {
-          totalRewardsOwed: totalRewardsOwed.toString(),
-          positionsWithRewards: positionsWithRewards,
-          rewardsPercentage: processedPositions.length > 0 ? 
-            ((positionsWithRewards / processedPositions.length) * 100).toFixed(2) + '%' : '0%'
-        },
         total_whirlpool_liquidity: totalLiquidity.toString(),
         average_liquidity: processedPositions.length > 0 ? 
           (totalLiquidity / BigInt(processedPositions.length)).toString() : '0'
