@@ -28,6 +28,7 @@ import topPositionsRoutes from './routes/top-positions.js';
 import feesRoutes from './routes/fees.js';
 import analyticsRoutes from './routes/analytics.js';
 import transactionsRoutes from './routes/transactions.js';
+import gasRoutes from './routes/gas.js';
 import populateTokensRoutes from './routes/populate-tokens-coingecko.js';
 
 dotenv.config();
@@ -88,6 +89,7 @@ app.use('/top-positions', topPositionsRoutes);
 app.use('/fees', feesRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/transactions', transactionsRoutes);
+app.use('/gas', gasRoutes);
 app.use('/populate-tokens-coingecko', populateTokensRoutes);
 
 // Health check endpoint with detailed status

@@ -86,6 +86,88 @@ export function getProgramId(): PublicKey {
 }
 
 /**
+ * Calcula o total de taxas de transação (gas) pagas em interações da posição com o programa Orca.
+ * - Soma tx.meta.fee (lamports) apenas de transações que interagem com ORCA_WHIRLPOOL_PROGRAM_ID
+ * - Converte para SOL e USD (usando preço atual do SOL via CoinGecko)
+ * - Se showHistory=true, retorna histórico por assinatura com fee individual
+ */
+export async function GetGasInPosition(positionId: string, showHistory: boolean = false) {
+  const connection = makeConnection();
+  const positionKey = new PublicKey(positionId);
+
+  const signatures = await connection.getSignaturesForAddress(positionKey, { limit: 1000 });
+
+  let totalLamports = 0n;
+  const historyItems: Array<{
+    signature: string;
+    slot: number | null;
+    datetimeUTC: string | null;
+    feeLamports: number;
+    feeSol: number;
+  }> = [];
+
+  for (const sig of signatures) {
+    const tx = await connection.getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
+    if (!tx?.meta) continue;
+
+    // Compatível com mensagens versionadas (MessageV0) e não-versionadas
+    let programKeyStrs: string[] = [];
+    try {
+      const msg: any = tx.transaction.message as any;
+      if (typeof msg.getAccountKeys === 'function') {
+        const keysObj = msg.getAccountKeys();
+        const staticKeys: PublicKey[] = keysObj.staticAccountKeys || [];
+        const writable: PublicKey[] = keysObj.writableKeys || [];
+        const readonlyArr: PublicKey[] = keysObj.readonlyKeys || [];
+        programKeyStrs = [...staticKeys, ...writable, ...readonlyArr].map((k: PublicKey) => k.toBase58());
+      } else if (Array.isArray((msg as any).accountKeys)) {
+        programKeyStrs = (msg as any).accountKeys.map((k: any) => (k.pubkey ? k.pubkey.toBase58() : k.toBase58()));
+      }
+    } catch {
+      // ignore
+    }
+    const hasOrca = programKeyStrs.includes(ORCA_WHIRLPOOL_PROGRAM_ID.toBase58());
+    if (!hasOrca) continue;
+
+    const feeLamports = BigInt(tx.meta.fee ?? 0);
+    totalLamports += feeLamports;
+
+    if (showHistory) {
+      const feeSol = Number(feeLamports) / 1_000_000_000;
+      historyItems.push({
+        signature: sig.signature,
+        slot: (tx as any).slot ?? null,
+        datetimeUTC: tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null,
+        feeLamports: Number(feeLamports),
+        feeSol,
+      });
+    }
+  }
+
+  const totalFeeLamports = Number(totalLamports);
+  const totalFeeSol = totalFeeLamports / 1_000_000_000;
+
+  // Preço do SOL em USD
+  const SOL_MINT = 'So11111111111111111111111111111111111111112';
+  const solUsd = await getPriceUSD(SOL_MINT);
+  const totalFeeUSD = totalFeeSol * solUsd;
+
+  const result: any = {
+    position: positionId,
+    signatures: signatures.length,
+    totalFeeLamports,
+    totalFeeSol,
+    totalFeeUSD,
+  };
+
+  if (showHistory) {
+    result.history = historyItems;
+  }
+
+  return result;
+}
+
+/**
  * Scaneia transações do owner relacionadas a uma position específica
  * e retorna uma lista de operações (CollectFees/Increase/Decrease/OpenPosition)
  * com somatórios por token A/B. Calcula internamente pool, vaults e ATAs.
