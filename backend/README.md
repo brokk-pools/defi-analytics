@@ -7,6 +7,14 @@ Backend completo para análise avançada de pools e posições do Orca Whirlpool
 Para documentação completa da API com exemplos detalhados, parâmetros e respostas, consulte:
 **[📖 Documentação Completa da API](./README.md#-apis-e-endpoints)**
 
+### 🧪 Coleção Postman
+
+Para facilitar os testes locais, utilize a coleção do Postman disponível no repositório:
+
+- [postman/Brokk-local.postman_collection.json](./postman/Brokk-local.postman_collection.json)
+
+Importe este arquivo no Postman para ter acesso a todas as rotas com exemplos prontos.
+
 ### 🔗 Integração com API Original da Orca
 
 Este backend integra diretamente com a **API oficial da Orca** para fornecer dados atualizados e precisos. Para referência completa da API original, consulte:
