@@ -3280,3 +3280,83 @@ export async function feesCollectedInRange(
     throw new Error(`Failed to calculate collected fees: ${(error as Error).message}`);
   }
 }
+
+/**
+ * Retorna todos os TickArrays e seus dados para uma Pool específica.
+ * @param poolId - Endereço da Whirlpool
+ */
+export async function GetTickData(poolId: string): Promise<any> {
+  try {
+    console.log(`🔍 Buscando dados dos TickArrays para pool: ${poolId}`);
+    
+    const connection = makeConnection();
+    const ctx = makeWhirlpoolContext();
+    const whirlpoolPk = new PublicKey(poolId);
+
+    // 1️⃣ Buscar dados da pool (tickSpacing, preço atual, etc)
+    const poolData = await ctx.fetcher.getPool(whirlpoolPk);
+    if (!poolData) {
+      throw new Error("Pool não encontrada.");
+    }
+
+    const tickSpacing = poolData.tickSpacing;
+    const tickCurrent = poolData.tickCurrentIndex;
+    const TICK_ARRAY_SIZE = 88;
+
+    console.log(`📊 Pool encontrada - tickSpacing: ${tickSpacing}, tickCurrent: ${tickCurrent}`);
+
+    // 2️⃣ Calcular os limites aproximados da pool
+    // Em geral, a Orca permite ticks entre [-443636, 443636]
+    const MIN_TICK_INDEX = -443636;
+    const MAX_TICK_INDEX = 443636;
+
+    // 3️⃣ Calcular todos os startTickIndexes possíveis
+    const tickArrays: any[] = [];
+    let processedArrays = 0;
+    
+    for (let startTick = MIN_TICK_INDEX; startTick <= MAX_TICK_INDEX; startTick += tickSpacing * TICK_ARRAY_SIZE) {
+      // Deriva o PDA do TickArray
+      const tickArrayPda = PDAUtil.getTickArray(
+        ctx.program.programId,
+        whirlpoolPk,
+        startTick
+      );
+
+      // Busca o TickArray (caso exista)
+      const tickArrayData = await ctx.fetcher.getTickArray(tickArrayPda.publicKey);
+
+      if (tickArrayData) {
+        tickArrays.push({
+          startTickIndex: tickArrayData.startTickIndex,
+          whirlpool: tickArrayData.whirlpool.toString(),
+          ticks: tickArrayData.ticks.map((t, index) => ({
+            tickIndex: tickArrayData.startTickIndex + index,
+            liquidityNet: t.liquidityNet.toString(),
+            liquidityGross: t.liquidityGross.toString()
+          }))
+        });
+      }
+      
+      processedArrays++;
+      if (processedArrays % 100 === 0) {
+        console.log(`🔍 Processados ${processedArrays} TickArrays, encontrados ${tickArrays.length} com dados`);
+      }
+    }
+
+    console.log(`✅ Busca concluída - ${tickArrays.length} TickArrays encontrados de ${processedArrays} processados`);
+
+    // 4️⃣ Retornar um JSON consolidado
+    return {
+      pool: poolId,
+      tickSpacing,
+      tickCurrentIndex: tickCurrent,
+      totalArrays: tickArrays.length,
+      processedArrays,
+      tickArrays
+    };
+
+  } catch (error) {
+    console.error('❌ Error fetching TickArray data:', error);
+    throw new Error(`Failed to fetch TickArray data: ${(error as Error).message}`);
+  }
+}

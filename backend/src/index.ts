@@ -29,6 +29,7 @@ import feesRoutes from './routes/fees.js';
 import analyticsRoutes from './routes/analytics.js';
 import transactionsRoutes from './routes/transactions.js';
 import gasRoutes from './routes/gas.js';
+import tickarrayRoutes from './routes/tickarray.js';
 import populateTokensRoutes from './routes/populate-tokens-coingecko.js';
 
 dotenv.config();
@@ -90,6 +91,7 @@ app.use('/fees', feesRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/transactions', transactionsRoutes);
 app.use('/gas', gasRoutes);
+app.use('/tickarray', tickarrayRoutes);
 app.use('/populate-tokens-coingecko', populateTokensRoutes);
 
 // Health check endpoint with detailed status
@@ -156,6 +158,8 @@ app.get('/', (req, res) => {
       feesLegacy: '/fees/position/:positionId/:poolId',
       analytics: '/analytics/:poolId/:owner',
       transactions: '/transactions/:owner/:positionMint',
+      gas: '/gas/:positionId',
+      tickarray: '/tickarray/:poolId',
       populateTokens: '/populate-tokens-coingecko',
     },
     documentation: 'https://docs.orca.so/',
