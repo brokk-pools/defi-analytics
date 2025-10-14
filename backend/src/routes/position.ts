@@ -19,8 +19,9 @@ const router = Router();
 router.get('/:nftMint', async (req: Request, res: Response) => {
   try {
     const { nftMint } = req.params;
+    const { showTicks } = req.query;
     
-    logger.info(`📍 Buscando dados da posição: ${nftMint}`);
+    logger.info(`📍 Buscando dados da posição: ${nftMint}, showTicks: ${showTicks}`);
     
     if (!nftMint) {
       return res.status(400).json({
@@ -29,8 +30,11 @@ router.get('/:nftMint', async (req: Request, res: Response) => {
       });
     }
     
+    // Converter showTicks para boolean
+    const showTicksFlag = showTicks === 'true';
+    
     // Usar função centralizada do orca.ts para toda a lógica de negócio
-    const response = await getPositionDetailsData(nftMint);
+    const response = await getPositionDetailsData(nftMint, showTicksFlag);
     
     logger.info(`✅ Dados da posição obtidos com sucesso: ${nftMint}`);
     res.json(response);

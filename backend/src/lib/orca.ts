@@ -1583,7 +1583,7 @@ export async function getTokenMetadataFromRegistry(mint: string): Promise<{ symb
  * Centraliza toda a lógica de negócio para a rota position
  * Retorna exatamente o mesmo formato que a rota de liquidez
  */
-export async function getPositionDetailsData(nftMint: string): Promise<any> {
+export async function getPositionDetailsData(nftMint: string, showTicks: boolean = false): Promise<any> {
   try {
     // Validar NFT mint
     if (!nftMint || nftMint.length < 32) {
@@ -1633,7 +1633,7 @@ export async function getPositionDetailsData(nftMint: string): Promise<any> {
       };
       
       // Processar a posição usando a mesma lógica de getLiquidityOverview
-      const processedPosition = await processPositionData(targetPosition);
+      const processedPosition = await processPositionData(targetPosition, showTicks);
       
       // Preparar resposta no mesmo formato da rota de liquidez
       const response = {
@@ -1968,7 +1968,7 @@ export async function getPositionDetailsData(nftMint: string): Promise<any> {
       };
       
       // Processar a posição usando a mesma lógica de getLiquidityOverview
-      const processedPosition = await processPositionData(targetPosition);
+      const processedPosition = await processPositionData(targetPosition, showTicks);
       
       // Preparar resposta no mesmo formato da rota de liquidez
       const response = {
@@ -2388,7 +2388,7 @@ async function processPositionDataFromRaw(position: any): Promise<any> {
  * Função auxiliar para processar dados de uma posição
  * Usa a mesma lógica de getLiquidityOverview
  */
-async function processPositionData(position: any): Promise<any> {
+async function processPositionData(position: any, showTicks: boolean = false): Promise<any> {
   try {
     const positionMint = position.data.positionMint?.toString();
     const whirlpool = position.data.whirlpool?.toString();
@@ -2510,7 +2510,66 @@ async function processPositionData(position: any): Promise<any> {
       console.warn(`⚠️ Erro ao calcular PositionAddress para ${positionMint}:`, error);
     }
 
-    return {
+    // Buscar dados detalhados dos ticks se solicitado
+    let ticksData = null;
+    if (showTicks && whirlpool && whirlpool !== 'unknown') {
+      try {
+        console.log(`🔍 Buscando dados detalhados dos ticks para pool: ${whirlpool}`);
+        const poolResponse = await getFullPoolData(whirlpool, true, 0); // Incluir ticks
+        
+        // Verificar se a resposta tem a estrutura esperada
+        if (poolResponse && typeof poolResponse === 'object' && 'ticksAroundCurrent' in poolResponse) {
+          const ticksAroundCurrent = (poolResponse as any).ticksAroundCurrent || [];
+          const mainData = (poolResponse as any).main;
+          
+          ticksData = {
+            currentTick: mainData?.tickCurrentIndex || currentTick,
+            tickSpacing: mainData?.tickSpacing || 64,
+            ticksAroundCurrent: ticksAroundCurrent.map((tick: any) => ({
+              tickIndex: tick.tickIndex,
+              liquidityNet: tick.liquidityNet?.toString() || '0',
+              liquidityGross: tick.liquidityGross?.toString() || '0',
+              feeGrowthOutsideA: tick.feeGrowthOutsideA?.toString() || '0',
+              feeGrowthOutsideB: tick.feeGrowthOutsideB?.toString() || '0',
+              rewardGrowthsOutside: tick.rewardGrowthsOutside?.map((reward: any) => ({
+                growthOutside: reward.growthOutside?.toString() || '0'
+              })) || []
+            })),
+            positionRange: {
+              lowerTick: {
+                tickIndex: tickLowerIndex,
+                liquidityNet: '0', // Seria calculado se necessário
+                liquidityGross: '0',
+                feeGrowthOutsideA: '0',
+                feeGrowthOutsideB: '0'
+              },
+              upperTick: {
+                tickIndex: tickUpperIndex,
+                liquidityNet: '0', // Seria calculado se necessário
+                liquidityGross: '0',
+                feeGrowthOutsideA: '0',
+                feeGrowthOutsideB: '0'
+              }
+            }
+          };
+          console.log(`✅ Dados dos ticks obtidos com sucesso: ${ticksData.ticksAroundCurrent.length} ticks`);
+        } else {
+          console.warn(`⚠️ Resposta da pool não contém dados de ticks:`, poolResponse);
+          ticksData = {
+            error: 'No ticks data available',
+            message: 'Pool response does not contain ticks data'
+          };
+        }
+      } catch (ticksError) {
+        console.warn(`⚠️ Erro ao buscar dados dos ticks para pool ${whirlpool}:`, ticksError);
+        ticksData = {
+          error: 'Failed to fetch ticks data',
+          message: (ticksError as Error).message
+        };
+      }
+    }
+
+    const result: any = {
       positionMint: positionMint,
       positionAddress: positionAddress,
       whirlpool: whirlpool,
@@ -2523,6 +2582,13 @@ async function processPositionData(position: any): Promise<any> {
       tickComparison: tickComparison,
       lastUpdated: new Date().toISOString()
     };
+
+    // Adicionar dados dos ticks se solicitado
+    if (showTicks) {
+      result.ticksData = ticksData;
+    }
+
+    return result;
     
   } catch (error) {
     console.error('Error processing position data:', error);
