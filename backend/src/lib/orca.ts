@@ -771,6 +771,7 @@ export async function getLiquidityOverview(owner: string) {
           console.warn('⚠️ Posição sem positionMint:', position);
   return {
             positionMint: 'unknown',
+            positionAddress: 'unknown',
             whirlpool: whirlpool || 'unknown',
             tickLowerIndex: tickLowerIndex || 0,
             tickUpperIndex: tickUpperIndex || 0,
@@ -882,9 +883,20 @@ export async function getLiquidityOverview(owner: string) {
           tokenB: (BigInt(feeOwedB) + BigInt(feesPending.tokenB)).toString()
         };
 
+        // Calcular PositionAddress (PDA da posição)
+        let positionAddress = 'unknown';
+        try {
+          const positionMintPubkey = new PublicKey(positionMint);
+          const positionPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionMintPubkey);
+          positionAddress = positionPda.publicKey.toBase58();
+        } catch (error) {
+          console.warn(`⚠️ Erro ao calcular PositionAddress para ${positionMint}:`, error);
+        }
+
         // Retornar dados completos da posição
         return {
           positionMint: positionMint,
+          positionAddress: positionAddress,
           whirlpool: whirlpool || 'unknown',
           tickLowerIndex: tickLowerIndex || 0,
           tickUpperIndex: tickUpperIndex || 0,
@@ -899,6 +911,7 @@ export async function getLiquidityOverview(owner: string) {
         console.warn(`⚠️ Erro ao processar posição:`, error);
         return {
           positionMint: 'unknown',
+          positionAddress: 'unknown',
           whirlpool: 'unknown',
           tickLowerIndex: 0,
           tickUpperIndex: 0,
