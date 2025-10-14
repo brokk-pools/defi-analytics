@@ -86,6 +86,18 @@ export async function getCurrentPrice(tokenAddress: string): Promise<number> {
  */
 export async function getHistoricalPrice(tokenAddress: string, date: string): Promise<number> {
   try {
+    // Verificar se a data fornecida é igual à data atual
+    const currentDate = new Date();
+    const currentDay = String(currentDate.getDate()).padStart(2, '0');
+    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const currentYear = currentDate.getFullYear();
+    const currentDateString = `${currentDay}-${currentMonth}-${currentYear}`;
+    
+    if (date === currentDateString) {
+      console.log(`📅 Data fornecida (${date}) é igual à data atual, usando getCurrentPrice`);
+      return await getCurrentPrice(tokenAddress);
+    }
+    
     // Buscar o ID do CoinGecko na tabela token_metadata
     const coingeckoId = await getCoinGeckoId(tokenAddress);
     if (!coingeckoId) {
