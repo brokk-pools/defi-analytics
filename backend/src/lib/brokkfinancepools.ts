@@ -16,61 +16,22 @@ const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
  * ================================ */
 
 
-// Mapeamento de tokens Solana para price accounts do Pyth
-const SOLANA_TO_PYTH_PRICE_ACCOUNT: Record<string, string> = {
-  'So11111111111111111111111111111111111111112': 'H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG', // SOL/USD
-  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': '3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL', // USDT/USD
-  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD', // USDC/USD
-  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': '8ihFLu5FimgTQ1Unh4dVyEHUGodJ5gJQCrQf4KUVB9bN', // BONK/USD
-  'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'E4v1BBgoso9s64TQvmy1AgaM3HYxi1GkmTqgXW8dmFf3', // MSOL/USD
-  '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB', // ETH/USD
-  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'g6eRCbboSwK4tSWngn773RCMexr1APQr4uA9bGZBYfo', // JUP/USD
-};
+// Removido - agora está centralizado no CalculationPrice.ts
 
-// Função utilitária para buscar preços de um par específico
-export async function getPairPrice(tokenA: string, tokenB: string, timestamp?: number): Promise<{ priceA: number; priceB: number; pairPrice: number }> {
-  const { getPairPricePyth } = await import('./CalculationPrice.js');
-  
-  // Usar o mesmo RPC configurado no projeto
-  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
-  const apiKey = process.env.HELIUS_API_KEY;
-  
-  let rpcUrl: string;
-  if (rpcProvider === 'helius') {
-    rpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
-  } else {
-    rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
-  }
-  
-  const priceAccountA = SOLANA_TO_PYTH_PRICE_ACCOUNT[tokenA];
-  const priceAccountB = SOLANA_TO_PYTH_PRICE_ACCOUNT[tokenB];
-  
-  if (!priceAccountA || !priceAccountB) {
-    console.warn(`⚠️ Price accounts Pyth não encontrados para ${tokenA} ou ${tokenB}`);
-    return { priceA: 0, priceB: 0, pairPrice: 0 };
-  }
-  
-  try {
-    const result = await getPairPricePyth(rpcUrl, priceAccountA, priceAccountB);
-    return {
-      priceA: result.aUSD,
-      priceB: result.bUSD,
-      pairPrice: result.priceAB
-    };
-  } catch (error) {
-    console.error(`❌ Erro ao buscar preço do par ${tokenA}/${tokenB}:`, error);
-    return { priceA: 0, priceB: 0, pairPrice: 0 };
-  }
+// Função utilitária para buscar preço de um token em USD via CoinGecko
+export async function getTokenPriceUSD(mint: string, timestamp?: number): Promise<number> {
+  const { getPriceUSD } = await import('./CalculationPrice.js');
+  return await getPriceUSD(mint, timestamp);
 }
 
-// Função utilitária para buscar preço de um token específico
-export async function getTokenPrice(tokenA: string, tokenB: string, timestamp: number): Promise<number> {
+// Função utilitária para buscar preço de um token específico em relação a outro
+export async function getTokenPrice(tokenA: string, tokenB: string, timestamp?: number): Promise<number> {
   // Se tokenA e tokenB são iguais, retorna 1
   if (tokenA === tokenB) {
     return 1;
   }
   
-  // Buscar preços de ambos os tokens em USD via Pyth
+  // Buscar preços de ambos os tokens em USD via CoinGecko
   const [priceA, priceB] = await Promise.all([
     getTokenPriceUSD(tokenA, timestamp),
     getTokenPriceUSD(tokenB, timestamp)
@@ -84,44 +45,6 @@ export async function getTokenPrice(tokenA: string, tokenB: string, timestamp: n
   
   // Retorna o preço de tokenA em termos de tokenB
   return priceA / priceB;
-}
-
-// Função auxiliar para buscar preço de um token em USD
-async function getTokenPriceUSD(mint: string, timestamp: number): Promise<number> {
-  const { getPairPricePyth } = await import('./CalculationPrice.js');
-  
-  // Usar o mesmo RPC configurado no projeto
-  const rpcProvider = process.env.RPC_PROVIDER || 'helius';
-  const apiKey = process.env.HELIUS_API_KEY;
-  
-  let rpcUrl: string;
-  if (rpcProvider === 'helius') {
-    rpcUrl = apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : 'https://api.mainnet-beta.solana.com';
-  } else {
-    rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
-  }
-  
-  const priceAccount = SOLANA_TO_PYTH_PRICE_ACCOUNT[mint];
-  if (!priceAccount) {
-    console.warn(`⚠️ Price account Pyth não encontrado para ${mint}`);
-    return 0;
-  }
-  
-  // USDT price account para conversão
-  const usdtPriceAccount = SOLANA_TO_PYTH_PRICE_ACCOUNT['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'];
-  
-  if (!usdtPriceAccount) {
-    console.warn(`⚠️ USDT price account não encontrado`);
-    return 0;
-  }
-  
-  try {
-    const result = await getPairPricePyth(rpcUrl, priceAccount, usdtPriceAccount);
-    return result.aUSD;
-  } catch (error) {
-    console.error(`❌ Erro ao buscar preço USD para ${mint}:`, error);
-    return 0;
-  }
 }
 
 // Função para formatar resposta do brokk-analytics
