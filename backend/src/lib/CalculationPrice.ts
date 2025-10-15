@@ -1,8 +1,11 @@
 import { db } from './db.js';
 
-// Cache simples para preços (TTL: 5 minutos)
+// Cache simples para preços (TTL: 10 minutos)
 const priceCache = new Map<string, { price: number; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos em millisegundos
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutos em millisegundos
+
+// Cache de requisições em andamento para evitar chamadas duplicadas
+const pendingRequests = new Map<string, Promise<number>>();
 
 interface CoinGeckoCurrentPrice {
   [coingeckoId: string]: {
@@ -57,43 +60,23 @@ export async function getCurrentPrice(tokenAddress: string): Promise<number> {
       return cached.price;
     }
     
-    // Buscar o ID do CoinGecko na tabela token_metadata
-    const coingeckoId = await getCoinGeckoId(tokenAddress);
-    if (!coingeckoId) {
-      return 0;
+    // Verificar se já existe uma requisição em andamento para este token
+    if (pendingRequests.has(tokenAddress)) {
+      console.log(`⏳ Aguardando requisição em andamento para ${tokenAddress}`);
+      return await pendingRequests.get(tokenAddress)!;
     }
     
-    // Buscar preço atual na API do CoinGecko
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
-    );
+    // Criar nova requisição
+    const requestPromise = fetchCurrentPrice(tokenAddress);
+    pendingRequests.set(tokenAddress, requestPromise);
     
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.warn(`⚠️ Rate limit excedido na CoinGecko. Usando cache se disponível.`);
-        // Se temos cache antigo, usar ele mesmo expirado
-        if (cached) {
-          console.log(`📦 Usando cache expirado para ${tokenAddress}: $${cached.price}`);
-          return cached.price;
-        }
-      }
-      throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+    try {
+      const price = await requestPromise;
+      return price;
+    } finally {
+      // Limpar a requisição pendente
+      pendingRequests.delete(tokenAddress);
     }
-    
-    const data: CoinGeckoCurrentPrice = await response.json();
-    
-    if (!data[coingeckoId] || !data[coingeckoId].usd) {
-      console.warn(`⚠️ Preço não encontrado para ${coingeckoId} na API do CoinGecko`);
-      return 0;
-    }
-    
-    const price = data[coingeckoId].usd;
-    
-    // Salvar no cache
-    priceCache.set(tokenAddress, { price, timestamp: Date.now() });
-    
-    console.log(`✅ Preço atual ${coingeckoId}: $${price} (salvo no cache)`);
-    return price;
     
   } catch (error) {
     console.error(`❌ Erro ao buscar preço atual para ${tokenAddress}:`, error);
@@ -107,6 +90,51 @@ export async function getCurrentPrice(tokenAddress: string): Promise<number> {
     
     return 0;
   }
+}
+
+async function fetchCurrentPrice(tokenAddress: string): Promise<number> {
+  // Buscar o ID do CoinGecko na tabela token_metadata
+  const coingeckoId = await getCoinGeckoId(tokenAddress);
+  if (!coingeckoId) {
+    return 0;
+  }
+  
+  // Buscar preço atual na API do CoinGecko
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
+  );
+  
+  if (!response.ok) {
+    if (response.status === 429) {
+      console.warn(`⚠️ Rate limit excedido na CoinGecko. Usando cache se disponível.`);
+      // Se temos cache antigo, usar ele mesmo expirado
+      const cached = priceCache.get(tokenAddress);
+      if (cached) {
+        console.log(`📦 Usando cache expirado para ${tokenAddress}: $${cached.price}`);
+        return cached.price;
+      }
+      // Se não temos cache, aguardar um pouco e tentar novamente
+      console.log(`⏳ Aguardando 2 segundos antes de retornar 0...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return 0;
+    }
+    throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+  }
+  
+  const data: CoinGeckoCurrentPrice = await response.json();
+  
+  if (!data[coingeckoId] || !data[coingeckoId].usd) {
+    console.warn(`⚠️ Preço não encontrado para ${coingeckoId} na API do CoinGecko`);
+    return 0;
+  }
+  
+  const price = data[coingeckoId].usd;
+  
+  // Salvar no cache
+  priceCache.set(tokenAddress, { price, timestamp: Date.now() });
+  
+  console.log(`✅ Preço atual ${coingeckoId}: $${price} (salvo no cache)`);
+  return price;
 }
 
 /**
@@ -137,43 +165,23 @@ export async function getHistoricalPrice(tokenAddress: string, date: string): Pr
       return cached.price;
     }
     
-    // Buscar o ID do CoinGecko na tabela token_metadata
-    const coingeckoId = await getCoinGeckoId(tokenAddress);
-    if (!coingeckoId) {
-      return 0;
+    // Verificar se já existe uma requisição em andamento para este token+data
+    if (pendingRequests.has(cacheKey)) {
+      console.log(`⏳ Aguardando requisição histórica em andamento para ${tokenAddress} em ${date}`);
+      return await pendingRequests.get(cacheKey)!;
     }
     
-    // Buscar preço histórico na API do CoinGecko
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${date}`
-    );
+    // Criar nova requisição
+    const requestPromise = fetchHistoricalPrice(tokenAddress, date, cacheKey);
+    pendingRequests.set(cacheKey, requestPromise);
     
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.warn(`⚠️ Rate limit excedido na CoinGecko para preço histórico. Usando cache se disponível.`);
-        // Se temos cache antigo, usar ele mesmo expirado
-        if (cached) {
-          console.log(`📦 Usando cache histórico expirado para ${tokenAddress} em ${date}: $${cached.price}`);
-          return cached.price;
-        }
-      }
-      throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+    try {
+      const price = await requestPromise;
+      return price;
+    } finally {
+      // Limpar a requisição pendente
+      pendingRequests.delete(cacheKey);
     }
-    
-    const data: CoinGeckoHistoricalPrice = await response.json();
-    
-    if (!data.market_data || !data.market_data.current_price || !data.market_data.current_price.usd) {
-      console.warn(`⚠️ Preço histórico não encontrado para ${coingeckoId} na data ${date}`);
-      return 0;
-    }
-    
-    const price = data.market_data.current_price.usd;
-    
-    // Salvar no cache
-    priceCache.set(cacheKey, { price, timestamp: Date.now() });
-    
-    console.log(`✅ Preço histórico ${coingeckoId} em ${date}: $${price} (salvo no cache)`);
-    return price;
     
   } catch (error) {
     console.error(`❌ Erro ao buscar preço histórico para ${tokenAddress} em ${date}:`, error);
@@ -188,6 +196,51 @@ export async function getHistoricalPrice(tokenAddress: string, date: string): Pr
     
     return 0;
   }
+}
+
+async function fetchHistoricalPrice(tokenAddress: string, date: string, cacheKey: string): Promise<number> {
+  // Buscar o ID do CoinGecko na tabela token_metadata
+  const coingeckoId = await getCoinGeckoId(tokenAddress);
+  if (!coingeckoId) {
+    return 0;
+  }
+  
+  // Buscar preço histórico na API do CoinGecko
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/coins/${coingeckoId}/history?date=${date}`
+  );
+  
+  if (!response.ok) {
+    if (response.status === 429) {
+      console.warn(`⚠️ Rate limit excedido na CoinGecko para preço histórico. Usando cache se disponível.`);
+      // Se temos cache antigo, usar ele mesmo expirado
+      const cached = priceCache.get(cacheKey);
+      if (cached) {
+        console.log(`📦 Usando cache histórico expirado para ${tokenAddress} em ${date}: $${cached.price}`);
+        return cached.price;
+      }
+      // Se não temos cache, aguardar um pouco e tentar novamente
+      console.log(`⏳ Aguardando 3 segundos antes de retornar 0...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return 0;
+    }
+    throw new Error(`Erro na API do CoinGecko: ${response.status} ${response.statusText}`);
+  }
+  
+  const data: CoinGeckoHistoricalPrice = await response.json();
+  
+  if (!data.market_data || !data.market_data.current_price || !data.market_data.current_price.usd) {
+    console.warn(`⚠️ Preço histórico não encontrado para ${coingeckoId} na data ${date}`);
+    return 0;
+  }
+  
+  const price = data.market_data.current_price.usd;
+  
+  // Salvar no cache
+  priceCache.set(cacheKey, { price, timestamp: Date.now() });
+  
+  console.log(`✅ Preço histórico ${coingeckoId} em ${date}: $${price} (salvo no cache)`);
+  return price;
 }
 
 /**

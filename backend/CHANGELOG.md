@@ -5,6 +5,33 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.9.0] - 2025-01-15
+
+### Adicionado
+- ✅ **Nova rota `/tickarray/:poolId`** para buscar dados dos TickArrays usando RPC direto
+- ✅ **Função `GetTickData()`** implementada em `orca.ts` com parse direto dos dados
+- ✅ **Integração de gas real** na rota `/analytics` via `GetGasInPosition`
+- ✅ **Sistema de requisições pendentes** para evitar chamadas duplicadas à CoinGecko API
+- ✅ **Cache melhorado** com TTL de 10 minutos e fallback inteligente
+- ✅ **Documentação atualizada** com novas rotas e funcionalidades
+
+### Modificado
+- 🔄 **Função `processPositionDataFromRaw()`** agora usa RPC direto em vez do SDK
+- 🔄 **Sistema de cache de preços** otimizado com prevenção de chamadas duplicadas
+- 🔄 **Rota `/analytics`** agora retorna dados reais de gas em vez de valores zerados
+- 🔄 **Coleção Postman** atualizada com novas rotas e parâmetros corrigidos
+- 🔄 **README.md** expandido com documentação completa das novas funcionalidades
+
+### Removido
+- ❌ **Parâmetro `showTicks`** da rota `/position` (implementação removida)
+- ❌ **Dependência do SDK** para busca de dados de pool em `processPositionDataFromRaw`
+- ❌ **Valores zerados de gas** na rota `/analytics`
+
+### Corrigido
+- 🐛 **Erros de compilação** relacionados a tipos TypeScript
+- 🐛 **Rate limits da CoinGecko API** com sistema de cache robusto
+- 🐛 **Chamadas duplicadas** para APIs externas com sistema de requisições pendentes
+
 ## [1.8.0] - 2025-01-14
 
 ### Adicionado

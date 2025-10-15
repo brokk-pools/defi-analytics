@@ -492,6 +492,74 @@ Retorna as principais posições por volume ou liquidez.
 **Parâmetros:**
 - `limit` (opcional): Número de posições a retornar (padrão: 10)
 
+#### 🎯 TickArray Data
+```bash
+GET /tickarray/:poolId
+```
+**Descrição:** Retorna dados completos dos TickArrays de uma pool específica usando RPC direto.
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da Whirlpool
+
+**Dados Retornados:**
+- `pool`: Endereço da pool
+- `totalArrays`: Número total de TickArrays encontrados
+- `tickArrays`: Array com dados de cada TickArray
+  - `address`: Endereço do TickArray
+  - `startTickIndex`: Índice inicial do tick
+  - `whirlpool`: Endereço da pool associada
+  - `ticksCount`: Número de ticks com liquidez
+  - `ticks`: Array de ticks com dados detalhados
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"
+```
+
+#### ⛽ Gas Calculation
+```bash
+GET /gas/:positionId?showHistory=false
+```
+**Descrição:** Calcula o total de gas fees para uma posição específica.
+
+**Parâmetros:**
+- `positionId` (obrigatório): Endereço do NFT da posição
+- `showHistory` (opcional): Se `true`, retorna histórico detalhado de transações
+
+**Dados Retornados:**
+- `totalFeeLamports`: Total de fees em lamports
+- `totalFeeSol`: Total de fees em SOL
+- `totalFeeUSD`: Total de fees em USD
+- `history` (se `showHistory=true`): Array com detalhes de cada transação
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+```
+
+#### 📊 Analytics
+```bash
+GET /analytics/:poolId/:owner?positionId=POSITION_MINT
+```
+**Descrição:** Análise financeira completa de posições com dados de gas reais.
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool
+- `owner` (obrigatório): Endereço do proprietário
+- `positionId` (opcional): NFT mint da posição específica
+
+**Dados Retornados:**
+- `investment`: Dados de investimento inicial
+- `feesCollected`: Taxas coletadas
+- `feesUncollected`: Taxas pendentes
+- `withdraw`: Valores sacados
+- `gas`: **Dados reais de gas** calculados via `GetGasInPosition`
+
+**Exemplo:**
+```bash
+curl "http://localhost:3001/analytics/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?positionId=G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+```
+
 #### Webhook (Helius)
 ```bash
 POST /webhook/helius

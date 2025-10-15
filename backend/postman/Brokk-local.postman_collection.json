@@ -1,0 +1,318 @@
+{
+	"info": {
+		"_postman_id": "41bf2147-86e4-4eb2-b2a4-ccaf353e92e6",
+		"name": "Brokk-local",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "116877"
+	},
+	"item": [
+		{
+			"name": "wallet",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"wallet",
+						"6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "liquidity",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"liquidity",
+						"6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "position",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/position/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"position",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pools",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/pools?sortBy=volume&sortDirection=asc",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"pools"
+					],
+					"query": [
+						{
+							"key": "sortBy",
+							"value": "volume"
+						},
+						{
+							"key": "sortDirection",
+							"value": "asc"
+						},
+						{
+							"key": "next",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "previous",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "hasRewards",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "hasWarning",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "hasAdaptiveFee",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "isWavebreak",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "minTvl",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "minVolume",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "minLockedLiquidityPercent",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "size",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "token",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "tokensBothOf",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "addresses",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "stats",
+							"value": "5m",
+							"disabled": true
+						},
+						{
+							"key": "includeBlocked",
+							"value": "true",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "tickarray",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"tickarray",
+						"FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "gas",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"gas",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "fees-uncollected",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/fees/uncollected/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"fees",
+						"uncollected",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "fees-collected",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/fees/collected/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"fees",
+						"collected",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "transactions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/transactions/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF?operations=COLLECT_FEES,INCREASE_LIQUIDITY,DECREASE_LIQUIDITY,OPEN_POSITION",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"transactions",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					],
+					"query": [
+						{
+							"key": "operations",
+							"value": "COLLECT_FEES,INCREASE_LIQUIDITY,DECREASE_LIQUIDITY,OPEN_POSITION"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "analytics",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/analytics/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?positionId=G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"analytics",
+						"FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
+						"6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+					],
+					"query": [
+						{
+							"key": "positionId",
+							"value": "G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "top-positions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/top-positions/",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"top-positions",
+						""
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -7,10 +7,8 @@ import {
   PoolUtil,
 } from "@orca-so/whirlpools-sdk";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById } from './orca.js';
+import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition } from './orca.js';
 
-
-const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 /* ================================
  * 0) ORACLE PRICE PROVIDER
  * ================================ */
@@ -416,7 +414,7 @@ export async function calculateAnalytics(
           feesCollected,
           feesUncollected,
           withdraw,
-          gas: { A: 0, B: 0, A_USD: 0, B_USD: 0 } // Zerado por enquanto
+          gas: await GetGasInPosition(positionId, false)
         }
       };
     }
@@ -468,7 +466,7 @@ export async function calculateAnalytics(
             B_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
           }
         };
-        const outstandingFees = await getOutstandingFeesForPosition(poolId, positionMint);
+        const outstandingFees = await getOutstandingFeesForPositionById(positionMint);
         
         const [priceA, priceB] = await Promise.all([
           getTokenPriceUSD(mintA),
@@ -489,7 +487,7 @@ export async function calculateAnalytics(
             feesCollected: analytics.feesCollected,
             feesUncollected: feesUncollected,
             withdraw: analytics.withdraw,
-            gas: { A: 0, B: 0, A_USD: 0, B_USD: 0 } // Zerado por enquanto
+            gas: await GetGasInPosition(positionMint, false)
           }
         };
       })
@@ -526,7 +524,7 @@ export async function calculateAnalytics(
       feesCollected: { A: 0, B: 0, A_USD: 0, B_USD: 0 },
       feesUncollected: { A: 0, B: 0, A_USD: 0, B_USD: 0 },
       withdraw: { A: 0, B: 0, A_USD: 0, B_USD: 0 },
-      gas: { A: 0, B: 0, A_USD: 0, B_USD: 0 }
+      gas: { A: 0, B: 0, A_USD: 0, B_USD: 0 } // TODO: Implementar cálculo de gas agregado
     });
 
     return {

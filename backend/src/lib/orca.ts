@@ -92,8 +92,11 @@ export function getProgramId(): PublicKey {
  * - Se showHistory=true, retorna histórico por assinatura com fee individual
  */
 export async function GetGasInPosition(positionId: string, showHistory: boolean = false) {
+
   const connection = makeConnection();
-  const positionKey = new PublicKey(positionId);
+  const positionKeyMint = new PublicKey(positionId);
+
+  const positionKey = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionKeyMint).publicKey;
 
   const signatures = await connection.getSignaturesForAddress(positionKey, { limit: 1000 });
 
@@ -2313,16 +2316,20 @@ async function processPositionDataFromRaw(position: any): Promise<any> {
     const feeOwedA = position.data.feeOwedA?.toString() || '0';
     const feeOwedB = position.data.feeOwedB?.toString() || '0';
     
-    // Buscar dados da pool para obter o currentTick
+    // Buscar dados da pool para obter o currentTick usando RPC direto
     let currentTick = 0;
     let currentPrice = 0;
     let lowerPrice = 0;
     let upperPrice = 0;
     
     try {
-      const poolResponse = await getFullPoolData(whirlpool, false, 0);
-      if (poolResponse?.main && 'tickCurrentIndex' in poolResponse.main) {
-        currentTick = poolResponse.main.tickCurrentIndex || 0;
+      const connection = makeConnection();
+      const poolPubkey = new PublicKey(whirlpool);
+      const poolAccountInfo = await connection.getAccountInfo(poolPubkey);
+      
+      if (poolAccountInfo && poolAccountInfo.data.length >= 200) {
+        // Parse do currentTick (offset 100-104 baseado no layout da Whirlpool)
+        currentTick = poolAccountInfo.data.readInt32LE(100);
         currentPrice = 0; // Simplified for now
         lowerPrice = 0; // Simplified for now
         upperPrice = 0; // Simplified for now
@@ -3282,7 +3289,7 @@ export async function feesCollectedInRange(
 }
 
 /**
- * Retorna todos os TickArrays e seus dados para uma Pool específica.
+ * Retorna todos os TickArrays e seus dados para uma Pool específica usando RPC direto.
  * @param poolId - Endereço da Whirlpool
  */
 export async function GetTickData(poolId: string): Promise<any> {
@@ -3290,68 +3297,112 @@ export async function GetTickData(poolId: string): Promise<any> {
     console.log(`🔍 Buscando dados dos TickArrays para pool: ${poolId}`);
     
     const connection = makeConnection();
-    const ctx = makeWhirlpoolContext();
     const whirlpoolPk = new PublicKey(poolId);
+    const ORCA_WHIRLPOOL_PROGRAM_ID = new PublicKey('whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc');
 
-    // 1️⃣ Buscar dados da pool (tickSpacing, preço atual, etc)
-    const poolData = await ctx.fetcher.getPool(whirlpoolPk);
-    if (!poolData) {
+    // 1️⃣ Verificar se a pool existe
+    const poolAccountInfo = await connection.getAccountInfo(whirlpoolPk);
+    if (!poolAccountInfo) {
       throw new Error("Pool não encontrada.");
     }
 
-    const tickSpacing = poolData.tickSpacing;
-    const tickCurrent = poolData.tickCurrentIndex;
-    const TICK_ARRAY_SIZE = 88;
-
-    console.log(`📊 Pool encontrada - tickSpacing: ${tickSpacing}, tickCurrent: ${tickCurrent}`);
-
-    // 2️⃣ Calcular os limites aproximados da pool
-    // Em geral, a Orca permite ticks entre [-443636, 443636]
-    const MIN_TICK_INDEX = -443636;
-    const MAX_TICK_INDEX = 443636;
-
-    // 3️⃣ Calcular todos os startTickIndexes possíveis
-    const tickArrays: any[] = [];
-    let processedArrays = 0;
+    // 2️⃣ Buscar todos os TickArrays usando getProgramAccounts
+    console.log(`🔍 Buscando TickArrays usando getProgramAccounts...`);
     
-    for (let startTick = MIN_TICK_INDEX; startTick <= MAX_TICK_INDEX; startTick += tickSpacing * TICK_ARRAY_SIZE) {
-      // Deriva o PDA do TickArray
-      const tickArrayPda = PDAUtil.getTickArray(
-        ctx.program.programId,
-        whirlpoolPk,
-        startTick
-      );
+    // Primeiro, buscar todos os TickArrays sem filtro para debug
+    const allTickArrayAccounts = await connection.getProgramAccounts(ORCA_WHIRLPOOL_PROGRAM_ID, {
+      filters: [
+        {
+          memcmp: {
+            offset: 8, // campo whirlpool começa depois do discriminador
+            bytes: whirlpoolPk.toBase58(),
+          },
+        },
+      ],
+    });
 
-      // Busca o TickArray (caso exista)
-      const tickArrayData = await ctx.fetcher.getTickArray(tickArrayPda.publicKey);
+    console.log(`📊 Encontrados ${allTickArrayAccounts.length} TickArrays no total`);
 
-      if (tickArrayData) {
+    // 3️⃣ Filtrar e processar os TickArrays que pertencem a esta pool
+    const tickArrays: any[] = [];
+    
+    for (const { pubkey, account } of allTickArrayAccounts) {
+      try {
+
+        /*
+        // Verificar se este TickArray pertence à pool
+        if (account.data.length < 40) continue;
+        
+        const whirlpoolFromData = new PublicKey(account.data.slice(8, 40)).toBase58();
+        if (whirlpoolFromData !== poolId) continue;
+
+        // Parse básico do TickArray
+        const startTickIndex = account.data.readInt32LE(40);
+        
         tickArrays.push({
-          startTickIndex: tickArrayData.startTickIndex,
-          whirlpool: tickArrayData.whirlpool.toString(),
-          ticks: tickArrayData.ticks.map((t, index) => ({
-            tickIndex: tickArrayData.startTickIndex + index,
-            liquidityNet: t.liquidityNet.toString(),
-            liquidityGross: t.liquidityGross.toString()
-          }))
+          address: pubkey.toBase58(),
+          startTickIndex: startTickIndex,
+          whirlpool: whirlpoolFromData,
+          ticksCount: 88 // TickArrays sempre têm 88 ticks
         });
-      }
-      
-      processedArrays++;
-      if (processedArrays % 100 === 0) {
-        console.log(`🔍 Processados ${processedArrays} TickArrays, encontrados ${tickArrays.length} com dados`);
+        */
+        const data = account.data;
+
+        // whirlpool (8-40)
+        const whirlpool = new PublicKey(data.slice(8, 40)).toBase58();
+        const startTickIndex = data.readInt32LE(40);
+  
+        const ticks = [];
+        let offset = 44;
+  
+         for (let i = 0; i < 88; i++) {
+           const tickIndex = data.readInt32LE(offset);
+           offset += 4;
+   
+           const liquidityNet = data.readBigUInt64LE(offset).toString();
+           offset += 8;
+   
+           const liquidityGross = data.readBigUInt64LE(offset).toString();
+           offset += 8;
+   
+           const feeGrowthOutsideA = data.readBigUInt64LE(offset).toString();
+           offset += 8;
+   
+           const feeGrowthOutsideB = data.readBigUInt64LE(offset).toString();
+           offset += 8;
+   
+           // 3 rewards (cada um 8 bytes, total 24)
+           const rewardGrowthsOutside = [];
+           for (let j = 0; j < 3; j++) {
+             const rewardGrowth = data.readBigUInt64LE(offset).toString();
+             rewardGrowthsOutside.push(rewardGrowth);
+             offset += 8;
+           }
+  
+          // Filtrar ticks com alguma liquidez
+
+          tickArrays.push({
+              tickIndex,
+              liquidityNet,
+              liquidityGross,
+              feeGrowthOutsideA,
+              feeGrowthOutsideB,
+              rewardGrowthsOutside,
+            });
+          
+        }    
+
+      } catch (error) {
+        console.warn(`⚠️ Erro ao processar TickArray ${pubkey.toBase58()}:`, error);
       }
     }
 
-    console.log(`✅ Busca concluída - ${tickArrays.length} TickArrays encontrados de ${processedArrays} processados`);
+    console.log(`✅ Processamento concluído - ${tickArrays.length} TickArrays válidos para a pool`);
 
     // 4️⃣ Retornar um JSON consolidado
     return {
       pool: poolId,
-      tickSpacing,
-      tickCurrentIndex: tickCurrent,
       totalArrays: tickArrays.length,
-      processedArrays,
       tickArrays
     };
 

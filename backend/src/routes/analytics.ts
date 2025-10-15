@@ -36,6 +36,13 @@ router.get('/:poolId/:owner', async (req, res) => {
     const startUtcIso = startUtc as string || undefined;
     const endUtcIso = endUtc as string || undefined;
 
+    if (!positionId || positionId.length == 0) {
+      return res.status(400).json({
+        error: 'Position ID must be provided',
+        message: 'Quey parameter positionId must be provided'
+      });
+    }
+
     // Validar positionId se fornecido
     if (positionIdStr && positionIdStr.length < 32) {
       return res.status(400).json({
