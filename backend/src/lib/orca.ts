@@ -7,13 +7,16 @@ import {
   buildWhirlpoolClient,
   ORCA_WHIRLPOOL_PROGRAM_ID,
   PDAUtil,
+  WHIRLPOOL_CODER,
   PositionData,
   WhirlpoolData,
   TickArrayData,
   PriceMath,
+  AccountName,
 } from "@orca-so/whirlpools-sdk";
-import { AnchorProvider } from "@coral-xyz/anchor";
+import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import { getPriceUSD } from './CalculationPrice.js';
+import { Decimal } from 'decimal.js';
 
 const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
@@ -3410,4 +3413,102 @@ export async function GetTickData(poolId: string): Promise<any> {
     console.error('❌ Error fetching TickArray data:', error);
     throw new Error(`Failed to fetch TickArray data: ${(error as Error).message}`);
   }
+}
+
+export async function getQtyNowFromPosition(
+  positionMint: string
+) {
+
+  const connection = makeConnection();
+  const ctx = makeWhirlpoolContext();
+  const client = buildWhirlpoolClient(ctx);
+
+  const positionMintPk = new PublicKey(positionMint);
+  // 1) Deriva PDA da posição
+  const positionPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionMintPk).publicKey;
+
+  // 2) Lê a conta da posição (desserialize conforme IDL da Whirlpools)
+  const posAcc = await connection.getAccountInfo(positionPda);
+
+  if (!posAcc) {
+    throw new Error('Position account not found');
+  }
+
+  const decodedPosition = WHIRLPOOL_CODER.decode(AccountName.Position, posAcc.data);
+  const { liquidity, tickLowerIndex, tickUpperIndex, whirlpool } = decodedPosition;
+
+  // 3) Lê a conta do pool
+  const poolAcc = await connection.getAccountInfo(whirlpool);
+
+  if (!poolAcc) {
+    throw new Error('Pool account not found');
+  }
+
+  const decodedPool = WHIRLPOOL_CODER.decode(
+    AccountName.Whirlpool,
+    poolAcc.data
+  ) as WhirlpoolData;
+
+  const sqrtPriceX64 = decodedPool.sqrtPrice;
+
+  const sqrtP = q64ToFloat(sqrtPriceX64);
+  const sqrtPL = tickToSqrtPrice(tickLowerIndex);
+  const sqrtPU = tickToSqrtPrice(tickUpperIndex);
+
+
+  // 5) Calcula amounts (converta liquidity p/ número/decimal com cuidado)
+  const L = new Decimal(liquidity.toString()); // para produção, use decimal/bignumber
+  const { qtyA, qtyB } = amountsFromLiquidityDecimal(L, sqrtP, sqrtPL, sqrtPU);
+
+  const inRange: "below" | "in" | "above" =
+  sqrtP.lte(sqrtPL) ? "below" : sqrtP.gte(sqrtPU) ? "above" : "in";
+
+  return { qtyA_now: qtyA.toNumber(), qtyB_now: qtyB.toNumber() };
+}
+
+/** 
+ * Converte índice de tick (inteiro) em √preço (float).
+ * tick = índice inteiro (pode ser negativo)
+ * Retorna sqrtPrice (valor decimal, usado nas fórmulas dos AMMs v3)
+ */
+export function tickToSqrtPrice(tick: number): Decimal {
+  return new Decimal(Math.pow(1.0001, tick / 2));
+}
+
+const TWO_POW_64 = new BN(1).ushln(64); // 2^64
+
+export function q64ToFloat(bnQ64: BN): Decimal {
+  // Divisão inteira + resto, para preservar parte fracionária
+  const intPart = bnQ64.div(TWO_POW_64);
+  const remPart = bnQ64.mod(TWO_POW_64);
+
+  const intNum = intPart.toNumber();
+  const remNum = remPart.toNumber();
+  const denom = TWO_POW_64.toNumber();
+
+  return new Decimal(intNum + remNum / denom);
+}
+
+/** Calcula quantidades A e B a partir da Liquidity */
+function amountsFromLiquidityDecimal(
+  L: Decimal,
+  sqrtP: Decimal,
+  sqrtPL: Decimal,
+  sqrtPU: Decimal
+) {
+  if (L.lte(0)) return { qtyA: new Decimal(0), qtyB: new Decimal(0) };
+  if (sqrtPL.gt(sqrtPU)) [sqrtPL, sqrtPU] = [sqrtPU, sqrtPL];
+
+  if (sqrtP.lte(sqrtPL)) {
+    const qtyA = L.mul(sqrtPU.sub(sqrtPL)).div(sqrtPL.mul(sqrtPU));
+    return { qtyA, qtyB: new Decimal(0) };
+  }
+  if (sqrtP.gte(sqrtPU)) {
+    const qtyB = L.mul(sqrtPU.sub(sqrtPL));
+    return { qtyA: new Decimal(0), qtyB };
+  }
+
+  const qtyA = L.mul(sqrtPU.sub(sqrtP)).div(sqrtP.mul(sqrtPU));
+  const qtyB = L.mul(sqrtP.sub(sqrtPL));
+  return { qtyA, qtyB };
 }

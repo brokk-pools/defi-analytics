@@ -5,6 +5,15 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.9.1] - 2025-01-15
+
+### Corrigido
+- 🔧 **Tipos Decimal corrigidos** em `orca.ts` - import e funções agora usam `Decimal` corretamente
+- 🔧 **Função `tickToSqrtPrice()`** agora retorna `Decimal` em vez de `number`
+- 🔧 **Função `q64ToFloat()`** agora retorna `Decimal` em vez de `number`
+- 🔧 **Função `amountsFromLiquidityDecimal()`** agora funciona corretamente com tipos `Decimal`
+- 🔧 **Erros de compilação TypeScript** relacionados aos tipos `Decimal` resolvidos
+
 ## [1.9.0] - 2025-01-15
 
 ### Adicionado

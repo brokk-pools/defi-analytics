@@ -7,7 +7,7 @@ import {
   PoolUtil,
 } from "@orca-so/whirlpools-sdk";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition } from './orca.js';
+import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition, getQtyNowFromPosition } from './orca.js';
 
 /* ================================
  * 0) ORACLE PRICE PROVIDER
@@ -317,6 +317,8 @@ export type CalculatePoolRoiResult = {
  * 3) FUNÇÃO PRINCIPAL
  * ================================ */
 
+
+
 // Nova função para calcular analytics usando GetInnerTransactionsFromPosition
 export async function calculateAnalytics(
   poolId: string,
@@ -393,6 +395,97 @@ export async function calculateAnalytics(
         B_USD: Number(outstandingFees.totals.B_USD)
       };
 
+      const gas = await GetGasInPosition(positionId, false);
+
+      // Toda a Regra de Calculo de Analytics
+      const qtyA =  (investment.A ?? 0);
+      const qtyB =  (investment.A ?? 0);
+
+      const pxA =  (investment.A_USD ?? 0) / (investment.A ?? 0);
+      const pxB =  (investment.B_USD ?? 0) / (investment.B ?? 0);
+
+      // Total Investido (USD)
+      const V_0 = (investment.A_USD ?? 0) + (investment.B_USD ?? 0);
+      
+      // LP Tokens
+      //reserveX × (lp_balance_user / lp_total_supply)
+
+      // Pool Concentrados 
+      //qtyX_now = L × (√P_upper − √P_current) / (√P_current × √P_upper) 
+
+      // No Caso da Orca podemos pegar pelo SDK da Orca
+      // Quantidades atuais dos Ativos no Pool
+      const {qtyA_now, qtyB_now} = await getQtyNowFromPosition(positionId);
+
+      // Precos atuais dos Ativos no Pool
+      const pxA_now = priceA;
+      const pxB_now = priceB;
+      // Valor da posição atual (USD)
+      const V_pos = (qtyA_now * pxA_now) + (qtyB_now * pxB_now);
+      const V_HODL = V_pos;
+
+      // Fees não Coletadas
+      const F_uncol = (feesUncollected.A_USD ?? 0) + (feesUncollected.B_USD ?? 0);
+
+      // Fees não Coletadas
+      const F_col = (feesCollected.A_USD ?? 0) + (feesCollected.B_USD ?? 0);
+
+      // total de  feea
+      const F_total = F_col + F_uncol;
+
+      // Valor ja sacado da posição
+      const W = (withdraw.A_USD ?? 0) + (withdraw.B_USD ?? 0);
+
+      // Custo total de taxas on-chain pagas (USD)
+      const Gas = (gas.A_USD ?? 0) + (gas.B_USD ?? 0);
+
+      // Idade da posição (em dias)
+      const t_age = 0;
+      //(nowUTC − openedAtUTC) / 1 dia
+
+      // Valor reebido até agora (USD)
+      const V_recebido = F_col + W; 
+
+      // Lucro/perda bruta sem descontar gas (USD)
+      const PoolPnL_exGas = (V_pos + F_col + F_uncol + W) - V_0;
+
+      // Lucro apenas de taxas, sem valorização dos tokens
+      const PoolPnL_fee_exGas = F_col + F_uncol
+
+      // PnL após custos on-chain
+      const PnL = (V_pos + F_col + F_uncol + W) - V_0 - Gas;
+
+      // Somente o efeito das fees descontando gas
+      const PnL_fee = (F_col + F_uncol) - Gas;
+
+      // Retorno percentual líquido
+      const ROI = PnL / V_0
+
+      // Retorno bruto sem custos de gas
+      const ROI_exGas = PoolPnL_exGas / V_0;
+
+      //Retorno só das taxas (bruto)
+      const ROI_fee_exGas = (F_col + F_uncol) / V_0;
+
+      // Retorno só das taxas (líquido)
+      const ROI_fee = (F_col + F_uncol - Gas) / V_0;
+
+      // ROI Anualizado
+      const TotalAPR = ROI * (365 / t_age)
+
+      // Retorno bruto anualizado
+      const PoolAPR_exGas = ROI_exGas * (365 / t_age);
+
+      //Retorno só de fees anualizado (bruto)
+      const FeeAPR_exGas = ROI_fee_exGas * (365 / t_age);
+
+      //Retorno só de fees anualizado (líquido)
+      const FeeAPR = ROI_fee * (365 / t_age)
+
+      // Impermanent Loss - Diferença entre valor LP e HODL
+      const IL = V_pos - V_HODL;
+      const IL_percent = IL / V_HODL;
+
       return {
         success: true,
         timestamp: new Date().toISOString(),
@@ -410,11 +503,19 @@ export async function calculateAnalytics(
           tokenB: { mint: investmentResult.metadata.tokenB.mint, decimals: investmentResult.metadata.tokenB.decimals }
         },
         analytics: {
+          ///feesUncollected.A_USD e feesUncollected.B_USD          
+          UnclaimedRewards: 0,
+          ClaimedRewards: 0,
+          TotalFees: (feesCollected.A_USD ?? 0) + (feesCollected.B_USD ?? 0),
+          TotalRewards: 0,
+          TotalWithdraw: (withdraw.A_USD ?? 0) + (withdraw.B_USD ?? 0),
+          TotalInvest: (investment.A_USD ?? 0) + (investment.B_USD ?? 0),
+
           investment,
           feesCollected,
           feesUncollected,
           withdraw,
-          gas: await GetGasInPosition(positionId, false)
+          gas: gas
         }
       };
     }

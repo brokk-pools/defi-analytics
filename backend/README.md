@@ -7,6 +7,14 @@ Backend completo para análise avançada de pools e posições do Orca Whirlpool
 Para documentação completa da API com exemplos detalhados, parâmetros e respostas, consulte:
 **[📖 Documentação Completa da API](./README.md#-apis-e-endpoints)**
 
+## 🔧 Últimas Atualizações
+
+### v1.9.1 - Correções de Tipos (2025-01-15)
+- ✅ **Tipos Decimal corrigidos** - Import e funções agora usam `Decimal` corretamente
+- ✅ **Funções de cálculo** - `tickToSqrtPrice()` e `q64ToFloat()` agora retornam `Decimal`
+- ✅ **Compilação limpa** - Todos os erros de TypeScript relacionados aos tipos `Decimal` resolvidos
+- ✅ **Precisão matemática** - Cálculos de liquidez agora usam precisão decimal completa
+
 ### 🧪 Coleção Postman
 
 Para facilitar os testes locais, utilize a coleção do Postman disponível no repositório:
