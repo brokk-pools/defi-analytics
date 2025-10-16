@@ -2,9 +2,11 @@ import {
   WhirlpoolContext,
   buildWhirlpoolClient,
   ORCA_WHIRLPOOL_PROGRAM_ID,
+  PDAUtil,
 } from "@orca-so/whirlpools-sdk";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition, getQtyNowFromPosition } from './orca.js';
+import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition, getQtyNowFromPosition, tickToSqrtPrice, q64ToFloat } from './orca.js';
+import { Decimal } from 'decimal.js';
 
 // Função utilitária para buscar preço de um token em USD via CoinGecko
 export async function getTokenPriceUSD(mint: string, timestamp?: number): Promise<number> {
@@ -50,21 +52,51 @@ export async function calculateAnalytics(
     const poolPk = new PublicKey(poolId);
     const pool = await client.getPool(poolPk);
     const poolData = pool.getData();
-
-    const mintA = poolData.tokenMintA.toBase58();
-    const mintB = poolData.tokenMintB.toBase58();
-
-    // Buscar decimais dos tokens
-    const [tokenInfoA, tokenInfoB] = await Promise.all([
-      connection.getParsedAccountInfo(new PublicKey(mintA)),
-      connection.getParsedAccountInfo(new PublicKey(mintB))
-    ]);
     
-    const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
-    const decB = (tokenInfoB.value?.data as any)?.parsed?.info?.decimals || 6;
-
-    // Se positionId foi fornecido, calcular analytics para essa posição específica
+    // Se positionId foi fornecido, buscar dados da posição específica
     if (positionId) {
+      const positionMintPk = new PublicKey(positionId);
+      const positionPda = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionMintPk);
+      const positionPdaPk = positionPda.publicKey;
+
+      const position = await client.getPosition(positionPdaPk);
+      const positionData = position.getData();
+
+      const { liquidity, tickLowerIndex, tickUpperIndex } = positionData;
+
+      const sqrtPriceX64 = poolData.sqrtPrice;
+      const sqrtP = q64ToFloat(sqrtPriceX64);
+      const sqrtPL = tickToSqrtPrice(tickLowerIndex);
+      const sqrtPU = tickToSqrtPrice(tickUpperIndex);
+      
+      const mintA = poolData.tokenMintA.toBase58();
+      const mintB = poolData.tokenMintB.toBase58();
+
+      // Buscar decimais dos tokens
+      const [tokenInfoA, tokenInfoB] = await Promise.all([
+        connection.getParsedAccountInfo(new PublicKey(mintA)),
+        connection.getParsedAccountInfo(new PublicKey(mintB))
+      ]);
+      
+      const decA = (tokenInfoA.value?.data as any)?.parsed?.info?.decimals || 6;
+      const decB = (tokenInfoB.value?.data as any)?.parsed?.info?.decimals || 6;
+
+      // Converter sqrt prices para preços reais com ajuste de decimais
+      const basePriceLower = sqrtPL.pow(2);
+      const basePriceUpper = sqrtPU.pow(2);
+      const baseCurrentPrice = sqrtP.pow(2);
+      
+      // Aplicar ajuste de decimais (como na função calculateAdjustedPrice)
+      // O preço no Orca é sempre tokenB/tokenA, então o ajuste é 10^(decB - decA)
+      const decimalAdjustment = Math.pow(10, decB - decA);
+      const priceLower = basePriceLower.mul(decimalAdjustment);
+      const priceUpper = basePriceUpper.mul(decimalAdjustment);
+      const currentPrice = baseCurrentPrice.mul(decimalAdjustment);
+      
+      // Também calcular o preço inverso (tokenA/tokenB) para comparação
+      const inversePriceLower = new Decimal(1).div(priceLower);
+      const inversePriceUpper = new Decimal(1).div(priceUpper);
+      const inverseCurrentPrice = new Decimal(1).div(currentPrice);
       // Para posição específica
       const [investmentResult, feesCollectedResult, withdrawResult] = await Promise.all([
         GetInnerTransactionsFromPosition(positionId, ['INCREASE_LIQUIDITY'], startUtcIso, endUtcIso),
@@ -224,11 +256,66 @@ export async function calculateAnalytics(
         metadata: {
           pool: poolId,
           tokenA: { mint: investmentResult.metadata.tokenA.mint, decimals: investmentResult.metadata.tokenA.decimals },
-          tokenB: { mint: investmentResult.metadata.tokenB.mint, decimals: investmentResult.metadata.tokenB.decimals }
+          tokenB: { mint: investmentResult.metadata.tokenB.mint, decimals: investmentResult.metadata.tokenB.decimals },
+          priceDirection: "tokenB/tokenA (Orca standard)",
+          decimalAdjustment: `10^(${decB} - ${decA}) = ${decimalAdjustment}`
         },
         analytics: {
           // Variables used in calculations
           variables: {
+
+            sqrtP:{
+              value: sqrtP,
+              description: "Square root of price"
+            } ,
+            sqrtPL:{
+              value: sqrtPL,
+              description: "Square root of price lower"
+            } ,
+            sqrtPU:{
+              value: sqrtPU,
+              description: "Square root of price upper"
+            } ,
+            priceLower: {
+              value: priceLower,
+              description: "Real price at lower tick"
+            },
+            priceUpper: {
+              value: priceUpper,
+              description: "Real price at upper tick"
+            },
+            currentPrice: {
+              value: currentPrice,
+              description: "Current real price (with decimal adjustment)"
+            },
+            baseCurrentPrice: {
+              value: baseCurrentPrice,
+              description: "Current base price (without decimal adjustment)"
+            },
+            basePriceLower: {
+              value: basePriceLower,
+              description: "Base price at lower tick (without decimal adjustment)"
+            },
+            basePriceUpper: {
+              value: basePriceUpper,
+              description: "Base price at upper tick (without decimal adjustment)"
+            },
+            decimalAdjustment: {
+              value: decimalAdjustment,
+              description: `Decimal adjustment factor (10^${decB - decA})`
+            },
+            inverseCurrentPrice: {
+              value: inverseCurrentPrice,
+              description: "Inverse current price (tokenA/tokenB)"
+            },
+            inversePriceLower: {
+              value: inversePriceLower,
+              description: "Inverse price at lower tick (tokenA/tokenB)"
+            },
+            inversePriceUpper: {
+              value: inversePriceUpper,
+              description: "Inverse price at upper tick (tokenA/tokenB)"
+            },
             qtyA: {
               value: qtyA,
               description: "Quantity of token A at deposit"
