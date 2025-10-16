@@ -87,10 +87,11 @@ export async function calculateAnalytics(
       const baseCurrentPrice = sqrtP.pow(2);
       
       // O preço no Orca é sempre tokenB/tokenA
-      // Os preços base já estão corretos, não precisamos de ajuste de decimais
-      const priceLower = basePriceLower;
-      const priceUpper = basePriceUpper;
-      const currentPrice = baseCurrentPrice;
+      // Aplicar ajuste de decimais correto usando valor absoluto
+      const decimalAdjustment = Math.pow(10, Math.abs(decB - decA));
+      const priceLower = basePriceLower.mul(decimalAdjustment);
+      const priceUpper = basePriceUpper.mul(decimalAdjustment);
+      const currentPrice = baseCurrentPrice.mul(decimalAdjustment);
       
       // Calcular preços inversos (tokenA/tokenB)
       const inversePriceLower = new Decimal(1).div(priceLower);
@@ -99,8 +100,6 @@ export async function calculateAnalytics(
       
       // Para debug: mostrar qual token tem mais decimais
       const tokenWithMoreDecimals = decB > decA ? 'tokenB' : 'tokenA';
-      const decimalAdjustment = Math.pow(10, decB - decA);
-      // Para posição específica
       const [investmentResult, feesCollectedResult, withdrawResult] = await Promise.all([
         GetInnerTransactionsFromPosition(positionId, ['INCREASE_LIQUIDITY'], startUtcIso, endUtcIso),
         GetInnerTransactionsFromPosition(positionId, ['COLLECT_FEES'], startUtcIso, endUtcIso),
