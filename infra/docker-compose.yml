@@ -4,12 +4,12 @@ services:
     container_name: orca-postgres
     restart: always
     environment:
-      POSTGRES_USER: orca
-      POSTGRES_PASSWORD: orca
-      POSTGRES_DB: orcadata
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orca_mvp
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports: 
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
