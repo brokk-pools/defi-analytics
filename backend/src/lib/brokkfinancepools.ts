@@ -86,17 +86,20 @@ export async function calculateAnalytics(
       const basePriceUpper = sqrtPU.pow(2);
       const baseCurrentPrice = sqrtP.pow(2);
       
-      // Aplicar ajuste de decimais (como na função calculateAdjustedPrice)
-      // O preço no Orca é sempre tokenB/tokenA, então o ajuste é 10^(decB - decA)
-      const decimalAdjustment = Math.pow(10, decB - decA);
-      const priceLower = basePriceLower.mul(decimalAdjustment);
-      const priceUpper = basePriceUpper.mul(decimalAdjustment);
-      const currentPrice = baseCurrentPrice.mul(decimalAdjustment);
+      // O preço no Orca é sempre tokenB/tokenA
+      // Os preços base já estão corretos, não precisamos de ajuste de decimais
+      const priceLower = basePriceLower;
+      const priceUpper = basePriceUpper;
+      const currentPrice = baseCurrentPrice;
       
-      // Também calcular o preço inverso (tokenA/tokenB) para comparação
+      // Calcular preços inversos (tokenA/tokenB)
       const inversePriceLower = new Decimal(1).div(priceLower);
       const inversePriceUpper = new Decimal(1).div(priceUpper);
       const inverseCurrentPrice = new Decimal(1).div(currentPrice);
+      
+      // Para debug: mostrar qual token tem mais decimais
+      const tokenWithMoreDecimals = decB > decA ? 'tokenB' : 'tokenA';
+      const decimalAdjustment = Math.pow(10, decB - decA);
       // Para posição específica
       const [investmentResult, feesCollectedResult, withdrawResult] = await Promise.all([
         GetInnerTransactionsFromPosition(positionId, ['INCREASE_LIQUIDITY'], startUtcIso, endUtcIso),
@@ -258,7 +261,14 @@ export async function calculateAnalytics(
           tokenA: { mint: investmentResult.metadata.tokenA.mint, decimals: investmentResult.metadata.tokenA.decimals },
           tokenB: { mint: investmentResult.metadata.tokenB.mint, decimals: investmentResult.metadata.tokenB.decimals },
           priceDirection: "tokenB/tokenA (Orca standard)",
-          decimalAdjustment: `10^(${decB} - ${decA}) = ${decimalAdjustment}`
+          decimalAdjustment: `10^(${decB} - ${decA}) = ${decimalAdjustment}`,
+          debug: {
+            tokenA_decimals: decA,
+            tokenB_decimals: decB,
+            tokenWithMoreDecimals,
+            decimalAdjustment,
+            note: "currentPrice should now be close to expected value (194)"
+          }
         },
         analytics: {
           // Variables used in calculations
@@ -286,7 +296,7 @@ export async function calculateAnalytics(
             },
             currentPrice: {
               value: currentPrice,
-              description: "Current real price (with decimal adjustment)"
+              description: "Current real price (tokenB/tokenA)"
             },
             baseCurrentPrice: {
               value: baseCurrentPrice,
