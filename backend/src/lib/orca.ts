@@ -14,11 +14,11 @@ import {
   PriceMath,
   AccountName,
 } from "@orca-so/whirlpools-sdk";
-import { AnchorProvider, BN } from "@coral-xyz/anchor";
+import { AnchorProvider
+ } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { getPriceUSD } from './CalculationPrice.js';
 import { Decimal } from 'decimal.js';
-
-const BASE_CURRENCY = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
 // Constantes para cálculo de fees
 const Q64 = 2n ** 64n;
@@ -393,8 +393,8 @@ export async function GetInnerTransactionsFromPosition(
           getPriceUSD(mintA.toBase58(), ts),
           getPriceUSD(mintB.toBase58(), ts)
         ]);
-        const aHuman = Number(sumA) / Math.pow(10, decA);
-        const bHuman = Number(sumB) / Math.pow(10, decB);
+        const aHuman = parseFloat(sumA.toString()) / Math.pow(10, decA);
+        const bHuman = parseFloat(sumB.toString()) / Math.pow(10, decB);
         const aUSD = aHuman * priceA;
         const bUSD = bHuman * priceB;
         items.push({
@@ -517,7 +517,7 @@ export function calculateEstimatedFees(position: any): { tokenA: string; tokenB:
     
     // Basic estimation: assume some fees have accrued based on liquidity
     // In reality, this would require complex calculations with fee growth globals
-    const liquidityNumber = Number(liquidity);
+    const liquidityNumber = parseFloat(liquidity.toString());
     
     // Rough estimation: 0.01% of liquidity as accumulated fees
     const estimatedFeesA = Math.floor(liquidityNumber * 0.0001);
@@ -615,7 +615,7 @@ export function isPositionInRange(position: any): boolean {
 export function calculatePriceFromSqrtPrice(sqrtPrice: string, decimalsA: number, decimalsB: number): number {
   try {
     const sqrtPriceBN = BigInt(sqrtPrice);
-    const price = Number(sqrtPriceBN * sqrtPriceBN) / (2 ** 128);
+    const price = parseFloat((sqrtPriceBN * sqrtPriceBN).toString()) / (2 ** 128);
     
     // Adjust for token decimals
     const decimalAdjustment = Math.pow(10, decimalsB - decimalsA);
@@ -702,7 +702,7 @@ export type ClassicLpPosition = {
 export async function detectClassicLpPositions(tokens: SplTokenAccount[]): Promise<ClassicLpPosition[]> {
   await ensureClassicRegistryLoaded();
   return tokens
-    .filter(t => Number(t.amount) > 0)
+    .filter(t => BigInt(t.amount) > 0n)
     .map(t => {
       const info = ORCA_CLASSIC_LP_REGISTRY[t.mint];
       if (!info) return undefined;
@@ -858,7 +858,7 @@ export async function getLiquidityOverview(owner: string) {
               index: index,
               growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
               amountOwed: reward.amountOwed.toString(),
-              hasReward: reward.amountOwed > 0n
+              hasReward: reward.amountOwed.gt(new BN(0))
             }));
             
             // Calcular reward growths inside (se disponível)
@@ -2481,7 +2481,7 @@ async function processPositionData(position: any): Promise<any> {
           index: index,
           growthInsideCheckpoint: reward.growthInsideCheckpoint.toString(),
           amountOwed: reward.amountOwed.toString(),
-          hasReward: reward.amountOwed > 0n
+          hasReward: reward.amountOwed.gt(new BN(0))
         }));
         
         // Calcular reward growths inside
@@ -2705,8 +2705,8 @@ export async function getOutstandingFeesForPositionById(
       getPriceUSD(mintB.toBase58())
     ]);
     
-    const totalA_human = Number(owedA) / Math.pow(10, decA);
-    const totalB_human = Number(owedB) / Math.pow(10, decB);
+    const totalA_human = parseFloat(owedA.toString()) / Math.pow(10, decA);
+    const totalB_human = parseFloat(owedB.toString()) / Math.pow(10, decB);
     const totalA_USD = totalA_human * priceA;
     const totalB_USD = totalB_human * priceB;
 
@@ -2718,8 +2718,8 @@ export async function getOutstandingFeesForPositionById(
       tokenA: { mint: mintA.toBase58(), decimals: decA },
       tokenB: { mint: mintB.toBase58(), decimals: decB },
       totals: {
-        A: Number(owedA),
-        B: Number(owedB),
+        A: owedA.toString(),
+        B: owedB.toString(),
         A_USD: totalA_USD,
         B_USD: totalB_USD
       },
@@ -2867,8 +2867,8 @@ export async function getOutstandingFeesForPosition(
       getPriceUSD(mintB.toBase58())
     ]);
     
-    const totalA_human = Number(owedA) / Math.pow(10, decA);
-    const totalB_human = Number(owedB) / Math.pow(10, decB);
+    const totalA_human = parseFloat(owedA.toString()) / Math.pow(10, decA);
+    const totalB_human = parseFloat(owedB.toString()) / Math.pow(10, decB);
     const totalA_USD = totalA_human * priceA;
     const totalB_USD = totalB_human * priceB;
 
@@ -2951,7 +2951,7 @@ async function getMintDecimals(conn: Connection, mint: PublicKey): Promise<numbe
 }
 
 function human(amtRaw: bigint, decimals: number): number {
-  return Number(amtRaw) / Math.pow(10, decimals);
+  return parseFloat(amtRaw.toString()) / Math.pow(10, decimals);
 }
 
 /** First transaction seen at pool address (approximates "creation"). */
@@ -3056,8 +3056,8 @@ export async function getOutstandingFeesForOwner(
     getPriceUSD(mintB.toBase58())
   ]);
   
-  const totalA_human = Number(totalFeesA) / Math.pow(10, decA);
-  const totalB_human = Number(totalFeesB) / Math.pow(10, decB);
+  const totalA_human = parseFloat(totalFeesA.toString()) / Math.pow(10, decA);
+  const totalB_human = parseFloat(totalFeesB.toString()) / Math.pow(10, decB);
   const totalA_USD = totalA_human * priceA;
   const totalB_USD = totalB_human * priceB;
 
@@ -3201,7 +3201,7 @@ export async function feesCollectedInRange(
                 signature: item.signature,
                 datetimeUTC: item.datetimeUTC,
                 amountRaw: amountA.toString(),
-                amount: Number(amountA) / Math.pow(10, transactionsResult.metadata.tokenA.decimals),
+                amount: parseFloat(amountA.toString()) / Math.pow(10, transactionsResult.metadata.tokenA.decimals),
                 positionId: positionMint,
               });
             }
@@ -3212,7 +3212,7 @@ export async function feesCollectedInRange(
                 signature: item.signature,
                 datetimeUTC: item.datetimeUTC,
                 amountRaw: amountB.toString(),
-                amount: Number(amountB) / Math.pow(10, transactionsResult.metadata.tokenB.decimals),
+                amount: parseFloat(amountB.toString()) / Math.pow(10, transactionsResult.metadata.tokenB.decimals),
                 positionId: positionMint,
               });
             }
@@ -3246,8 +3246,8 @@ export async function feesCollectedInRange(
       getPriceUSD(mintB.toBase58())
     ]);
     
-    const totalA_human = Number(totalA) / Math.pow(10, decA);
-    const totalB_human = Number(totalB) / Math.pow(10, decB);
+    const totalA_human = parseFloat(totalA.toString()) / Math.pow(10, decA);
+    const totalB_human = parseFloat(totalB.toString()) / Math.pow(10, decB);
     const totalA_USD = totalA_human * priceA;
     const totalB_USD = totalB_human * priceB;
 
@@ -3463,7 +3463,7 @@ export async function getQtyNowFromPosition(
   const inRange: "below" | "in" | "above" =
   sqrtP.lte(sqrtPL) ? "below" : sqrtP.gte(sqrtPU) ? "above" : "in";
 
-  return { qtyA_now: qtyA.toNumber(), qtyB_now: qtyB.toNumber() };
+  return { qtyA_now: qtyA.toString(), qtyB_now: qtyB.toString() };
 }
 
 /** 
@@ -3482,9 +3482,9 @@ export function q64ToFloat(bnQ64: BN): Decimal {
   const intPart = bnQ64.div(TWO_POW_64);
   const remPart = bnQ64.mod(TWO_POW_64);
 
-  const intNum = intPart.toNumber();
-  const remNum = remPart.toNumber();
-  const denom = TWO_POW_64.toNumber();
+  const intNum = parseFloat(intPart.toString());
+  const remNum = parseFloat(remPart.toString());
+  const denom = parseFloat(TWO_POW_64.toString());
 
   return new Decimal(intNum + remNum / denom);
 }

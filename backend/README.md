@@ -9,6 +9,14 @@ Para documentação completa da API com exemplos detalhados, parâmetros e respo
 
 ## 🔧 Últimas Atualizações
 
+### v1.9.2 - Correções de Tipos e Conversões (2025-01-16)
+- ✅ **Correção da classe BN** - Importação correta usando `bn.js` em vez do Anchor
+- ✅ **Erro de 53 bits resolvido** - Substituição de `.toNumber()` por métodos seguros para números grandes
+- ✅ **Conversões de decimais** - Todas as quantidades A e B agora vêm convertidas pelos decimais corretos
+- ✅ **Tipos TypeScript** - Instalação de `@types/bn.js` para suporte completo de tipos
+- ✅ **Análise financeira melhorada** - Cálculo de HODL value usando quantidades iniciais com preços atuais
+- ✅ **Consistência de dados** - Padronização de conversões em `investment`, `feesCollected`, `withdraw` e `feesUncollected`
+
 ### v1.9.1 - Correções de Tipos (2025-01-15)
 - ✅ **Tipos Decimal corrigidos** - Import e funções agora usam `Decimal` corretamente
 - ✅ **Funções de cálculo** - `tickToSqrtPrice()` e `q64ToFloat()` agora retornam `Decimal`
@@ -1078,6 +1086,294 @@ curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6P
 - ✅ **Processamento padronizado** usando processPositionDataFromRaw para mesmo formato
 - ✅ **Documentação atualizada** com nova rota top-positions e exemplos de uso
 - ✅ **Otimização de performance** com processamento em lotes para grandes volumes
+
+### v1.3.0
+- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
+- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
+- ✅ **Função processPositionData** criada para padronizar o processamento de posições
+- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
+- ✅ **Exemplos de resposta** adicionados na documentação
+- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
+
+### v1.2.0
+- ✅ **README atualizado** com informações básicas e referência à documentação da API
+- ✅ **Instruções de instalação melhoradas** com comandos atualizados
+- ✅ **Dependências atualizadas** com versões específicas
+- ✅ **Configuração de ambiente** mais detalhada
+- ✅ **Verificação de instalação** com comandos de teste
+
+### v1.1.0
+- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
+- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
+- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
+- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
+- ✅ **Mensagens traduzidas para inglês** em todas as rotas
+- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
+- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
+- ✅ **Melhor tratamento de erros e logging** estruturado
+- ✅ **Dados de `tickComparison`** para visualizações frontend
+- ✅ **Documentação completa da API** com exemplos práticos
+
+### v1.0.0
+- ✅ Integração completa com @orca-so/whirlpools-sdk
+- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
+- ✅ Dados detalhados para visualizações de range
+- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
+- ✅ Cálculo de preços ajustados para diferentes tokens
+- ✅ Estatísticas de liquidez e concentração
+- ✅ Sistema de logging e monitoramento
+- ✅ Rate limiting e segurança
+- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
+
+#### 💰 Brokk Analytics (Análise Financeira Completa)
+```bash
+GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
+```
+**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do owner
+- `positionId` (opcional): Identificador da posição específica (NFT mint)
+- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
+- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
+- `showHistory` (opcional): Incluir histórico detalhado de transações
+
+**Funcionalidades:**
+- **ROI e APR** calculados com precisão via Helius API
+- **Análise de fees** coletadas e pendentes
+- **Cálculo de PnL** (Profit and Loss) detalhado
+- **Análise de impermanent loss**
+- **Rastreamento de custos de gas**
+- **Métricas agregadas** entre múltiplas posições
+- **Análise histórica** com valorização USD adequada
+
+**Exemplos:**
+```bash
+# Análise ROI completa para todas as posições do owner na pool
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Análise ROI para uma posição específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Análise ROI com período específico e histórico
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Dados retornados:**
+- `positions[]`: Array de análise financeira por posição
+- `range`: Faixa de preço (min/max/atual) para a posição
+- `investment`: Valores de investimento inicial e valores USD na época do depósito
+- `current`: Quantidades atuais de tokens e valores USD
+- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
+- `rewards`: Rewards não reivindicados e reivindicados em USD
+- `withdrawn`: Saques de principal em USD
+- `gas`: Custos de gas em SOL e USD
+- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
+- `roiPct`: Percentual de Retorno sobre Investimento
+- `aprPct`: Taxa Percentual Anualizada
+- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
+- `aggregated`: Soma de todas as métricas das posições
+
+**Notas importantes:**
+- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
+- Usa provedor de preços básico para testes (configurável para produção)
+- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
+- Suporte para análise de posição única ou agregação de múltiplas posições
+- Análise histórica com valorização USD adequada por timestamp
+
+
+### v1.3.0
+- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
+- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
+- ✅ **Função processPositionData** criada para padronizar o processamento de posições
+- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
+- ✅ **Exemplos de resposta** adicionados na documentação
+- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
+
+### v1.2.0
+- ✅ **README atualizado** com informações básicas e referência à documentação da API
+- ✅ **Instruções de instalação melhoradas** com comandos atualizados
+- ✅ **Dependências atualizadas** com versões específicas
+- ✅ **Configuração de ambiente** mais detalhada
+- ✅ **Verificação de instalação** com comandos de teste
+
+### v1.1.0
+- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
+- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
+- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
+- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
+- ✅ **Mensagens traduzidas para inglês** em todas as rotas
+- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
+- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
+- ✅ **Melhor tratamento de erros e logging** estruturado
+- ✅ **Dados de `tickComparison`** para visualizações frontend
+- ✅ **Documentação completa da API** com exemplos práticos
+
+### v1.0.0
+- ✅ Integração completa com @orca-so/whirlpools-sdk
+- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
+- ✅ Dados detalhados para visualizações de range
+- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
+- ✅ Cálculo de preços ajustados para diferentes tokens
+- ✅ Estatísticas de liquidez e concentração
+- ✅ Sistema de logging e monitoramento
+- ✅ Rate limiting e segurança
+- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
+
+#### 💰 Brokk Analytics (Análise Financeira Completa)
+```bash
+GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
+```
+**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do owner
+- `positionId` (opcional): Identificador da posição específica (NFT mint)
+- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
+- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
+- `showHistory` (opcional): Incluir histórico detalhado de transações
+
+**Funcionalidades:**
+- **ROI e APR** calculados com precisão via Helius API
+- **Análise de fees** coletadas e pendentes
+- **Cálculo de PnL** (Profit and Loss) detalhado
+- **Análise de impermanent loss**
+- **Rastreamento de custos de gas**
+- **Métricas agregadas** entre múltiplas posições
+- **Análise histórica** com valorização USD adequada
+
+**Exemplos:**
+```bash
+# Análise ROI completa para todas as posições do owner na pool
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Análise ROI para uma posição específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Análise ROI com período específico e histórico
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Dados retornados:**
+- `positions[]`: Array de análise financeira por posição
+- `range`: Faixa de preço (min/max/atual) para a posição
+- `investment`: Valores de investimento inicial e valores USD na época do depósito
+- `current`: Quantidades atuais de tokens e valores USD
+- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
+- `rewards`: Rewards não reivindicados e reivindicados em USD
+- `withdrawn`: Saques de principal em USD
+- `gas`: Custos de gas em SOL e USD
+- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
+- `roiPct`: Percentual de Retorno sobre Investimento
+- `aprPct`: Taxa Percentual Anualizada
+- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
+- `aggregated`: Soma de todas as métricas das posições
+
+**Notas importantes:**
+- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
+- Usa provedor de preços básico para testes (configurável para produção)
+- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
+- Suporte para análise de posição única ou agregação de múltiplas posições
+- Análise histórica com valorização USD adequada por timestamp
+
+
+### v1.3.0
+- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
+- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
+- ✅ **Função processPositionData** criada para padronizar o processamento de posições
+- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
+- ✅ **Exemplos de resposta** adicionados na documentação
+- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
+
+### v1.2.0
+- ✅ **README atualizado** com informações básicas e referência à documentação da API
+- ✅ **Instruções de instalação melhoradas** com comandos atualizados
+- ✅ **Dependências atualizadas** com versões específicas
+- ✅ **Configuração de ambiente** mais detalhada
+- ✅ **Verificação de instalação** com comandos de teste
+
+### v1.1.0
+- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
+- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
+- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
+- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
+- ✅ **Mensagens traduzidas para inglês** em todas as rotas
+- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
+- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
+- ✅ **Melhor tratamento de erros e logging** estruturado
+- ✅ **Dados de `tickComparison`** para visualizações frontend
+- ✅ **Documentação completa da API** com exemplos práticos
+
+### v1.0.0
+- ✅ Integração completa com @orca-so/whirlpools-sdk
+- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
+- ✅ Dados detalhados para visualizações de range
+- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
+- ✅ Cálculo de preços ajustados para diferentes tokens
+- ✅ Estatísticas de liquidez e concentração
+- ✅ Sistema de logging e monitoramento
+- ✅ Rate limiting e segurança
+- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
+
+#### 💰 Brokk Analytics (Análise Financeira Completa)
+```bash
+GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
+```
+**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
+
+**Parâmetros:**
+- `poolId` (obrigatório): Endereço da pool Whirlpool
+- `owner` (obrigatório): Endereço da carteira do owner
+- `positionId` (opcional): Identificador da posição específica (NFT mint)
+- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
+- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
+- `showHistory` (opcional): Incluir histórico detalhado de transações
+
+**Funcionalidades:**
+- **ROI e APR** calculados com precisão via Helius API
+- **Análise de fees** coletadas e pendentes
+- **Cálculo de PnL** (Profit and Loss) detalhado
+- **Análise de impermanent loss**
+- **Rastreamento de custos de gas**
+- **Métricas agregadas** entre múltiplas posições
+- **Análise histórica** com valorização USD adequada
+
+**Exemplos:**
+```bash
+# Análise ROI completa para todas as posições do owner na pool
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+
+# Análise ROI para uma posição específica
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
+
+# Análise ROI com período específico e histórico
+curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
+```
+
+**Dados retornados:**
+- `positions[]`: Array de análise financeira por posição
+- `range`: Faixa de preço (min/max/atual) para a posição
+- `investment`: Valores de investimento inicial e valores USD na época do depósito
+- `current`: Quantidades atuais de tokens e valores USD
+- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
+- `rewards`: Rewards não reivindicados e reivindicados em USD
+- `withdrawn`: Saques de principal em USD
+- `gas`: Custos de gas em SOL e USD
+- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
+- `roiPct`: Percentual de Retorno sobre Investimento
+- `aprPct`: Taxa Percentual Anualizada
+- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
+- `aggregated`: Soma de todas as métricas das posições
+
+**Notas importantes:**
+- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
+- Usa provedor de preços básico para testes (configurável para produção)
+- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
+- Suporte para análise de posição única ou agregação de múltiplas posições
+- Análise histórica com valorização USD adequada por timestamp
+
 
 ### v1.3.0
 - ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez

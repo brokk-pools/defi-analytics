@@ -7,6 +7,7 @@ import {
   PoolUtil,
 } from "@orca-so/whirlpools-sdk";
 import { Connection, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { makeConnection, makeWhirlpoolContext, GetInnerTransactionsFromPosition, getOutstandingFeesForPositionById, GetGasInPosition, getQtyNowFromPosition } from './orca.js';
 
 /* ================================
@@ -362,22 +363,22 @@ export async function calculateAnalytics(
       
       // Calcular totais
       const investment = {
-        A: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-        B: investmentResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+        A: investmentResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.A) / 10 ** decA, 0),  
+        B: investmentResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.B) / 10 ** decB, 0),
         A_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
         B_USD: investmentResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
       };
 
       const feesCollected = {
-        A: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-        B: feesCollectedResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+        A: feesCollectedResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.A) / 10 ** decA, 0),
+        B: feesCollectedResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.B) / 10 ** decB, 0),
         A_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
         B_USD: feesCollectedResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
       };
 
       const withdraw = {
-        A: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.A), 0),
-        B: withdrawResult.items.reduce((sum, item) => sum + Number(item.amounts.B), 0),
+        A: withdrawResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.A) / 10 ** decA, 0),
+        B: withdrawResult.items.reduce((sum, item) => sum + parseFloat(item.amounts.B) / 10 ** decB, 0),
         A_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.A_USD || 0), 0),
         B_USD: withdrawResult.items.reduce((sum, item) => sum + (item.amounts.B_USD || 0), 0)
       };
@@ -389,17 +390,18 @@ export async function calculateAnalytics(
       ]);
       
       const feesUncollected = {
-        A: Number(outstandingFees.totals.A),
-        B: Number(outstandingFees.totals.B),
+        A: parseFloat(outstandingFees.totals.A) / 10 ** decA,
+        B: parseFloat(outstandingFees.totals.B) / 10 ** decB,
         A_USD: Number(outstandingFees.totals.A_USD),
         B_USD: Number(outstandingFees.totals.B_USD)
       };
 
+      // Ja esta pegando em Solana (Convertido para 9 decimais)
       const gas = await GetGasInPosition(positionId, false);
 
       // Toda a Regra de Calculo de Analytics
       const qtyA =  (investment.A ?? 0);
-      const qtyB =  (investment.A ?? 0);
+      const qtyB =  (investment.B ?? 0);
 
       const pxA =  (investment.A_USD ?? 0) / (investment.A ?? 0);
       const pxB =  (investment.B_USD ?? 0) / (investment.B ?? 0);
@@ -415,14 +417,19 @@ export async function calculateAnalytics(
 
       // No Caso da Orca podemos pegar pelo SDK da Orca
       // Quantidades atuais dos Ativos no Pool
-      const {qtyA_now, qtyB_now} = await getQtyNowFromPosition(positionId);
+      const {qtyA_now: qtyA_now_temp, qtyB_now: qtyB_now_temp} = await getQtyNowFromPosition(positionId);
+      const qtyA_now = parseFloat(qtyA_now_temp) / 10 ** decA;
+      const qtyB_now = parseFloat(qtyB_now_temp) / 10 ** decB;
 
       // Precos atuais dos Ativos no Pool
       const pxA_now = priceA;
       const pxB_now = priceB;
+
       // Valor da posição atual (USD)
       const V_pos = (qtyA_now * pxA_now) + (qtyB_now * pxB_now);
-      const V_HODL = V_pos;
+
+      // Valor se tivesse segurado. Quantidaddes do aporte x novos valors
+      const V_HODL = (qtyA * pxA_now) + (qtyB * pxB_now);
 
       // Fees não Coletadas
       const F_uncol = (feesUncollected.A_USD ?? 0) + (feesUncollected.B_USD ?? 0);
@@ -440,11 +447,14 @@ export async function calculateAnalytics(
       const Gas = (gas.A_USD ?? 0) + (gas.B_USD ?? 0);
 
       // Idade da posição (em dias)
-      const t_age = 0;
-      //(nowUTC − openedAtUTC) / 1 dia
+      const nowUTC = new Date();
+      const openedAtUTC = investmentResult.items.length > 0 
+        ? new Date(Math.min(...investmentResult.items.map(item => new Date(item.datetimeUTC).getTime())))
+        : nowUTC;
+      const t_age = (nowUTC.getTime() - openedAtUTC.getTime()) / (1000 * 60 * 60 * 24); // Converter para dias
 
       // Valor reebido até agora (USD)
-      const V_recebido = F_col + W; 
+      const V_received = F_col + W; 
 
       // Lucro/perda bruta sem descontar gas (USD)
       const PoolPnL_exGas = (V_pos + F_col + F_uncol + W) - V_0;
@@ -503,14 +513,138 @@ export async function calculateAnalytics(
           tokenB: { mint: investmentResult.metadata.tokenB.mint, decimals: investmentResult.metadata.tokenB.decimals }
         },
         analytics: {
-          ///feesUncollected.A_USD e feesUncollected.B_USD          
-          UnclaimedRewards: 0,
-          ClaimedRewards: 0,
-          TotalFees: (feesCollected.A_USD ?? 0) + (feesCollected.B_USD ?? 0),
-          TotalRewards: 0,
-          TotalWithdraw: (withdraw.A_USD ?? 0) + (withdraw.B_USD ?? 0),
-          TotalInvest: (investment.A_USD ?? 0) + (investment.B_USD ?? 0),
-
+          // Variables used in calculations
+          variables: {
+            qtyA: {
+              value: qtyA,
+              description: "Quantity of token A at deposit"
+            },
+            qtyB: {
+              value: qtyB,
+              description: "Quantity of token B at deposit"
+            },
+            pxA: {
+              value: pxA,
+              description: "Price of token A at deposit (USD)"
+            },
+            pxB: {
+              value: pxB,
+              description: "Price of token B at deposit (USD)"
+            },
+            V_0: {
+              value: V_0,
+              description: "Total initial investment (USD)"
+            },
+            qtyA_now: {
+              value: qtyA_now,
+              description: "Current quantity of token A in position"
+            },
+            qtyB_now: {
+              value: qtyB_now,
+              description: "Current quantity of token B in position"
+            },
+            pxA_now: {
+              value: pxA_now,
+              description: "Current price of token A (USD)"
+            },
+            pxB_now: {
+              value: pxB_now,
+              description: "Current price of token B (USD)"
+            },
+            V_pos: {
+              value: V_pos,
+              description: "Current position value (USD)"
+            },
+            V_HODL: {
+              value: V_HODL,
+              description: "HODL value (My initial contribution with updated price values)"
+            },
+            F_uncol: {
+              value: F_uncol,
+              description: "Uncollected fees (USD)"
+            },
+            F_col: {
+              value: F_col,
+              description: "Collected fees (USD)"
+            },
+            F_total: {
+              value: F_total,
+              description: "Total fees (collected + uncollected) (USD)"
+            },
+            W: {
+              value: W,
+              description: "Total withdrawn from position (USD)"
+            },
+            Gas: {
+              value: Gas,
+              description: "Total gas costs paid (USD)"
+            },
+            t_age: {
+              value: t_age,
+              description: "Position age in days"
+            },
+            V_received: {
+              value: V_received,
+              description: "Total received value (fees + withdrawals) (USD)"
+            },
+            PoolPnL_exGas: {
+              value: PoolPnL_exGas,
+              description: "Pool PnL excluding gas costs (USD)"
+            },
+            PoolPnL_fee_exGas: {
+              value: PoolPnL_fee_exGas,
+              description: "Pool PnL from fees only, excluding gas (USD)"
+            },
+            PnL: {
+              value: PnL,
+              description: "Total PnL after gas costs (USD)"
+            },
+            PnL_fee: {
+              value: PnL_fee,
+              description: "PnL from fees only, after gas costs (USD)"
+            },
+            ROI: {
+              value: ROI,
+              description: "Return on Investment (percentage)"
+            },
+            ROI_exGas: {
+              value: ROI_exGas,
+              description: "Return on Investment excluding gas (percentage)"
+            },
+            ROI_fee_exGas: {
+              value: ROI_fee_exGas,
+              description: "Return on Investment from fees only, excluding gas (percentage)"
+            },
+            ROI_fee: {
+              value: ROI_fee,
+              description: "Return on Investment from fees only, after gas (percentage)"
+            },
+            TotalAPR: {
+              value: TotalAPR,
+              description: "Total Annualized Percentage Rate"
+            },
+            PoolAPR_exGas: {
+              value: PoolAPR_exGas,
+              description: "Pool APR excluding gas costs"
+            },
+            FeeAPR_exGas: {
+              value: FeeAPR_exGas,
+              description: "Fee APR excluding gas costs"
+            },
+            FeeAPR: {
+              value: FeeAPR,
+              description: "Fee APR after gas costs"
+            },
+            IL: {
+              value: IL,
+              description: "Impermanent Loss (USD)"
+            },
+            IL_percent: {
+              value: IL_percent,
+              description: "Impermanent Loss percentage"
+            }
+          },
+          
           investment,
           feesCollected,
           feesUncollected,
@@ -765,10 +899,10 @@ export async function calculatePoolROI(params: CalculatePoolRoiParams): Promise<
     // Fórmula (via SDK): dado (L, sqrtP, tickLower, tickUpper) ⇒ retorna { tokenA, tokenB }
     // Interpretação financeira: esse é o "estoque" atual dentro da sua posição (sem fees).
     const { tokenA: currARaw, tokenB: currBRaw } = PoolUtil.getTokenAmountsFromLiquidity(
-      liquidity,
+      new BN(liquidity.toString()),
       poolData.sqrtPrice,
-      tickLower,
-      tickUpper,
+      new BN(tickLower),
+      new BN(tickUpper),
       true // arredonda para cima para manter conservador
     );
     // Converte para "human" usando decimais — aqui simplificamos assumindo 10^dec já aplicado no preço em USDT
