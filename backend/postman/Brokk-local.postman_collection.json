@@ -1,73 +1,88 @@
 {
 	"info": {
 		"_postman_id": "41bf2147-86e4-4eb2-b2a4-ccaf353e92e6",
-		"name": "Orca Whirlpools Analytics API",
-		"description": "Complete API collection for Orca Whirlpools Analytics Platform",
+		"name": "Brokk-local",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "116877"
 	},
 	"item": [
 		{
-			"name": "Health Check",
+			"name": "wallet",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/health",
-					"host": ["{{base_url}}"],
-					"path": ["health"]
+					"raw": "localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"wallet",
+						"6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Wallet Positions",
+			"name": "liquidity",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
-					"host": ["{{base_url}}"],
-					"path": ["wallet", "6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"]
+					"raw": "localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"liquidity",
+						"6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
+					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Liquidity Overview",
+			"name": "position",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
-					"host": ["{{base_url}}"],
-					"path": ["liquidity", "6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"]
+					"raw": "localhost:3001/position/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF?showTicks=true",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"position",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					],
+					"query": [
+						{
+							"key": "showTicks",
+							"value": "true"
+						}
+					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Position Details",
+			"name": "pools",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/position/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
-					"host": ["{{base_url}}"],
-					"path": ["position", "G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Pools List",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/pools?sortBy=volume&sortDirection=desc&limit=10",
-					"host": ["{{base_url}}"],
-					"path": ["pools"],
+					"raw": "localhost:3001/pools?sortBy=volume&sortDirection=asc",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"pools"
+					],
 					"query": [
 						{
 							"key": "sortBy",
@@ -75,121 +90,82 @@
 						},
 						{
 							"key": "sortDirection",
-							"value": "desc"
+							"value": "asc"
 						},
 						{
-							"key": "limit",
-							"value": "10"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Pool Details",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=10",
-					"host": ["{{base_url}}"],
-					"path": ["poolsdetails", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"],
-					"query": [
-						{
-							"key": "topPositions",
-							"value": "10"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Top Positions",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/top-positions?limit=20",
-					"host": ["{{base_url}}"],
-					"path": ["top-positions"],
-					"query": [
-						{
-							"key": "limit",
-							"value": "20"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "TickArray Data",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
-					"host": ["{{base_url}}"],
-					"path": ["tickarray", "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Outstanding Fees (Primary)",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showPositions=true",
-					"host": ["{{base_url}}"],
-					"path": ["fees", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE", "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"],
-					"query": [
-						{
-							"key": "showPositions",
-							"value": "true"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Outstanding Fees (Legacy)",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/fees/position/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
-					"host": ["{{base_url}}"],
-					"path": ["fees", "position", "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Collected Fees",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showHistory=true&startUtc=2025-01-01T00:00:00Z&endUtc=2025-01-31T23:59:59Z",
-					"host": ["{{base_url}}"],
-					"path": ["fees", "collected", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE", "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"],
-					"query": [
-						{
-							"key": "showHistory",
-							"value": "true"
+							"key": "next",
+							"value": "",
+							"disabled": true
 						},
 						{
-							"key": "startUtc",
-							"value": "2025-01-01T00:00:00Z"
+							"key": "previous",
+							"value": "",
+							"disabled": true
 						},
 						{
-							"key": "endUtc",
-							"value": "2025-01-31T23:59:59Z"
+							"key": "hasRewards",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "hasWarning",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "hasAdaptiveFee",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "isWavebreak",
+							"value": "true",
+							"disabled": true
+						},
+						{
+							"key": "minTvl",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "minVolume",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "minLockedLiquidityPercent",
+							"value": "",
+							"disabled": true
+						},
+						{
+							"key": "size",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "token",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "tokensBothOf",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "addresses",
+							"value": "0",
+							"disabled": true
+						},
+						{
+							"key": "stats",
+							"value": "5m",
+							"disabled": true
+						},
+						{
+							"key": "includeBlocked",
+							"value": "true",
+							"disabled": true
 						}
 					]
 				}
@@ -197,26 +173,102 @@
 			"response": []
 		},
 		{
-			"name": "Brokk Analytics (Complete ROI)",
+			"name": "tick",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showHistory=true&startUtc=2025-01-01T00:00:00Z&endUtc=2025-01-31T23:59:59Z",
-					"host": ["{{base_url}}"],
-					"path": ["brokk-analytics", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE", "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"],
+					"raw": "localhost:3001/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"tickarray",
+						"FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "gas",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"gas",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "fees-uncollected",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/fees/uncollected/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"fees",
+						"uncollected",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "fees-collected",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/fees/collected/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"fees",
+						"collected",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "transactions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:3001/transactions/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF?operations=COLLECT_FEES,INCREASE_LIQUIDITY,DECREASE_LIQUIDITY,OPEN_POSITION",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"transactions",
+						"G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
+					],
 					"query": [
 						{
-							"key": "showHistory",
-							"value": "true"
-						},
-						{
-							"key": "startUtc",
-							"value": "2025-01-01T00:00:00Z"
-						},
-						{
-							"key": "endUtc",
-							"value": "2025-01-31T23:59:59Z"
+							"key": "operations",
+							"value": "COLLECT_FEES,INCREASE_LIQUIDITY,DECREASE_LIQUIDITY,OPEN_POSITION"
 						}
 					]
 				}
@@ -224,14 +276,21 @@
 			"response": []
 		},
 		{
-			"name": "Brokk Analytics (Specific Position)",
+			"name": "analytics",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
-					"host": ["{{base_url}}"],
-					"path": ["brokk-analytics", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE", "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"],
+					"raw": "localhost:3001/analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"analytics",
+						"Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+						"2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
+					],
 					"query": [
 						{
 							"key": "positionId",
@@ -243,89 +302,23 @@
 			"response": []
 		},
 		{
-			"name": "Gas Calculation",
+			"name": "top-positions",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF?showHistory=true",
-					"host": ["{{base_url}}"],
-					"path": ["gas", "G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"],
-					"query": [
-						{
-							"key": "showHistory",
-							"value": "true"
-						}
+					"raw": "localhost:3001/top-positions/",
+					"host": [
+						"localhost"
+					],
+					"port": "3001",
+					"path": [
+						"top-positions",
+						""
 					]
 				}
 			},
 			"response": []
-		},
-		{
-			"name": "Analytics (Legacy)",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH",
-					"host": ["{{base_url}}"],
-					"path": ["analytics", "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE", "2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"],
-					"query": [
-						{
-							"key": "positionId",
-							"value": "6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Webhook (Helius)",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "X-Helius-Signature",
-						"value": "test-signature",
-						"disabled": true
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"type\": \"ENHANCED_TRANSACTION\",\n  \"accountData\": [],\n  \"transaction\": {\n    \"signature\": \"test-signature\",\n    \"slot\": 123456789,\n    \"timestamp\": 1640995200,\n    \"fee\": 5000,\n    \"instructions\": []\n  }\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/webhook/helius",
-					"host": ["{{base_url}}"],
-					"path": ["webhook", "helius"]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Metrics (Production)",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/metrics",
-					"host": ["{{base_url}}"],
-					"path": ["metrics"]
-				}
-			},
-			"response": []
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:3001",
-			"type": "string"
 		}
 	]
 }
