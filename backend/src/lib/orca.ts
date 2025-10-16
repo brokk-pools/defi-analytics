@@ -39,6 +39,7 @@ function subMod(a: bigint, b: bigint): bigint {
   return result < 0n ? result + (2n ** 128n) : result;
 }
 
+
 // Token Program 2022 address
 const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 
@@ -84,9 +85,28 @@ export function makeWhirlpoolClient() {
   return buildWhirlpoolClient(ctx);
 }
 
-export function getProgramId(): PublicKey {
-  return ORCA_WHIRLPOOL_PROGRAM_ID;
+// Função auxiliar para calcular preço ajustado baseado nos tokens
+function calculateAdjustedPrice(tickIndex: number, tokenMintA: string, tokenMintB: string): number {
+  const basePrice = Math.pow(1.0001, tickIndex);
+  
+  // Mapeamento de decimais para tokens conhecidos
+  const tokenDecimals: Record<string, number> = {
+    'So11111111111111111111111111111111111111112': 9, // SOL
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6, // USDC
+    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 6, // USDT
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 6, // RAY
+    'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 9, // mSOL
+    '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 6, // ORCA
+  };
+  
+  const decimalsA = tokenDecimals[tokenMintA] || 9;
+  const decimalsB = tokenDecimals[tokenMintB] || 9;
+  
+  // Ajustar preço baseado na diferença de decimais
+  const decimalAdjustment = Math.pow(10, decimalsB - decimalsA);
+  return basePrice * decimalAdjustment;
 }
+
 
 /**
  * Calcula o total de taxas de transação (gas) pagas em interações da posição com o programa Orca.
@@ -502,39 +522,6 @@ export async function getPositionData(connection: Connection, positionMint: stri
   }
 }
 
-export function calculateEstimatedFees(position: any): { tokenA: string; tokenB: string } {
-  try {
-    // Use actual fee data from position if available
-    if (position.feeOwedA && position.feeOwedB) {
-      return {
-        tokenA: position.feeOwedA,
-        tokenB: position.feeOwedB
-      };
-    }
-    
-    // Fallback to simplified calculation if fee data not available
-    const liquidity = BigInt(position.liquidity || '0');
-    
-    // Basic estimation: assume some fees have accrued based on liquidity
-    // In reality, this would require complex calculations with fee growth globals
-    const liquidityNumber = parseFloat(liquidity.toString());
-    
-    // Rough estimation: 0.01% of liquidity as accumulated fees
-    const estimatedFeesA = Math.floor(liquidityNumber * 0.0001);
-    const estimatedFeesB = Math.floor(liquidityNumber * 0.0001);
-    
-    return {
-      tokenA: estimatedFeesA.toString(),
-      tokenB: estimatedFeesB.toString()
-    };
-  } catch (error) {
-    console.error('Error calculating fees:', error);
-    return {
-      tokenA: '0',
-      tokenB: '0'
-    };
-  }
-}
 
 // Helper function to get token metadata
 export async function getTokenMetadata(connection: Connection, mint: string): Promise<{ symbol: string; name: string; decimals: number }> {
@@ -595,127 +582,8 @@ export async function getTokenMetadata(connection: Connection, mint: string): Pr
 }
 
 // Helper function to determine if position is in range
-export function isPositionInRange(position: any): boolean {
-  try {
-    const currentTick = position.whirlpoolData?.tickCurrentIndex || 0;
-    const tickLower = position.tickLower || 0;
-    const tickUpper = position.tickUpper || 0;
-    
-    const inRange = currentTick >= tickLower && currentTick <= tickUpper;
-    console.log(`📊 Position range check: current tick ${currentTick}, range [${tickLower}, ${tickUpper}] -> ${inRange ? 'IN' : 'OUT'} of range`);
-    
-    return inRange;
-  } catch (error) {
-    console.error('Error checking if position is in range:', error);
-    return false;
-  }
-}
 
-// Helper function to calculate price from sqrt price
-export function calculatePriceFromSqrtPrice(sqrtPrice: string, decimalsA: number, decimalsB: number): number {
-  try {
-    const sqrtPriceBN = BigInt(sqrtPrice);
-    const price = parseFloat((sqrtPriceBN * sqrtPriceBN).toString()) / (2 ** 128);
-    
-    // Adjust for token decimals
-    const decimalAdjustment = Math.pow(10, decimalsB - decimalsA);
-    const adjustedPrice = price * decimalAdjustment;
-    
-    return adjustedPrice;
-  } catch (error) {
-    console.error('Error calculating price:', error);
-    return 0;
-  }
-}
 
-// ============== Classic LP discovery (simplificado) ==============
-export type SplTokenAccount = {
-  pubkey: string;
-  mint: string;
-  amount: string;
-  decimals: number;
-};
-
-export async function listSplTokensByOwner(connection: Connection, owner: string): Promise<SplTokenAccount[]> {
-  const ownerPubkey = new PublicKey(owner);
-  const accounts = await connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_PROGRAM_ID });
-
-  return accounts.value.map((acc) => {
-    const info = acc.account.data.parsed.info;
-    const tokenAmount = info.tokenAmount;
-    return {
-      pubkey: acc.pubkey.toString(),
-      mint: info.mint as string,
-      amount: tokenAmount.amount as string,
-      decimals: tokenAmount.decimals as number
-    };
-  });
-}
-
-// Mapa mínimo de LPs conhecidos (exemplo; expandir conforme necessidade)
-type OrcaClassicLpInfo = {
-  symbol: string;
-  tokenAMint: string;
-  tokenBMint: string;
-  // contas/reservas poderiam ser lidas do programa; aqui mantemos simples
-};
-
-export const ORCA_CLASSIC_LP_REGISTRY: Record<string, OrcaClassicLpInfo> = {};
-
-// Carrega registry simples da API pública da Orca (classic pools)
-// Estrutura esperada (parcial): { pools: { [symbol]: { poolTokenMint, tokenA, tokenB } } }
-let cachedRegistryLoaded = false;
-export async function ensureClassicRegistryLoaded(): Promise<void> {
-  if (cachedRegistryLoaded) return;
-  try {
-    const resp = await fetch('https://api.orca.so/pools');
-    if (!resp.ok) return;
-    const data = await resp.json() as any;
-    const pools = data?.pools || {};
-    for (const symbol of Object.keys(pools)) {
-      const p = pools[symbol];
-      if (p?.poolTokenMint && p?.tokenA?.mint && p?.tokenB?.mint) {
-        ORCA_CLASSIC_LP_REGISTRY[p.poolTokenMint] = {
-          symbol,
-          tokenAMint: p.tokenA.mint,
-          tokenBMint: p.tokenB.mint
-        };
-      }
-    }
-    cachedRegistryLoaded = true;
-  } catch {
-    // ignore network errors; fallback é registry vazio
-  }
-}
-
-export type ClassicLpPosition = {
-  lpMint: string;
-  lpBalanceRaw: string;
-  lpDecimals: number;
-  knownPool: OrcaClassicLpInfo;
-  // Quando tivermos reserves e totalSupply podemos preencher:
-  share?: number;
-  tokenAAmount?: string;
-  tokenBAmount?: string;
-};
-
-export async function detectClassicLpPositions(tokens: SplTokenAccount[]): Promise<ClassicLpPosition[]> {
-  await ensureClassicRegistryLoaded();
-  return tokens
-    .filter(t => BigInt(t.amount) > 0n)
-    .map(t => {
-      const info = ORCA_CLASSIC_LP_REGISTRY[t.mint];
-      if (!info) return undefined;
-      const pos: ClassicLpPosition = {
-        lpMint: t.mint,
-        lpBalanceRaw: t.amount,
-        lpDecimals: t.decimals,
-        knownPool: info
-      };
-      return pos;
-    })
-    .filter((p): p is ClassicLpPosition => !!p);
-}
 
 export async function getLiquidityOverview(owner: string) {
   try {
@@ -1036,27 +904,6 @@ export async function createRpcConnection() {
   };
 }
 
-// Função auxiliar para calcular preço ajustado baseado nos tokens
-function calculateAdjustedPrice(tickIndex: number, tokenMintA: string, tokenMintB: string): number {
-  const basePrice = Math.pow(1.0001, tickIndex);
-  
-  // Mapeamento de decimais para tokens conhecidos
-  const tokenDecimals: Record<string, number> = {
-    'So11111111111111111111111111111111111111112': 9, // SOL
-    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6, // USDC
-    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 6, // USDT
-    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 6, // RAY
-    'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 9, // mSOL
-    '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': 6, // ORCA
-  };
-  
-  const decimalsA = tokenDecimals[tokenMintA] || 9;
-  const decimalsB = tokenDecimals[tokenMintB] || 9;
-  
-  // Ajustar preço baseado na diferença de decimais
-  const decimalAdjustment = Math.pow(10, decimalsB - decimalsA);
-  return basePrice * decimalAdjustment;
-}
 
 // Função para obter dados completos de uma pool usando Orca SDK
 export async function getFullPoolData(poolAddressStr: string, includePositions: boolean = true, topPositions: number = 0) {
@@ -3512,3 +3359,4 @@ function amountsFromLiquidityDecimal(
   const qtyB = L.mul(sqrtP.sub(sqrtPL));
   return { qtyA, qtyB };
 }
+
