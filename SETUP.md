@@ -2,36 +2,36 @@
 
 ## 🚀 Quick Start
 
-### Pré-requisitos
+### Prerequisites
 - Node.js 20+
 - Docker & Docker Compose
 - Git
 
-### 1. Setup do Ambiente
+### 1. Environment Setup
 
 ```bash
-# Clone o projeto
+# Clone the project
 git clone <your-repo>
 cd orca-mvp
 
-# Configurar variáveis de ambiente backend
+# Configure backend environment variables
 cd backend
 cp .env.example .env
-# Edite .env com sua chave Helius API (obtenha em https://dev.helius.xyz)
+# Edit .env with your Helius API key (get it at https://dev.helius.xyz)
 
-# Configurar variáveis de ambiente frontend
+# Configure frontend environment variables
 cd ../frontend
 echo "VITE_API_URL=http://localhost:3001" > .env
 ```
 
-### 2. Banco de Dados
+### 2. Database
 
 ```bash
-# Iniciar PostgreSQL
+# Start PostgreSQL
 cd ../infra
 docker compose up -d
 
-# Verificar se está rodando
+# Check if it's running
 docker compose ps
 ```
 
@@ -40,143 +40,143 @@ docker compose ps
 ```bash
 cd ../backend
 
-# Instalar dependências
+# Install dependencies
 npm install
 
-# Compilar TypeScript
+# Compile TypeScript
 npm run build
 
-# Iniciar servidor
+# Start server
 npm start
 ```
 
-O backend estará disponível em `http://localhost:3001`
+The backend will be available at `http://localhost:3001`
 
 ### 4. Frontend
 
 ```bash
 cd ../frontend
 
-# Instalar dependências (se necessário)
+# Install dependencies (if needed)
 npm install
 
-# Iniciar desenvolvimento
+# Start development
 npm run dev
 ```
 
-O frontend estará disponível em `http://localhost:5173`
+The frontend will be available at `http://localhost:5173`
 
-## 🔧 Configuração da Helius API
+## 🔧 Helius API Configuration
 
-1. Acesse [https://dev.helius.xyz](https://dev.helius.xyz)
-2. Crie uma conta gratuita (100k requests/mês)
-3. Obtenha sua API key
-4. Atualize o arquivo `backend/.env`:
+1. Visit [https://dev.helius.xyz](https://dev.helius.xyz)
+2. Create a free account (100k requests/month)
+3. Get your API key
+4. Update the `backend/.env` file:
 
 ```env
-HELIUS_API_KEY=sua_chave_aqui
+HELIUS_API_KEY=your_key_here
 ```
 
-5. Reinicie o backend
+5. Restart the backend
 
-## 🧪 Testando a Aplicação
+## 🧪 Testing the Application
 
-### Endpoints Backend
+### Backend Endpoints
 
 ```bash
 # Health check
 curl http://localhost:3001/health
 
-# Teste wallet com dados demo
+# Test wallet with demo data
 curl http://localhost:3001/wallet/11111111111111111111111111111112
 
-# Retorna:
+# Returns:
 # {"wallet":"11111111111111111111111111111112","positions":[{"nftMint":"DemoPosition1234567890abcdef","poolAddress":"DemoPool1234567890abcdef","tokenA":"SOL","tokenB":"USDC","tickLower":-29760,"tickUpper":29760,"liquidity":"1000000000","currentPrice":98.45,"inRange":true,"estimatedFeesA":"0.125","estimatedFeesB":"12.34"},{"nftMint":"DemoPosition0987654321fedcba","poolAddress":"DemoPool0987654321fedcba","tokenA":"USDC","tokenB":"RAY","tickLower":-1000,"tickUpper":1000,"liquidity":"500000000","currentPrice":2.15,"inRange":false,"estimatedFeesA":"5.67","estimatedFeesB":"0.089"}]}
 ```
 
 ### Frontend
 
-1. Abra `http://localhost:5173`
-2. Digite qualquer chave pública válida (ex: `11111111111111111111111111111112`)
-3. Clique em "Fetch Positions"
-4. Visualize as **2 posições demo** com design profissional:
-   - **SOL/USDC**: In Range, ₹98.45, com fees estimadas
-   - **USDC/RAY**: Out of Range, ₹2.15, com fees estimadas
+1. Open `http://localhost:5173`
+2. Enter any valid public key (e.g., `11111111111111111111111111111112`)
+3. Click "Fetch Positions"
+4. View the **2 demo positions** with professional design:
+   - **SOL/USDC**: In Range, ₹98.45, with estimated fees
+   - **USDC/RAY**: Out of Range, ₹2.15, with estimated fees
 
-### ✅ Status Atual - MVP Demo Funcional
+### ✅ Current Status - Functional MVP Demo
 
-- **Backend**: ✅ Rodando com dados mockados realistas
-- **Frontend**: ✅ Interface profissional completa
-- **Database**: ✅ PostgreSQL configurado
-- **API**: ✅ Endpoints funcionando
-- **UX**: ✅ Loading states, validação, design responsivo
+- **Backend**: ✅ Running with realistic mock data
+- **Frontend**: ✅ Complete professional interface
+- **Database**: ✅ PostgreSQL configured
+- **API**: ✅ Endpoints working
+- **UX**: ✅ Loading states, validation, responsive design
 
-## 📋 Funcionalidades Implementadas
+## 📋 Implemented Features
 
 ### Backend
-- ✅ API REST com Express.js + TypeScript
-- ✅ Integração com Orca SDK (simplificada para MVP)
-- ✅ Tratamento robusto de erros
-- ✅ Validação de entrada
-- ✅ Conexão PostgreSQL
-- ✅ Estrutura para webhooks Helius
-- ✅ Sistema de logging
+- ✅ REST API with Express.js + TypeScript
+- ✅ Orca SDK integration (simplified for MVP)
+- ✅ Robust error handling
+- ✅ Input validation
+- ✅ PostgreSQL connection
+- ✅ Helius webhook structure
+- ✅ Logging system
 
 ### Frontend
-- ✅ Interface React moderna com Vite
-- ✅ Design profissional com CSS customizado
-- ✅ Loading states e skeleton loading
-- ✅ Validação de entrada
-- ✅ Tratamento de erros
-- ✅ Responsivo para mobile
+- ✅ Modern React interface with Vite
+- ✅ Professional design with custom CSS
+- ✅ Loading states and skeleton loading
+- ✅ Input validation
+- ✅ Error handling
+- ✅ Mobile responsive
 
-### Infraestrutura
+### Infrastructure
 - ✅ PostgreSQL via Docker
-- ✅ Adminer para gerenciamento do DB
-- ✅ Configuração de ambiente
-- ✅ TypeScript compilado
+- ✅ Adminer for DB management
+- ✅ Environment configuration
+- ✅ Compiled TypeScript
 
-## 🔧 Resolução de Problemas
+## 🔧 Troubleshooting
 
-### Backend não inicia
+### Backend won't start
 ```bash
-# Verificar variáveis de ambiente
+# Check environment variables
 cd backend && cat .env
 
-# Verificar se banco está rodando
+# Check if database is running
 docker compose ps
 
-# Verificar logs
+# Check logs
 docker compose logs db
 ```
 
-### Frontend não conecta
+### Frontend won't connect
 ```bash
-# Verificar URL da API
+# Check API URL
 cd frontend && cat .env
 
-# Verificar se backend está rodando
+# Check if backend is running
 curl http://localhost:3001/health
 ```
 
-### Erro de posições
-- Certifique-se de que a chave Helius API está configurada
-- Use uma carteira que tenha posições reais no Orca Devnet
-- Verifique logs do backend para detalhes
+### Position errors
+- Make sure Helius API key is configured
+- Use a wallet that has real positions on Orca Devnet
+- Check backend logs for details
 
-## 🚀 Próximos Passos
+## 🚀 Next Steps
 
-Para produção, considere:
-1. Configurar chave Helius real
-2. Implementar integração completa do Orca SDK
-3. Configurar webhook Helius
-4. Deploy em VPS (ver DEPLOYMENT.md)
-5. Monitoramento e logs
-6. Testes automatizados
+For production, consider:
+1. Configure real Helius key
+2. Implement complete Orca SDK integration
+3. Configure Helius webhook
+4. Deploy to VPS (see DEPLOYMENT.md)
+5. Monitoring and logs
+6. Automated tests
 
-## 📚 Documentação Adicional
+## 📚 Additional Documentation
 
-- [README.md](./README.md) - Documentação completa
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Guia de deploy
-- [Orca SDK](https://dev.orca.so/) - Documentação oficial
-- [Helius API](https://docs.helius.dev/) - Documentação Helius
+- [README.md](./README.md) - Complete documentation
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
+- [Orca SDK](https://dev.orca.so/) - Official documentation
+- [Helius API](https://docs.helius.dev/) - Helius documentation

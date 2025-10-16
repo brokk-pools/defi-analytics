@@ -1,17 +1,17 @@
 # Orca Whirlpools Analytics Platform
 
-Uma plataforma completa de **Analytics DeFi** para **Orca Whirlpools** na rede **Solana**, fornecendo insights financeiros detalhados sobre posições de liquidez, cálculo de fees, análise de ROI e métricas de performance.
+A comprehensive **DeFi Analytics** platform for **Orca Whirlpools** on the **Solana** network, providing detailed financial insights on liquidity positions, fee calculations, ROI analysis, and performance metrics.
 
-## 🎯 Visão Geral
+## 🎯 Overview
 
-Esta plataforma oferece uma API robusta para análise financeira de posições de liquidez no protocolo Orca Whirlpools, similar ao Revert Finance, mas especificamente otimizada para a Solana. O sistema utiliza **RPC Helius** e o **SDK oficial da Orca** para fornecer dados precisos e em tempo real.
+This platform offers a robust API for financial analysis of liquidity positions in the Orca Whirlpools protocol, similar to Revert Finance, but specifically optimized for Solana. The system uses **Helius RPC** and the **official Orca SDK** to provide accurate and real-time data.
 
-### 🏗️ Arquitetura
+### 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   React Frontend │    │  Express Backend │    │  PostgreSQL DB  │
-│   (Em Desenvolvimento) │◄──►│   (Node.js TS)   │◄──►│    (Docker)     │
+│   (In Development) │◄──►│   (Node.js TS)   │◄──►│    (Docker)     │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                ▲
                                │
@@ -22,50 +22,50 @@ Esta plataforma oferece uma API robusta para análise financeira de posições d
                     └──────────────────┘
 ```
 
-## 🚀 Tecnologias Principais
+## 🚀 Core Technologies
 
 - **Blockchain**: Solana (Devnet/Mainnet)
-- **RPC Provider**: Helius (alta performance e confiabilidade)
-- **SDK**: Orca Whirlpools SDK oficial
+- **RPC Provider**: Helius (high performance and reliability)
+- **SDK**: Official Orca Whirlpools SDK
 - **Backend**: Node.js + TypeScript + Express
 - **Database**: PostgreSQL
-- **Frontend**: React + TypeScript + Vite (em desenvolvimento)
+- **Frontend**: React + TypeScript + Vite (in development)
 
-## 📊 Funcionalidades Principais
+## 📊 Main Features
 
-### 💰 **Análise de Fees**
-- **Fees Pendentes**: Cálculo em tempo real de fees não coletadas
-- **Fees Coletadas**: Histórico completo de fees já coletadas
-- **Análise Temporal**: Consultas por período específico
-- **Múltiplas Posições**: Suporte para análise agregada
+### 💰 **Fee Analysis**
+- **Outstanding Fees**: Real-time calculation of uncollected fees
+- **Collected Fees**: Complete history of already collected fees
+- **Temporal Analysis**: Queries for specific time periods
+- **Multiple Positions**: Support for aggregated analysis
 
-### 📈 **Analytics Financeiro (Brokk Analytics)**
-- **ROI Completo**: Análise de retorno sobre investimento
-- **PnL Tracking**: Acompanhamento de lucros e perdas
-- **APR Calculation**: Taxa percentual anualizada
-- **Impermanent Loss**: Análise de perda impermanente
-- **Gas Cost Tracking**: Rastreamento de custos de transação
+### 📈 **Financial Analytics (Brokk Analytics)**
+- **Complete ROI**: Return on investment analysis
+- **PnL Tracking**: Profit and loss tracking
+- **APR Calculation**: Annualized percentage rate
+- **Impermanent Loss**: Impermanent loss analysis
+- **Gas Cost Tracking**: Transaction cost tracking
 
-### 🎯 **Gestão de Posições**
-- **Monitoramento de Range**: Status in-range/out-of-range
-- **Liquidity Tracking**: Acompanhamento de liquidez
-- **Reward Analysis**: Análise de rewards e incentivos
-- **Position History**: Histórico completo de operações
+### 🎯 **Position Management**
+- **Range Monitoring**: In-range/out-of-range status
+- **Liquidity Tracking**: Liquidity monitoring
+- **Reward Analysis**: Rewards and incentives analysis
+- **Position History**: Complete operation history
 
 ## 🔧 Quick Start
 
-### Pré-requisitos
+### Prerequisites
 - Node.js 20+
 - Docker & Docker Compose
-- Helius API Key (tier gratuito disponível)
+- Helius API Key (free tier available)
 
-### 1. Configuração Inicial
+### 1. Initial Setup
 ```bash
 git clone <repository-url>
 cd orca-whirlpools-mvp
 ```
 
-### 2. Banco de Dados
+### 2. Database
 ```bash
 cd infra
 docker compose up -d
@@ -75,20 +75,20 @@ docker compose up -d
 ```bash
 cd ../backend
 cp .env.example .env
-# Configure sua Helius API key no .env
+# Configure your Helius API key in .env
 npm install
 npm run dev
 ```
 
-### 4. Frontend (Em Desenvolvimento)
+### 4. Frontend (In Development)
 ```bash
 cd ../frontend
 npm install
 npm run dev
-# ⚠️ Frontend ainda está em desenvolvimento
+# ⚠️ Frontend is still in development
 ```
 
-## 📡 API Endpoints Principais
+## 📡 Main API Endpoints
 
 ### 🏥 Health Check
 ```
@@ -97,31 +97,31 @@ GET /health
 
 ### 💰 Fees Analytics
 ```
-GET /fees/:poolId/:owner                    # Fees pendentes (todas as posições)
-GET /fees/position/:positionId/:poolId      # Fees pendentes (posição específica)
-GET /fees/collected/:poolId/:owner          # Fees coletadas (histórico)
+GET /fees/:poolId/:owner                    # Outstanding fees (all positions)
+GET /fees/position/:positionId/:poolId      # Outstanding fees (specific position)
+GET /fees/collected/:poolId/:owner          # Collected fees (history)
 ```
 
 ### 📊 Brokk Analytics (ROI Analysis)
 ```
-GET /brokk-analytics/:poolId/:owner         # Análise financeira completa
+GET /brokk-analytics/:poolId/:owner         # Complete financial analysis
 ```
 
 ### 🎯 Position Management
 ```
-GET /wallet/:publicKey                      # Posições de uma carteira
-GET /position/:nftMint                      # Detalhes de uma posição
-GET /liquidity/:publicKey                   # Overview de liquidez
+GET /wallet/:publicKey                      # Wallet positions
+GET /position/:nftMint                      # Position details
+GET /liquidity/:publicKey                   # Liquidity overview
 ```
 
 ### 🏊 Pool Information
 ```
-GET /pools                                  # Lista de pools
-GET /pools/:poolId                          # Detalhes de uma pool
-GET /poolsdetails/:poolId                   # Informações detalhadas
+GET /pools                                  # Pool list
+GET /pools/:poolId                          # Pool details
+GET /poolsdetails/:poolId                   # Detailed information
 ```
 
-## 🔑 Configuração de Ambiente
+## 🔑 Environment Configuration
 
 ### Backend (.env)
 ```bash
@@ -137,100 +137,100 @@ ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 VITE_API_URL=http://localhost:3001
 ```
 
-## 📖 Documentação Detalhada
+## 📖 Detailed Documentation
 
-Para documentação técnica completa, exemplos de uso, schemas de resposta e guias de integração, consulte:
+For complete technical documentation, usage examples, response schemas, and integration guides, see:
 
 ### 📚 **[Backend Documentation](./backend/README.md)**
-- Documentação completa da API
-- Exemplos de requisições e respostas
-- Schemas de banco de dados
-- Guias de configuração
+- Complete API documentation
+- Request and response examples
+- Database schemas
+- Configuration guides
 - Troubleshooting
 
-### 🔧 **Arquivos de Configuração**
+### 🔧 **Configuration Files**
 - [TypeScript Config](./backend/tsconfig.json)
 - [Package.json](./backend/package.json)
 - [Dockerfile](./backend/Dockerfile)
 
-### 💻 **Código Fonte**
-- [Routes](./backend/src/routes/) - Endpoints da API
-- [Lib](./backend/src/lib/) - Utilitários e integrações
-- [Types](./backend/src/lib/types.ts) - Definições TypeScript
+### 💻 **Source Code**
+- [Routes](./backend/src/routes/) - API endpoints
+- [Lib](./backend/src/lib/) - Utilities and integrations
+- [Types](./backend/src/lib/types.ts) - TypeScript definitions
 
-## 🧪 Testando a API
+## 🧪 Testing the API
 
 ```bash
 # Health check
 curl http://localhost:3001/health
 
-# Fees para uma carteira
+# Fees for a wallet
 curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 
-# Brokk Analytics (ROI completo)
+# Brokk Analytics (complete ROI)
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 ```
 
 ## 🚀 Deployment
 
-### Produção
-1. Configure variáveis de ambiente para produção
-2. Configure SSL/TLS para endpoints webhook
-3. Use banco de dados de produção
-4. Configure Helius webhook com URL de produção
+### Production
+1. Configure environment variables for production
+2. Configure SSL/TLS for webhook endpoints
+3. Use production database
+4. Configure Helius webhook with production URL
 
 ### VPS
 ```bash
-# No seu VPS
+# On your VPS
 git clone <repository-url>
 cd orca-whirlpools-mvp
 
-# Iniciar banco de dados
+# Start database
 cd infra
 docker compose up -d
 
-# Build e start do backend
+# Build and start backend
 cd ../backend
 npm install
 npm run build
 npm start
 ```
 
-## 📋 Status do Projeto
+## 📋 Project Status
 
-- ✅ **Backend**: Completamente funcional com APIs REST
-- ✅ **Database**: PostgreSQL configurado e funcionando
-- ✅ **Analytics**: Brokk Analytics implementado
-- ✅ **Fees Calculation**: Cálculo preciso de fees
-- 🚧 **Frontend**: Em desenvolvimento (estrutura básica)
-- ✅ **Documentation**: Documentação completa disponível
+- ✅ **Backend**: Fully functional with REST APIs
+- ✅ **Database**: PostgreSQL configured and working
+- ✅ **Analytics**: Brokk Analytics implemented
+- ✅ **Fees Calculation**: Accurate fee calculation
+- 🚧 **Frontend**: In development (basic structure)
+- ✅ **Documentation**: Complete documentation available
 
-## 🛠️ Próximos Passos
+## 🛠️ Next Steps
 
-1. **Frontend Completo**: Interface React para visualização de dados
-2. **Real-time Updates**: WebSocket para atualizações em tempo real
-3. **Advanced Analytics**: Métricas mais avançadas e comparações
-4. **Multi-DEX Support**: Suporte para outros DEXs da Solana
+1. **Complete Frontend**: React interface for data visualization
+2. **Real-time Updates**: WebSocket for real-time updates
+3. **Advanced Analytics**: More advanced metrics and comparisons
+4. **Multi-DEX Support**: Support for other Solana DEXs
 5. **Production Features**: Rate limiting, monitoring, logging
 
-## 📖 Recursos Adicionais
+## 📖 Additional Resources
 
 - [Orca Whirlpools Documentation](https://dev.orca.so/)
 - [Helius Documentation](https://docs.helius.dev/)
 - [Solana Web3.js Guide](https://solana-labs.github.io/solana-web3.js/)
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-1. Fork o repositório
-2. Crie uma branch para sua feature
-3. Faça suas alterações
-4. Teste thoroughly
-5. Submeta um pull request
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## 📄 Licença
+## 📄 License
 
-MIT License - veja o arquivo LICENSE para detalhes.
+MIT License - see LICENSE file for details.
 
 ---
 
-**Para documentação técnica completa e exemplos detalhados, consulte [Backend Documentation](./backend/README.md)**
+**For complete technical documentation and detailed examples, see [Backend Documentation](./backend/README.md)**

@@ -1,225 +1,225 @@
 # 🐋 Orca Whirlpools Analytics Backend
 
-Backend completo para análise avançada de pools e posições do Orca Whirlpools na Solana, com integração de preços em tempo real via CoinGecko API, sistema de cache inteligente e análise financeira detalhada.
+Complete backend for advanced analysis of Orca Whirlpools pools and positions on Solana, with real-time price integration via CoinGecko API, intelligent caching system, and detailed financial analysis.
 
-## 📚 Documentação da API
+## 📚 API Documentation
 
-Para documentação completa da API com exemplos detalhados, parâmetros e respostas, consulte:
-**[📖 Documentação Completa da API](./README.md#-apis-e-endpoints)**
+For complete API documentation with detailed examples, parameters, and responses, see:
+**[📖 Complete API Documentation](./README.md#-apis-and-endpoints)**
 
-## 🔧 Últimas Atualizações
+## 🔧 Latest Updates
 
-### v1.9.2 - Correções de Tipos e Conversões (2025-01-16)
-- ✅ **Correção da classe BN** - Importação correta usando `bn.js` em vez do Anchor
-- ✅ **Erro de 53 bits resolvido** - Substituição de `.toNumber()` por métodos seguros para números grandes
-- ✅ **Conversões de decimais** - Todas as quantidades A e B agora vêm convertidas pelos decimais corretos
-- ✅ **Tipos TypeScript** - Instalação de `@types/bn.js` para suporte completo de tipos
-- ✅ **Análise financeira melhorada** - Cálculo de HODL value usando quantidades iniciais com preços atuais
-- ✅ **Consistência de dados** - Padronização de conversões em `investment`, `feesCollected`, `withdraw` e `feesUncollected`
+### v1.9.2 - Type and Conversion Fixes (2025-01-16)
+- ✅ **BN class fix** - Correct import using `bn.js` instead of Anchor
+- ✅ **53-bit error resolved** - Replaced `.toNumber()` with safe methods for large numbers
+- ✅ **Decimal conversions** - All A and B quantities now come converted by correct decimals
+- ✅ **TypeScript types** - Installed `@types/bn.js` for complete type support
+- ✅ **Improved financial analysis** - HODL value calculation using initial quantities with current prices
+- ✅ **Data consistency** - Standardized conversions in `investment`, `feesCollected`, `withdraw` and `feesUncollected`
 
-### v1.9.1 - Correções de Tipos (2025-01-15)
-- ✅ **Tipos Decimal corrigidos** - Import e funções agora usam `Decimal` corretamente
-- ✅ **Funções de cálculo** - `tickToSqrtPrice()` e `q64ToFloat()` agora retornam `Decimal`
-- ✅ **Compilação limpa** - Todos os erros de TypeScript relacionados aos tipos `Decimal` resolvidos
-- ✅ **Precisão matemática** - Cálculos de liquidez agora usam precisão decimal completa
+### v1.9.1 - Type Fixes (2025-01-15)
+- ✅ **Fixed Decimal types** - Import and functions now use `Decimal` correctly
+- ✅ **Calculation functions** - `tickToSqrtPrice()` and `q64ToFloat()` now return `Decimal`
+- ✅ **Clean compilation** - All TypeScript errors related to `Decimal` types resolved
+- ✅ **Mathematical precision** - Liquidity calculations now use complete decimal precision
 
-### 🧪 Coleção Postman
+### 🧪 Postman Collection
 
-Para facilitar os testes locais, utilize a coleção do Postman disponível no repositório:
+To facilitate local testing, use the Postman collection available in the repository:
 
 - [postman/Brokk-local.postman_collection.json](./postman/Brokk-local.postman_collection.json)
 
-Importe este arquivo no Postman para ter acesso a todas as rotas com exemplos prontos.
+Import this file into Postman to have access to all routes with ready examples.
 
-### 🔗 Integração com API Original da Orca
+### 🔗 Integration with Original Orca API
 
-Este backend integra diretamente com a **API oficial da Orca** para fornecer dados atualizados e precisos. Para referência completa da API original, consulte:
+This backend integrates directly with the **official Orca API** to provide updated and accurate data. For complete reference of the original API, see:
 
-**[🌐 Documentação Oficial da API da Orca](https://api.orca.so/docs)**
+**[🌐 Official Orca API Documentation](https://api.orca.so/docs)**
 
-**Endpoints principais utilizados:**
-- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Lista de pools e dados de mercado
-- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Dados específicos de uma pool
-- **[Lock API](https://api.orca.so/docs#tag/whirlpools/get/lock/{address})** - Dados de lock e staking
-- **V2 API** - Dados atualizados de pools e estatísticas
+**Main endpoints used:**
+- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Pool list and market data
+- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Specific pool data
+- **[Lock API](https://api.orca.so/docs#tag/whirlpools/get/lock/{address})** - Lock and staking data
+- **V2 API** - Updated pool data and statistics
 
-**Funcionalidades da integração:**
-- ✅ **Passagem transparente de parâmetros** - Todos os query parameters da API da Orca são suportados
-- ✅ **Fallback automático** - Em caso de erro, tenta novamente sem parâmetros
-- ✅ **Rate limiting** - Respeita os limites da API da Orca
-- ✅ **Cache inteligente** - Otimiza performance quando possível
+**Integration features:**
+- ✅ **Transparent parameter passing** - All Orca API query parameters are supported
+- ✅ **Automatic fallback** - In case of error, retries without parameters
+- ✅ **Rate limiting** - Respects Orca API limits
+- ✅ **Intelligent cache** - Optimizes performance when possible
 
-**Exemplo de uso com parâmetros da API da Orca:**
+**Usage example with Orca API parameters:**
 ```bash
-# Todos estes parâmetros são passados diretamente para a API da Orca
+# All these parameters are passed directly to the Orca API
 curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc&stats=5m&includeBlocked=true&limit=10"
 
-# Para uma pool específica com parâmetros adicionais
+# For a specific pool with additional parameters
 curl "http://localhost:3001/pools/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?stats=5m&includeBlocked=true"
 ```
 
-## 🎯 Visão Geral
+## 🎯 Overview
 
-Este backend fornece APIs RESTful para análise de dados do Orca Whirlpools, incluindo:
-- Análise de pools e posições de liquidez
-- Dados de ticks para visualizações de range
-- Overview consolidado de posições por carteira
-- Integração com SDK oficial do Orca
-- Webhooks da Helius para atualizações em tempo real
+This backend provides RESTful APIs for Orca Whirlpools data analysis, including:
+- Pool and liquidity position analysis
+- Tick data for range visualizations
+- Consolidated position overview by wallet
+- Integration with official Orca SDK
+- Helius webhooks for real-time updates
 
 ## ⚡ Quick Start
 
-### Pré-requisitos
-- **Node.js 20+** (recomendado 20.18.0+)
+### Prerequisites
+- **Node.js 20+** (recommended 20.18.0+)
 - **PostgreSQL 14+** 
-- **Conexão com internet** (para preços via CoinGecko API)
-- **Git** para clonagem do repositório
+- **Internet connection** (for prices via CoinGecko API)
+- **Git** for repository cloning
 
-### Instalação Rápida
+### Quick Installation
 ```bash
-# 1. Clone o repositório
+# 1. Clone the repository
 git clone https://github.com/brokk-pools/defi-analytics.git
 cd defi-analytics/backend
 
-# 2. Instale as dependências
+# 2. Install dependencies
 npm install
 
-# 3. Configure as variáveis de ambiente
+# 3. Configure environment variables
 cp .env.example .env
-# Edite o .env com suas configurações (veja seção abaixo)
+# Edit .env with your settings (see section below)
 
-# 4. Execute o servidor
+# 4. Run the server
 npm run dev
 ```
 
-### Configuração Detalhada do .env
+### Detailed .env Configuration
 ```bash
 # ===========================================
-# CONFIGURAÇÕES OBRIGATÓRIAS
+# REQUIRED SETTINGS
 # ===========================================
 
-# Database PostgreSQL
+# PostgreSQL Database
 DATABASE_URL=postgresql://username:password@localhost:5432/orca_whirlpools
 
-# CoinGecko API (automática, sem chave necessária)
-# Sistema de cache implementado para otimizar performance
+# CoinGecko API (automatic, no key required)
+# Cache system implemented to optimize performance
 
 # ===========================================
-# CONFIGURAÇÕES DO SERVIDOR
+# SERVER SETTINGS
 # ===========================================
 
-# Porta do servidor
+# Server port
 PORT=3001
 
-# Ambiente de execução
+# Execution environment
 NODE_ENV=development
 
 # ===========================================
-# CONFIGURAÇÕES OPCIONAIS
+# OPTIONAL SETTINGS
 # ===========================================
 
-# Redis (para cache, se disponível)
+# Redis (for cache, if available)
 REDIS_URL=redis://localhost:6379
 
 # Logs
 LOG_LEVEL=info
 ```
 
-### Verificação da Instalação
+### Installation Verification
 ```bash
-# Teste se o servidor está funcionando
+# Test if the server is working
 curl http://localhost:3001/health
 
-# Teste uma rota básica
+# Test a basic route
 curl http://localhost:3001/pools
 
-# Teste análise de liquidez
+# Test liquidity analysis
 curl http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY
 ```
 
-**🎯 Pronto!** O servidor estará rodando em `http://localhost:3001` com todas as APIs disponíveis.
+**🎯 Ready!** The server will be running at `http://localhost:3001` with all APIs available.
 
-## 💰 Sistema de Preços e Cache
+## 💰 Price and Cache System
 
-### Integração com CoinGecko API
+### CoinGecko API Integration
 
-O sistema utiliza a **CoinGecko API** para preços em tempo real com:
-- **Cache inteligente** com TTL de 5 minutos
-- **Fallback automático** em caso de rate limits
-- **Preços históricos** com suporte a datas específicas
-- **Resistência a falhas** com cache de emergência
+The system uses the **CoinGecko API** for real-time prices with:
+- **Intelligent cache** with 5-minute TTL
+- **Automatic fallback** in case of rate limits
+- **Historical prices** with support for specific dates
+- **Fault tolerance** with emergency cache
 
-### Sistema de Cache
+### Cache System
 
-**Características:**
-- ✅ **Cache em memória** com TTL configurável (5 minutos)
-- ✅ **Chaves inteligentes** separadas para preços atuais e históricos
-- ✅ **Fallback para cache expirado** quando API falha
-- ✅ **Logs detalhados** para monitoramento de performance
-- ✅ **Tratamento de rate limits** (erro 429) com recuperação automática
+**Features:**
+- ✅ **In-memory cache** with configurable TTL (5 minutes)
+- ✅ **Smart keys** separated for current and historical prices
+- ✅ **Fallback to expired cache** when API fails
+- ✅ **Detailed logs** for performance monitoring
+- ✅ **Rate limit handling** (error 429) with automatic recovery
 
-**Configuração:**
+**Configuration:**
 ```typescript
-// Cache TTL: 5 minutos
+// Cache TTL: 5 minutes
 const CACHE_TTL = 5 * 60 * 1000;
 
-// Chaves de cache:
-// - Preços atuais: tokenAddress
-// - Preços históricos: tokenAddress_date
+// Cache keys:
+// - Current prices: tokenAddress
+// - Historical prices: tokenAddress_date
 ```
 
-### Funcionalidades habilitadas:
-- ✅ **Preços em tempo real** para todos os tokens
-- ✅ **Análise histórica** com preços precisos
-- ✅ **Cálculo de ROI/APR** com dados reais
-- ✅ **Análise de impermanent loss**
-- ✅ **Métricas financeiras** em USD
-- ✅ **Performance otimizada** com cache
+### Enabled features:
+- ✅ **Real-time prices** for all tokens
+- ✅ **Historical analysis** with accurate prices
+- ✅ **ROI/APR calculation** with real data
+- ✅ **Impermanent loss analysis**
+- ✅ **Financial metrics** in USD
+- ✅ **Optimized performance** with cache
 
-## 🚀 Funcionalidades
+## 🚀 Features
 
-### 📊 Análise Avançada de Pools
-- **Dados completos de pools** com informações detalhadas de ticks e liquidez
-- **Análise de range** para visualizações de concentração de liquidez
-- **Estatísticas de liquidez** com métricas de distribuição
-- **Cálculo de preços precisos** via CoinGecko API com cache inteligente
-- **Suporte a preços históricos** com timestamp específico
-- **Análise de pares** com cálculo de preços relativos
+### 📊 Advanced Pool Analysis
+- **Complete pool data** with detailed tick and liquidity information
+- **Range analysis** for liquidity concentration visualizations
+- **Liquidity statistics** with distribution metrics
+- **Accurate price calculation** via CoinGecko API with intelligent cache
+- **Historical price support** with specific timestamp
+- **Pair analysis** with relative price calculation
 
-### 🎯 Gestão de Posições e Liquidez
-- **Busca de posições por proprietário** usando SDK oficial do Orca
-- **Dados de posições individuais** com informações de range e status
-- **Overview consolidado** de todas as posições de uma carteira
-- **Análise de ticks** para visualizações de range
-- **Status de posições** (ativa, fora do range, abaixo/acima)
-- **Cálculo de liquidez atual** e valores em USD
+### 🎯 Position and Liquidity Management
+- **Position search by owner** using official Orca SDK
+- **Individual position data** with range and status information
+- **Consolidated overview** of all positions in a wallet
+- **Tick analysis** for range visualizations
+- **Position status** (active, out of range, below/above)
+- **Current liquidity calculation** and USD values
 
-### 💰 Análise Financeira Completa (Brokk Analytics)
-- **ROI e APR** calculados com precisão
-- **Análise de fees** coletadas e pendentes
-- **Cálculo de PnL** (Profit and Loss)
-- **Análise de impermanent loss**
-- **Rastreamento de custos de gas**
-- **Métricas agregadas** entre múltiplas posições
-- **Análise histórica** com valorização USD adequada
+### 💰 Complete Financial Analysis (Brokk Analytics)
+- **ROI and APR** calculated with precision
+- **Fee analysis** collected and pending
+- **PnL calculation** (Profit and Loss)
+- **Impermanent loss analysis**
+- **Gas cost tracking**
+- **Aggregated metrics** across multiple positions
+- **Historical analysis** with proper USD valuation
 
-### 🔄 Integração e Performance
-- **SDK oficial do Orca** para dados precisos e atualizados
-- **CoinGecko API** para preços em tempo real com sistema de cache
-- **Conexão RPC otimizada** com suporte a múltiplos provedores
-- **Rate limiting** para proteção contra abuso
-- **Logs estruturados** para monitoramento e debugging
-- **Cache inteligente** para otimização de performance
+### 🔄 Integration and Performance
+- **Official Orca SDK** for accurate and updated data
+- **CoinGecko API** for real-time prices with cache system
+- **Optimized RPC connection** with support for multiple providers
+- **Rate limiting** for protection against abuse
+- **Structured logging** for monitoring and debugging
+- **Intelligent cache** for performance optimization
 
-### 🔍 APIs e Endpoints
+### 🔍 APIs and Endpoints
 
 #### 🏥 Health Check
 ```bash
 GET /health
 ```
-**Descrição:** Verifica se o servidor está funcionando e retorna status do sistema.
+**Description:** Checks if the server is working and returns system status.
 
-**Resposta:**
+**Response:**
 ```json
 {
   "status": "ok",
@@ -233,17 +233,17 @@ GET /health
 ```bash
 GET /wallet/:publicKey
 ```
-**Descrição:** Posições de uma carteira específica (mesmo formato que `/liquidity`).
+**Description:** Positions of a specific wallet (same format as `/liquidity`).
 
-**Parâmetros:**
-- `publicKey` (obrigatório): Endereço da carteira Solana
+**Parameters:**
+- `publicKey` (required): Solana wallet address
 
-**Dados Retornados:**
-- **Formato padronizado:** mesmo formato das outras rotas de posição
-- **Dados consolidados:** overview de todas as posições da carteira
-- **Análise de range:** status das posições em relação ao tick atual
+**Returned Data:**
+- **Standardized format:** same format as other position routes
+- **Consolidated data:** overview of all wallet positions
+- **Range analysis:** position status relative to current tick
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 ```
@@ -252,18 +252,18 @@ curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 ```bash
 GET /position/:nftMint
 ```
-**Descrição:** Dados completos de uma posição específica por NFT mint.
+**Description:** Complete data of a specific position by NFT mint.
 
-**Parâmetros:**
-- `nftMint` (obrigatório): Endereço do NFT da posição
+**Parameters:**
+- `nftMint` (required): Position NFT address
 
-**Dados Retornados:**
-- **Informações da posição:** range, liquidez, status
-- **Dados da pool:** tokens, fees, tick atual
-- **Análise financeira:** valores em USD, fees pendentes
-- **Metadados:** timestamps, última atualização
+**Returned Data:**
+- **Position information:** range, liquidity, status
+- **Pool data:** tokens, fees, current tick
+- **Financial analysis:** USD values, pending fees
+- **Metadata:** timestamps, last update
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
 ```
@@ -272,20 +272,20 @@ curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR
 ```bash
 GET /liquidity/:owner?saveFile=true
 ```
-**Descrição:** Overview consolidado de todas as posições de liquidez de um proprietário.
+**Description:** Consolidated overview of all liquidity positions of an owner.
 
-**Parâmetros:**
-- `owner` (obrigatório): Endereço do proprietário das posições
-- `saveFile` (opcional): salva resultado em arquivo JSON
+**Parameters:**
+- `owner` (required): Address of the position owner
+- `saveFile` (optional): saves result to JSON file
 
-**Dados Retornados:**
-- **Posições:** lista de todas as posições com dados detalhados
-- **Estatísticas:** totais de liquidez, fees, posições ativas/inativas
-- **Análise de range:** posições dentro/fora do range atual
-- **Valores em USD:** calculados via CoinGecko API com cache
-- **Tick comparison:** dados para visualização de range
+**Returned Data:**
+- **Positions:** list of all positions with detailed data
+- **Statistics:** liquidity totals, fees, active/inactive positions
+- **Range analysis:** positions within/outside current range
+- **USD values:** calculated via CoinGecko API with cache
+- **Tick comparison:** data for range visualization
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 ```
@@ -294,240 +294,240 @@ curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4
 ```bash
 GET /fees/:poolId/:owner
 ```
-Calcula fees pendentes (não coletadas) para um owner em uma pool específica em tempo real usando o algoritmo oficial do Orca.
+Calculates outstanding (uncollected) fees for an owner in a specific pool in real-time using Orca's official algorithm.
 
-**Funcionalidades:**
-- Agrega fees de todas as posições do owner na pool especificada
-- Cálculo em tempo real usando o algoritmo oficial do Orca
-- Tratamento correto de decimais para diferentes tipos de token
-- Suporte para filtro por posição específica
-- Breakdown detalhado por posição quando solicitado
+**Features:**
+- Aggregates fees from all owner positions in the specified pool
+- Real-time calculation using Orca's official algorithm
+- Proper decimal handling for different token types
+- Support for filtering by specific position
+- Detailed breakdown by position when requested
 
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do owner
-- `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `showPositions` (opcional): Se `true`, retorna detalhes por posição
+**Parameters:**
+- `poolId` (required): Whirlpool pool address
+- `owner` (required): Owner wallet address
+- `positionId` (optional): Specific position identifier (NFT mint)
+- `showPositions` (optional): If `true`, returns details by position
 
-**Exemplos:**
+**Examples:**
 ```bash
-# Fees de todas as posições do owner na pool
+# Fees from all owner positions in the pool
 curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 
-# Fees de uma posição específica
+# Fees from a specific position
 curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
 
-# Detalhes por posição
+# Details by position
 curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showPositions=true"
 ```
 
-**Dados retornados:**
-- `totalPositions`: Número de posições encontradas para o owner na pool
-- `positionAddresses`: Array de endereços PDA das posições
-- `tokenA/tokenB`: Informações dos tokens incluindo endereços mint e decimais
-- `totals`: Fees pendentes agregadas (valores raw em unidades mínimas, valores human convertidos)
-- `positions` (se `showPositions=true`): Breakdown detalhado por posição com cálculos individuais de fees
+**Returned data:**
+- `totalPositions`: Number of positions found for the owner in the pool
+- `positionAddresses`: Array of position PDA addresses
+- `tokenA/tokenB`: Token information including mint addresses and decimals
+- `totals`: Aggregated outstanding fees (raw values in smallest units, human values converted)
+- `positions` (if `showPositions=true`): Detailed breakdown by position with individual fee calculations
 
 #### Outstanding Fees Calculation (Legacy)
 ```bash
 GET /fees/position/:positionId/:poolId
 ```
-Calcula fees pendentes de uma posição específica (mantido para compatibilidade).
+Calculates outstanding fees for a specific position (maintained for compatibility).
 
-**Parâmetros:**
-- `positionId` (obrigatório): Identificador da posição (pode ser NFT mint ou endereço da posição)
-- `poolId` (obrigatório): Endereço da pool Whirlpool
+**Parameters:**
+- `positionId` (required): Position identifier (can be NFT mint or position address)
+- `poolId` (required): Whirlpool pool address
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/fees/position/6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 ```
 
-**Dados retornados:**
-- `feeOwedAOnChain`: Fees já registradas on-chain para token A (unidades mínimas)
-- `feeOwedBOnChain`: Fees já registradas on-chain para token B (unidades mínimas)
-- `feeOwedAComputedNow`: Total de fees para token A incluindo pendentes (unidades mínimas)
-- `feeOwedBComputedNow`: Total de fees para token B incluindo pendentes (unidades mínimas)
-- `calculations`: Cálculos intermediários detalhados (Q64.64 format)
-- `currentTick`: Tick atual da pool
-- `tickLowerIndex`/`tickUpperIndex`: Range da posição
-- `tokenMintA`/`tokenMintB`: Endereços dos tokens
+**Returned data:**
+- `feeOwedAOnChain`: Fees already recorded on-chain for token A (smallest units)
+- `feeOwedBOnChain`: Fees already recorded on-chain for token B (smallest units)
+- `feeOwedAComputedNow`: Total fees for token A including pending (smallest units)
+- `feeOwedBComputedNow`: Total fees for token B including pending (smallest units)
+- `calculations`: Detailed intermediate calculations (Q64.64 format)
+- `currentTick`: Current pool tick
+- `tickLowerIndex`/`tickUpperIndex`: Position range
+- `tokenMintA`/`tokenMintB`: Token addresses
 
-**Notas importantes:**
-- Todos os valores de fees estão em unidades mínimas dos tokens
-- Para exibir valores legíveis, divida por `10^decimals` do token
-- Valores Q64.64 são para cálculos internos, não precisam ser exibidos
-- A diferença entre `ComputedNow` e `OnChain` representa fees pendentes
+**Important notes:**
+- All fee values are in smallest token units
+- To display readable values, divide by `10^decimals` of the token
+- Q64.64 values are for internal calculations, don't need to be displayed
+- The difference between `ComputedNow` and `OnChain` represents pending fees
 
 #### Collected Fees History
 ```bash
 GET /fees/collected/:poolId/:owner
 ```
-Consulta fees já coletadas on-chain por um usuário em uma pool específica dentro de um intervalo de tempo UTC.
+Queries on-chain collected fees for a user in a specific pool within a UTC time range.
 
-**Funcionalidades:**
-- Análise de transações on-chain para eventos de coleta de fees
-- Intervalo de tempo flexível com padrões sensatos (1900-01-01 até amanhã se não especificado)
-- Capacidade de filtro por posição específica
-- Histórico detalhado de transações com position IDs
-- Tratamento correto de decimais para diferentes tipos de token
-- Análise de dados blockchain em tempo real
+**Features:**
+- On-chain transaction analysis for fee collection events
+- Flexible time range with sensible defaults (1900-01-01 to tomorrow if not specified)
+- Position-specific filtering capability
+- Detailed transaction history with position IDs
+- Proper decimal handling for different token types
+- Real-time blockchain data analysis
 
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do usuário
-- `startUtc` (opcional): Data/hora inicial em formato ISO 8601 (padrão: 1900-01-01T00:00:00Z)
-- `endUtc` (opcional): Data/hora final em formato ISO 8601 (padrão: amanhã)
-- `showHistory` (opcional): Incluir histórico detalhado de transações (boolean)
-- `positionId` (opcional): NFT mint da posição específica para filtrar (se vazio, retorna todas as posições)
+**Parameters:**
+- `poolId` (required): Whirlpool pool address
+- `owner` (required): User wallet address
+- `startUtc` (optional): Start date/time in ISO 8601 format (default: 1900-01-01T00:00:00Z)
+- `endUtc` (optional): End date/time in ISO 8601 format (default: tomorrow)
+- `showHistory` (optional): Include detailed transaction history (boolean)
+- `positionId` (optional): Specific position NFT mint to filter by (if empty, returns all positions)
 
-**Exemplos:**
+**Examples:**
 ```bash
-# Todas as fees coletadas (todo o histórico)
+# All collected fees (full history)
 curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 
-# Fees coletadas em um período específico
+# Collected fees in a specific period
 curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z"
 
-# Com histórico detalhado
+# With detailed history
 curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?showHistory=true"
 
-# Para uma posição específica com histórico
+# For a specific position with history
 curl "http://localhost:3001/fees/collected/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH&showHistory=true"
 ```
 
-**Dados retornados:**
-- `positionId`: NFT mint da posição (null se filtrando todas as posições)
-- `positionAddress`: Endereço PDA da posição (null se filtrando todas as posições)
-- `totalPositions`: Número de posições encontradas para o owner na pool
-- `positionAddresses`: Array de endereços PDA das posições
-- `totals.A.raw`: Total de fees coletadas para token A (unidades mínimas)
-- `totals.A.human`: Total de fees coletadas para token A (formato legível)
-- `totals.B.raw`: Total de fees coletadas para token B (unidades mínimas)
-- `totals.B.human`: Total de fees coletadas para token B (formato legível)
-- `interval_utc`: Intervalo de tempo consultado
-- `tokenA`/`tokenB`: Informações dos tokens (mint, ATA, decimais)
-- `history`: Histórico detalhado de transações (se `showHistory=true`)
+**Returned data:**
+- `positionId`: Position NFT mint (null if filtering all positions)
+- `positionAddress`: Position PDA address (null if filtering all positions)
+- `totalPositions`: Number of positions found for the owner in the pool
+- `positionAddresses`: Array of position PDA addresses
+- `totals.A.raw`: Total collected fees for token A (smallest units)
+- `totals.A.human`: Total collected fees for token A (readable format)
+- `totals.B.raw`: Total collected fees for token B (smallest units)
+- `totals.B.human`: Total collected fees for token B (readable format)
+- `interval_utc`: Time range queried
+- `tokenA`/`tokenB`: Token information (mint, ATA, decimals)
+- `history`: Detailed transaction history (if `showHistory=true`)
 
-**Notas importantes:**
-- Consulta diretamente a blockchain Solana via RPC
-- Analisa transações do owner (não das ATAs) para melhor performance
-- Filtra apenas transações relacionadas ao programa Orca Whirlpools
-- Detecta fees coletadas através de logs do Anchor (`"Instruction: CollectFees"`)
-- Analisa inner instructions para detectar transferências dos vaults da pool
-- Detecta transferências de ambos os tokens (A e B) na mesma transação
-- Se `positionId` for fornecido, filtra apenas transações dessa posição específica
-- Se `positionId` for vazio, retorna fees de todas as posições do usuário na pool
-- Valores em formato raw e human-readable
-- Histórico inclui signature, datetime, valores e positionId de cada transação
+**Important notes:**
+- Queries Solana blockchain directly via RPC
+- Analyzes owner transactions (not ATAs) for better performance
+- Filters only transactions related to Orca Whirlpools program
+- Detects collected fees through Anchor logs (`"Instruction: CollectFees"`)
+- Analyzes inner instructions to detect transfers from pool vaults
+- Detects transfers of both tokens (A and B) in the same transaction
+- If `positionId` is provided, filters only transactions from that specific position
+- If `positionId` is empty, returns fees from all user positions in the pool
+- Values in raw and human-readable format
+- History includes signature, datetime, values and positionId of each transaction
 
-#### Pools (API Orca)
+#### Pools (Orca API)
 ```bash
 GET /pools?sortBy=volume&sortDirection=desc
 GET /pools/:poolId
 ```
-Busca dados de pools usando a API oficial da Orca.
+Searches pool data using the official Orca API.
 
-**Referência da API original:**
-- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Lista de pools
-- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Pool específica
+**Original API reference:**
+- **[Pools API](https://api.orca.so/docs#tag/whirlpools/get/pools)** - Pool list
+- **[Pool by Address](https://api.orca.so/docs#tag/whirlpools/get/pools/{address})** - Specific pool
 
-**Parâmetros:**
-- `sortBy` (opcional): Campo para ordenação (volume, liquidity, etc.)
-- `sortDirection` (opcional): `asc` ou `desc`
-- `poolId` (obrigatório para rota específica): ID da pool
-- **Todos os parâmetros da API da Orca** são suportados automaticamente
+**Parameters:**
+- `sortBy` (optional): Field for sorting (volume, liquidity, etc.)
+- `sortDirection` (optional): `asc` or `desc`
+- `poolId` (required for specific route): Pool ID
+- **All Orca API parameters** are automatically supported
 
 #### Pool Details
 ```bash
 GET /poolsdetails/:poolid?topPositions=10
 ```
-Retorna dados completos de uma pool com análise detalhada de ticks e posições.
+Returns complete pool data with detailed tick and position analysis.
 
-**Parâmetros:**
-- `poolid` (obrigatório): Endereço da pool
-- `topPositions` (opcional): número (ex: 10) para limitar a N posições com maior liquidez (0-1000). Se > 0, inclui posições
+**Parameters:**
+- `poolid` (required): Pool address
+- `topPositions` (optional): number (e.g. 10) to limit to N positions with highest liquidity (0-1000). If > 0, includes positions
 
 #### Position Details
 ```bash
 GET /position/:nftMint
 ```
-Retorna dados completos de uma posição específica no mesmo formato da rota de liquidez.
+Returns complete data of a specific position in the same format as the liquidity route.
 
-**Parâmetros:**
-- `nftMint` (obrigatório): Endereço do NFT da posição
+**Parameters:**
+- `nftMint` (required): Position NFT address
 
-**Dados retornados:**
-- `positionMint`: Endereço do NFT da posição
-- `whirlpool`: Endereço da pool associada
-- `tickLowerIndex`: Índice do tick inferior
-- `tickUpperIndex`: Índice do tick superior
-- `currentTick`: Tick atual da pool
-- `liquidity`: Liquidez da posição
-- `feeOwedA`: Taxas devidas do token A
-- `feeOwedB`: Taxas devidas do token B
-- `isInRange`: Se a posição está no range atual
-- `currentPrice`: Preço atual (simplificado)
-- `lowerPrice`: Preço inferior (simplificado)
-- `upperPrice`: Preço superior (simplificado)
-- `status`: Status da posição (active, below_range, above_range, out_of_range)
-- `tickComparison`: Objeto com comparações detalhadas de ticks para visualização
-- `lastUpdated`: Timestamp da última atualização
-
-#### Top Positions
-```bash
-GET /top-positions?limit=10
-```
-Retorna as posições com maior liquidez no mesmo formato da rota position.
-
-**Parâmetros:**
-- `limit` (opcional): Número de posições a retornar (1-1000, padrão: 10)
-
-**Dados retornados:**
-- `positions`: Array de posições no mesmo formato da rota position
-- `statistics`: Estatísticas das posições (total, lamports, etc.)
-- `totalFound`: Total de posições encontradas na rede
-- `limit`: Limite solicitado
-
-**Dados retornados (Pool Details):**
-- `allTicks`: Array de todos os ticks com dados detalhados
-- `tickStats`: Estatísticas dos ticks e análise de range
-- `tickStats.rangeAnalysis.ticksAroundCurrent`: Ticks próximos ao preço atual
-- `tickStats.rangeAnalysis.liquidityConcentration`: Distribuição de liquidez
-- `tickStats.currentPrice`: Preço atual ajustado
-- `tickStats.liquidityDistribution`: Estatísticas de distribuição
-- `positions`: Array de posições (se `showpositions=true`)
-- `positionStats`: Estatísticas agregadas das posições
+**Returned data:**
+- `positionMint`: Position NFT address
+- `whirlpool`: Associated pool address
+- `tickLowerIndex`: Lower tick index
+- `tickUpperIndex`: Upper tick index
+- `currentTick`: Current pool tick
+- `liquidity`: Position liquidity
+- `feeOwedA`: Token A fees owed
+- `feeOwedB`: Token B fees owed
+- `isInRange`: If position is in current range
+- `currentPrice`: Current price (simplified)
+- `lowerPrice`: Lower price (simplified)
+- `upperPrice`: Upper price (simplified)
+- `status`: Position status (active, below_range, above_range, out_of_range)
+- `tickComparison`: Object with detailed tick comparisons for visualization
+- `lastUpdated`: Last update timestamp
 
 #### Top Positions
 ```bash
 GET /top-positions?limit=10
 ```
-Retorna as principais posições por volume ou liquidez.
+Returns positions with highest liquidity in the same format as the position route.
 
-**Parâmetros:**
-- `limit` (opcional): Número de posições a retornar (padrão: 10)
+**Parameters:**
+- `limit` (optional): Number of positions to return (1-1000, default: 10)
+
+**Returned data:**
+- `positions`: Array of positions in the same format as the position route
+- `statistics`: Position statistics (total, lamports, etc.)
+- `totalFound`: Total positions found on the network
+- `limit`: Requested limit
+
+**Returned data (Pool Details):**
+- `allTicks`: Array of all ticks with detailed data
+- `tickStats`: Tick statistics and range analysis
+- `tickStats.rangeAnalysis.ticksAroundCurrent`: Ticks near current price
+- `tickStats.rangeAnalysis.liquidityConcentration`: Liquidity distribution
+- `tickStats.currentPrice`: Adjusted current price
+- `tickStats.liquidityDistribution`: Distribution statistics
+- `positions`: Array of positions (if `showpositions=true`)
+- `positionStats`: Aggregated position statistics
+
+#### Top Positions
+```bash
+GET /top-positions?limit=10
+```
+Returns top positions by volume or liquidity.
+
+**Parameters:**
+- `limit` (optional): Number of positions to return (default: 10)
 
 #### 🎯 TickArray Data
 ```bash
 GET /tickarray/:poolId
 ```
-**Descrição:** Retorna dados completos dos TickArrays de uma pool específica usando RPC direto.
+**Description:** Returns complete TickArray data for a specific pool using direct RPC.
 
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da Whirlpool
+**Parameters:**
+- `poolId` (required): Whirlpool address
 
-**Dados Retornados:**
-- `pool`: Endereço da pool
-- `totalArrays`: Número total de TickArrays encontrados
-- `tickArrays`: Array com dados de cada TickArray
-  - `address`: Endereço do TickArray
-  - `startTickIndex`: Índice inicial do tick
-  - `whirlpool`: Endereço da pool associada
-  - `ticksCount`: Número de ticks com liquidez
-  - `ticks`: Array de ticks com dados detalhados
+**Returned Data:**
+- `pool`: Pool address
+- `totalArrays`: Total number of TickArrays found
+- `tickArrays`: Array with data from each TickArray
+  - `address`: TickArray address
+  - `startTickIndex`: Initial tick index
+  - `whirlpool`: Associated pool address
+  - `ticksCount`: Number of ticks with liquidity
+  - `ticks`: Array of ticks with detailed data
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"
 ```
@@ -536,19 +536,19 @@ curl "http://localhost:3001/tickarray/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqq
 ```bash
 GET /gas/:positionId?showHistory=false
 ```
-**Descrição:** Calcula o total de gas fees para uma posição específica.
+**Description:** Calculates total gas fees for a specific position.
 
-**Parâmetros:**
-- `positionId` (obrigatório): Endereço do NFT da posição
-- `showHistory` (opcional): Se `true`, retorna histórico detalhado de transações
+**Parameters:**
+- `positionId` (required): Position NFT address
+- `showHistory` (optional): If `true`, returns detailed transaction history
 
-**Dados Retornados:**
-- `totalFeeLamports`: Total de fees em lamports
-- `totalFeeSol`: Total de fees em SOL
-- `totalFeeUSD`: Total de fees em USD
-- `history` (se `showHistory=true`): Array com detalhes de cada transação
+**Returned Data:**
+- `totalFeeLamports`: Total fees in lamports
+- `totalFeeSol`: Total fees in SOL
+- `totalFeeUSD`: Total fees in USD
+- `history` (if `showHistory=true`): Array with details of each transaction
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
 ```
@@ -557,21 +557,21 @@ curl "http://localhost:3001/gas/G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
 ```bash
 GET /analytics/:poolId/:owner?positionId=POSITION_MINT
 ```
-**Descrição:** Análise financeira completa de posições com dados de gas reais.
+**Description:** Complete financial analysis of positions with real gas data.
 
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool
-- `owner` (obrigatório): Endereço do proprietário
-- `positionId` (opcional): NFT mint da posição específica
+**Parameters:**
+- `poolId` (required): Pool address
+- `owner` (required): Owner address
+- `positionId` (optional): Specific position NFT mint
 
-**Dados Retornados:**
-- `investment`: Dados de investimento inicial
-- `feesCollected`: Taxas coletadas
-- `feesUncollected`: Taxas pendentes
-- `withdraw`: Valores sacados
-- `gas`: **Dados reais de gas** calculados via `GetGasInPosition`
+**Returned Data:**
+- `investment`: Initial investment data
+- `feesCollected`: Collected fees
+- `feesUncollected`: Pending fees
+- `withdraw`: Withdrawn values
+- `gas`: **Real gas data** calculated via `GetGasInPosition`
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3001/analytics/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?positionId=G6yv54g3R2NjGrJXENHG6iRRCqiCw28ySmS7SR6SP5pF"
 ```
@@ -580,19 +580,19 @@ curl "http://localhost:3001/analytics/FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqq
 ```bash
 POST /webhook/helius
 ```
-Endpoint para receber webhooks da Helius com eventos de posições.
+Endpoint to receive Helius webhooks with position events.
 
 **Headers:**
 - `Content-Type: application/json`
-- `X-Helius-Signature`: Assinatura do webhook (se configurada)
+- `X-Helius-Signature`: Webhook signature (if configured)
 
-#### Metrics (Produção)
+#### Metrics (Production)
 ```bash
 GET /metrics
 ```
-Retorna métricas do sistema (disponível apenas em produção).
+Returns system metrics (available only in production).
 
-**Exemplo de resposta da rota `/liquidity/:owner`:**
+**Example response from `/liquidity/:owner` route:**
 ```json
 {
   "timestamp": "2024-01-01T00:00:00.000Z",
@@ -643,31 +643,31 @@ Retorna métricas do sistema (disponível apenas em produção).
 }
 ```
 
-## 🛠️ Instalação e Configuração
+## 🛠️ Installation and Configuration
 
-### Pré-requisitos
-- **Node.js >= 20.17.0** (recomendado: 20.18.0+)
-- **npm** (incluído com Node.js)
-- **Chave de API da Helius** (recomendada para melhor performance)
-- **PostgreSQL** (opcional, para dados persistentes)
+### Prerequisites
+- **Node.js >= 20.17.0** (recommended: 20.18.0+)
+- **npm** (included with Node.js)
+- **Helius API key** (recommended for better performance)
+- **PostgreSQL** (optional, for persistent data)
 
-### Instalação Rápida
+### Quick Installation
 ```bash
-# Clonar o repositório
+# Clone the repository
 git clone https://github.com/brokk-pools/defi-analytics.git
 cd defi-analytics/backend
 
-# Instalar dependências
+# Install dependencies
 npm install
 
-# Configurar variáveis de ambiente
+# Configure environment variables
 cp .env.example .env
-# Edite o arquivo .env com suas configurações
+# Edit the .env file with your settings
 ```
 
-### Configuração de Ambiente
+### Environment Configuration
 ```bash
-# RPC Configuration (Helius recomendado)
+# RPC Configuration (Helius recommended)
 HELIUS_RPC=https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
 HELIUS_API_KEY=your_helius_api_key_here
 
@@ -680,792 +680,424 @@ NODE_ENV=development
 ORCA_NETWORK=mainnet
 ORCA_WHIRLPOOLS_PROGRAM_ID=whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc
 
-# Database (opcional)
+# Database (optional)
 DATABASE_URL=postgres://user:password@localhost:5432/orca_mvp
 ```
 
-### Execução
+### Execution
 ```bash
-# Desenvolvimento (com hot reload)
+# Development (with hot reload)
 npm run dev
 
-# Produção
+# Production
 npm run build
 npm start
 
-# Debug (com debugger)
+# Debug (with debugger)
 npm run dev:debug
 ```
 
-### Verificação da Instalação
+### Installation Verification
 ```bash
-# Testar se o servidor está funcionando
+# Test if the server is working
 curl http://localhost:3001/health
 
-# Deve retornar status "ok" e métricas do sistema
+# Should return "ok" status and system metrics
 ```
 
-## 📦 Dependências Principais
+## 📦 Main Dependencies
 
 ### 🔧 Core (Orca & Solana)
-- **@orca-so/whirlpools-sdk** `^0.16.0`: SDK oficial do Orca para interação com pools
-- **@orca-so/whirlpools** `^4.0.0`: Biblioteca principal do Orca Whirlpools
-- **@orca-so/common-sdk** `^0.6.11`: SDK comum do Orca
-- **@coral-xyz/anchor** `^0.29.0`: Framework Anchor para Solana
-- **@solana/web3.js** `^1.98.4`: SDK oficial da Solana
-- **@solana/spl-token** `^0.4.8`: Tokens SPL da Solana
-- **@solana/kit** `^2.3.0`: Kit de utilitários Solana
+- **@orca-so/whirlpools-sdk** `^0.16.0`: Official Orca SDK for pool interaction
+- **@orca-so/whirlpools** `^4.0.0`: Main Orca Whirlpools library
+- **@orca-so/common-sdk** `^0.6.11`: Orca common SDK
+- **@coral-xyz/anchor** `^0.29.0`: Anchor framework for Solana
+- **@solana/web3.js** `^1.98.4`: Official Solana SDK
+- **@solana/spl-token** `^0.4.8`: Solana SPL tokens
+- **@solana/kit** `^2.3.0`: Solana utility kit
 
-### 🌐 APIs e Integração
-- **Helius API**: Preços em tempo real via Pyth e Jupiter
-- **Orca API**: Dados oficiais de pools e tokens
-- **PostgreSQL**: Banco de dados para cache e persistência
-- **Redis**: Cache para otimização de performance (opcional)
+### 🌐 APIs and Integration
+- **Helius API**: Real-time prices via Pyth and Jupiter
+- **Orca API**: Official pool and token data
+- **PostgreSQL**: Database for cache and persistence
+- **Redis**: Cache for performance optimization (optional)
 
-### 🛠️ Utilitários
-- **decimal.js** `^10.6.0`: Cálculos precisos com decimais
-- **winston** `^3.15.0`: Sistema de logging estruturado
-- **express** `^5.1.0`: Framework web para APIs REST
-- **helmet** `^8.0.0`: Segurança HTTP
+### 🛠️ Utilities
+- **decimal.js** `^10.6.0`: Precise decimal calculations
+- **winston** `^3.15.0`: Structured logging system
+- **express** `^5.1.0`: Web framework for REST APIs
+- **helmet** `^8.0.0`: HTTP security
 - **cors** `^2.8.5`: Cross-Origin Resource Sharing
-- **compression** `^1.7.4`: Compressão de respostas
+- **compression** `^1.7.4`: Response compression
 
 ### Backend (Express & Utils)
-- **express** `^5.1.0`: Framework web moderno
-- **winston** `^3.15.0`: Sistema de logging estruturado
-- **helmet** `^8.0.0`: Segurança HTTP
+- **express** `^5.1.0`: Modern web framework
+- **winston** `^3.15.0`: Structured logging system
+- **helmet** `^8.0.0`: HTTP security
 - **cors** `^2.8.5`: Cross-Origin Resource Sharing
-- **compression** `^1.7.4`: Compressão de respostas
+- **compression** `^1.7.4`: Response compression
 - **express-rate-limit** `^7.4.1`: Rate limiting
-- **express-session** `^1.18.1`: Gerenciamento de sessões
-- **pg** `^8.16.3`: Cliente PostgreSQL
-- **ioredis** `^5.4.1`: Cliente Redis
-- **decimal.js** `^10.6.0`: Precisão decimal para cálculos financeiros
+- **express-session** `^1.18.1`: Session management
+- **pg** `^8.16.3`: PostgreSQL client
+- **ioredis** `^5.4.1`: Redis client
+- **decimal.js** `^10.6.0`: Decimal precision for financial calculations
 
-### Desenvolvimento
-- **typescript** `^5.9.3`: Tipagem estática
-- **tsx** `^4.20.6`: Execução de TypeScript
-- **@types/***: Definições de tipos para todas as dependências
+### Development
+- **typescript** `^5.9.3`: Static typing
+- **tsx** `^4.20.6`: TypeScript execution
+- **@types/***: Type definitions for all dependencies
 
-## 🎯 Casos de Uso para Frontend
+## 🎯 Use Cases for Frontend
 
-### 1. Gráfico de Liquidez por Preço
-Use `allTicks` com `priceAdjusted` e `liquidityGross` para criar visualizações de distribuição de liquidez.
+### 1. Liquidity Chart by Price
+Use `allTicks` with `priceAdjusted` and `liquidityGross` to create liquidity distribution visualizations.
 
-### 2. Análise de Range Atual
-Use `ticksAroundCurrent` para mostrar range próximo ao preço atual, destacando ticks ativos.
+### 2. Current Range Analysis
+Use `ticksAroundCurrent` to show range near current price, highlighting active ticks.
 
-### 3. Estatísticas de Pool
-Use `liquidityDistribution` para métricas gerais e concentração de liquidez.
+### 3. Pool Statistics
+Use `liquidityDistribution` for general metrics and liquidity concentration.
 
-### 4. Análise de Preços
-Use `currentPrice` para preço atual e compare com `priceAdjusted` dos ticks.
+### 4. Price Analysis
+Use `currentPrice` for current price and compare with `priceAdjusted` from ticks.
 
-### 5. Análise de Posições
-Use `positions` e `positionStats` para análise de posições:
-- **Status das posições**: `active` vs `out_of_range`
-- **Fees acumulados**: `feeOwedA` e `feeOwedB` por posição
-- **Liquidez por posição**: `liquidity` e `liquidityPercentage`
-- **Range de preços**: `lowerPrice` e `upperPrice` vs `currentPrice`
-- **Estatísticas agregadas**: `positionStats` com totais e percentuais
+### 5. Position Analysis
+Use `positions` and `positionStats` for position analysis:
+- **Position status**: `active` vs `out_of_range`
+- **Accumulated fees**: `feeOwedA` and `feeOwedB` per position
+- **Liquidity per position**: `liquidity` and `liquidityPercentage`
+- **Price range**: `lowerPrice` and `upperPrice` vs `currentPrice`
+- **Aggregated statistics**: `positionStats` with totals and percentages
 
-## 🔧 Arquitetura
+## 🔧 Architecture
 
-### Estrutura de Arquivos
+### File Structure
 ```
 src/
 ├── lib/
-│   ├── orca.ts          # Funções principais do Orca SDK
-│   ├── logger.ts        # Sistema de logging
-│   ├── security.ts      # Middleware de segurança
-│   ├── errors.ts        # Tratamento de erros
-│   ├── db.ts            # Configuração do banco de dados
-│   ├── types.ts         # Definições de tipos TypeScript
-│   ├── validation.ts    # Validação de variáveis de ambiente
-│   └── vault.ts         # Funções de vault resolvers
+│   ├── orca.ts          # Main Orca SDK functions
+│   ├── logger.ts        # Logging system
+│   ├── security.ts      # Security middleware
+│   ├── errors.ts        # Error handling
+│   ├── db.ts            # Database configuration
+│   ├── types.ts         # TypeScript definitions
+│   ├── validation.ts    # Environment variable validation
+│   └── vault.ts         # Vault resolver functions
 ├── routes/
-│   ├── webhook.ts       # Webhook da Helius
-│   ├── wallet.ts        # Posições por carteira
-│   ├── position.ts      # Detalhes de posição específica
-│   ├── liquidity.ts     # Overview de liquidez (SDK Orca)
-│   ├── pools.ts         # Pools via API Orca
-│   ├── pools-details.ts # Detalhes completos de pool
-│   └── top-positions.ts # Top posições por volume/liquidez
-└── index.ts             # Servidor principal
+│   ├── webhook.ts       # Helius webhook
+│   ├── wallet.ts        # Positions by wallet
+│   ├── position.ts      # Specific position details
+│   ├── liquidity.ts     # Liquidity overview (Orca SDK)
+│   ├── pools.ts         # Pools via Orca API
+│   ├── pools-details.ts # Complete pool details
+│   └── top-positions.ts # Top positions by volume/liquidity
+└── index.ts             # Main server
 ```
 
-### Fluxo de Dados
-1. **Requisição** → Middleware de segurança e rate limiting
-2. **Validação** → Parâmetros e endereços
-3. **SDK Orca** → Busca dados usando SDK oficial
-4. **Processamento** → Cálculos de preços e estatísticas
-5. **Resposta** → Dados estruturados para frontend
+### Data Flow
+1. **Request** → Security and rate limiting middleware
+2. **Validation** → Parameters and addresses
+3. **Orca SDK** → Data search using official SDK
+4. **Processing** → Price calculations and statistics
+5. **Response** → Structured data for frontend
 
-## 🚀 Exemplos de Uso
+## 🚀 Usage Examples
 
-### 1. Overview de Liquidez de uma Carteira
+### 1. Wallet Liquidity Overview
 ```bash
-# Buscar todas as posições de liquidez de uma carteira
+# Search all liquidity positions of a wallet
 curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 
-# Salvar resultado em arquivo
+# Save result to file
 curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?saveFile=true"
 ```
 
-### 2. Detalhes Completos de uma Pool
+### 2. Complete Pool Details
 ```bash
-# Dados básicos da pool (sem posições)
+# Basic pool data (without positions)
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 
-# Incluir apenas as top 10 posições (mais leve)
+# Include only top 10 positions (lighter)
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=10"
 
-# Incluir apenas as top 20 posições
+# Include only top 20 positions
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=20"
 ```
 
-### 3. Detalhes de uma Posição Específica
+### 3. Specific Position Details
 ```bash
-# Buscar dados completos de uma posição (mesmo formato da rota de liquidez)
+# Search complete data of a position (same format as liquidity route)
 curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
-
-# Exemplo de resposta (formato idêntico à rota de liquidez):
-# {
-#   "positionMint": "77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR",
-#   "whirlpool": "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
-#   "tickLowerIndex": -15294,
-#   "tickUpperIndex": -14782,
-#   "currentTick": -17001,
-#   "liquidity": "370987889",
-#   "feeOwedA": "0",
-#   "feeOwedB": "0",
-#   "isInRange": false,
-#   "status": "below_range",
-#   "tickComparison": { ... }
-# }
 ```
 
-### 4. Top Positions (Maiores Posições por Liquidez)
+### 4. Top Positions (Highest Liquidity Positions)
 ```bash
-# Buscar top 10 posições com maior liquidez
+# Search top 10 positions with highest liquidity
 curl "http://localhost:3001/top-positions?limit=10"
 
-# Buscar top 50 posições
+# Search top 50 positions
 curl "http://localhost:3001/top-positions?limit=50"
-
-# Exemplo de resposta:
-# {
-#   "timestamp": "2025-01-11T...",
-#   "method": "getTopPositionsData",
-#   "limit": 10,
-#   "totalFound": 12345,
-#   "success": true,
-#   "data": {
-#     "positions": [
-#       {
-#         "positionMint": "...",
-#         "whirlpool": "...",
-#         "tickLowerIndex": -1000,
-#         "tickUpperIndex": 1000,
-#         "currentTick": 500,
-#         "liquidity": "1000000000",
-#         "feeOwedA": "1000",
-#         "feeOwedB": "2000",
-#         "isInRange": true,
-#         "status": "active",
-#         "tickComparison": { ... }
-#       }
-#     ],
-#     "statistics": {
-#       "totalPositions": 12345,
-#       "totalLamports": 5000000000,
-#       "averageLamports": 405000,
-#       "maxLamports": 10000000,
-#       "minLamports": 100000
-#     }
-#   }
-# }
 ```
 
-### 5. Posições de uma Carteira
+### 5. Wallet Positions
 ```bash
-# Buscar posições de uma carteira específica (mesmo formato das outras rotas)
+# Search positions of a specific wallet (same format as other routes)
 curl "http://localhost:3001/wallet/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
-
-# Exemplo de resposta (formato idêntico à rota de liquidez):
-# {
-#   "timestamp": "2025-01-11T...",
-#   "method": "getLiquidityOverview",
-#   "rpcProvider": "mainnet",
-#   "owner": "6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY",
-#   "success": true,
-#   "data": {
-#     "positions": [
-#       {
-#         "positionMint": "77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR",
-#         "whirlpool": "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC",
-#         "tickLowerIndex": -15294,
-#         "tickUpperIndex": -14782,
-#         "currentTick": -17001,
-#         "liquidity": "370987889",
-#         "feeOwedA": "0",
-#         "feeOwedB": "0",
-#         "isInRange": false,
-#         "status": "below_range",
-#         "tickComparison": { ... }
-#       }
-#     ],
-#     "summary": {
-#       "totalPositions": 1,
-#       "activePositions": 0,
-#       "outOfRangePositions": 1,
-#       "totalLiquidity": "370987889"
-#     }
-#   }
-# }
 ```
 
-### 6. Detalhes de uma Posição Específica
+### 6. Specific Position Details
 ```bash
-# Buscar detalhes de uma posição usando o NFT mint
+# Search position details using NFT mint
 curl "http://localhost:3001/position/3xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
 ```
 
-### 5. Pools da Orca
+### 7. Orca Pools
 ```bash
-# Listar todas as pools
+# List all pools
 curl "http://localhost:3001/pools"
 
-# Buscar pool específica
+# Search specific pool
 curl "http://localhost:3001/pools/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"
 
-# Ordenar por volume
+# Sort by volume
 curl "http://localhost:3001/pools?sortBy=volume&sortDirection=desc"
 ```
 
-### 6. Top Posições
+### 8. Top Positions
 ```bash
-# Top 10 posições
+# Top 10 positions
 curl "http://localhost:3001/top-positions?limit=10"
 
-# Top 50 posições
+# Top 50 positions
 curl "http://localhost:3001/top-positions?limit=50"
 ```
 
-### 7. Health Check e Métricas
+### 9. Health Check and Metrics
 ```bash
-# Status do serviço
+# Service status
 curl "http://localhost:3001/health"
 
-# Métricas (apenas em produção)
+# Metrics (production only)
 curl "http://localhost:3001/metrics"
 ```
 
-### Benefícios dos Parâmetros de Performance
-- **`topPositions=0` (padrão)**: Resposta mais rápida, apenas dados da pool
-- **`topPositions=N`**: Foca nas N posições com maior liquidez
-- **Escalabilidade**: Funciona bem mesmo com pools com milhares de posições
+### Performance Parameter Benefits
+- **`topPositions=0` (default)**: Faster response, pool data only
+- **`topPositions=N`**: Focus on N positions with highest liquidity
+- **Scalability**: Works well even with pools with thousands of positions
 
 ## 🚀 Performance
 
-### Otimizações Implementadas
-- **Rate limiting** para evitar sobrecarga
-- **Compressão** de respostas HTTP
-- **Cache** de dados de pools quando possível
-- **Paralelização** de consultas quando apropriado
-- **Fallback** para RPC básico se SDK falhar
+### Implemented Optimizations
+- **Rate limiting** to prevent overload
+- **HTTP response compression**
+- **Pool data cache** when possible
+- **Query parallelization** when appropriate
+- **Fallback** to basic RPC if SDK fails
 
-### Monitoramento
-- **Health check** com métricas do sistema
-- **Logging** estruturado com Winston
-- **Error tracking** com contexto detalhado
+### Monitoring
+- **Health check** with system metrics
+- **Structured logging** with Winston
+- **Error tracking** with detailed context
 
 ## 📝 Logs
 
-O sistema usa Winston para logging estruturado:
-- **Info**: Operações normais
-- **Warn**: Situações de atenção
-- **Error**: Erros e exceções
-- **Debug**: Informações detalhadas (desenvolvimento)
+The system uses Winston for structured logging:
+- **Info**: Normal operations
+- **Warn**: Attention situations
+- **Error**: Errors and exceptions
+- **Debug**: Detailed information (development)
 
-## 🤝 Contribuição
+## 🤝 Contributing
 
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📄 Licença
+## 📄 License
 
-Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalhes.
+This project is under the ISC license. See the `LICENSE` file for more details.
 
-## 🎯 Exemplos de Uso Prático
+## 🎯 Practical Usage Examples
 
-### 📊 Análise de Portfolio Completa
+### 📊 Complete Portfolio Analysis
 ```bash
-# 1. Verificar saúde do sistema
+# 1. Check system health
 curl http://localhost:3001/health
 
-# 2. Buscar todas as posições de uma carteira
+# 2. Search all positions of a wallet
 curl "http://localhost:3001/liquidity/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 
-# 3. Analisar ROI detalhado de uma pool específica
+# 3. Analyze detailed ROI of a specific pool
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 
-# 4. Ver detalhes de uma posição específica
+# 4. See details of a specific position
 curl "http://localhost:3001/position/77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
 
-# 5. Encontrar as top posições da rede
+# 5. Find top positions on the network
 curl "http://localhost:3001/top-positions?limit=20"
 ```
 
-### 💰 Análise Financeira Avançada
+### 💰 Advanced Financial Analysis
 ```bash
-# Análise com período específico
+# Analysis with specific period
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true"
 
-# Análise de posição específica
+# Specific position analysis
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY?positionId=77mnr1C294q2eHSuxxaM3R44ZWwJ89FztcwDB3EcaBR"
 ```
 
-### 🔍 Exploração de Pools
+### 🔍 Pool Exploration
 ```bash
-# Listar todas as pools
+# List all pools
 curl "http://localhost:3001/pools"
 
-# Detalhes completos de uma pool com top posições
+# Complete pool details with top positions
 curl "http://localhost:3001/poolsdetails/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE?topPositions=10"
 
-# Análise de fees de uma posição
+# Position fee analysis
 curl "http://localhost:3001/fees/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/6PaZJLPmJPd3kVx4pBGAmndfTXsJS1tcuYhqvHFSZ4RY"
 ```
 
-## 🆘 Suporte
+## 🆘 Support
 
-- **Documentação Orca**: https://docs.orca.so/
-- **Discord Orca**: https://discord.gg/orcaprotocol
-- **Issues**: Use o sistema de issues do GitHub
+- **Orca Documentation**: https://docs.orca.so/
+- **Orca Discord**: https://discord.gg/orcaprotocol
+- **Issues**: Use the GitHub issues system
 
 ## 🔄 Changelog
 
-### v1.7.1 (Atual)
-- ✅ **Correção crítica na detecção de fees coletadas** - agora detecta corretamente ambos os tokens (A e B)
-- ✅ **Melhoria na análise de transações** - busca por owner em vez de ATAs para melhor performance
-- ✅ **Detecção via logs do Anchor** - usa `"Instruction: CollectFees"` para identificar transações relevantes
-- ✅ **Análise de inner instructions** - detecta transferências dos vaults da pool independente do destino
-- ✅ **Documentação atualizada** com detalhes sobre o novo algoritmo de detecção de fees
+### v1.7.1 (Current)
+- ✅ **Critical fix in collected fees detection** - now correctly detects both tokens (A and B)
+- ✅ **Improved transaction analysis** - searches by owner instead of ATAs for better performance
+- ✅ **Detection via Anchor logs** - uses `"Instruction: CollectFees"` to identify relevant transactions
+- ✅ **Inner instruction analysis** - detects transfers from pool vaults regardless of destination
+- ✅ **Updated documentation** with details about the new fee detection algorithm
 
 ### v1.7.0
-- ✅ **Provedor de preços Helius implementado** com integração Pyth/Jupiter
-- ✅ **Suporte a preços históricos** com timestamp específico
-- ✅ **Funções utilitárias** para buscar preços de tokens e pares
-- ✅ **Configuração Helius API** para preços em tempo real
-- ✅ **Documentação completamente atualizada** com exemplos detalhados
-- ✅ **Estrutura de APIs melhorada** com descrições e parâmetros detalhados
-- ✅ **Exemplos de uso** para todas as rotas principais
+- ✅ **Helius price provider implemented** with Pyth/Jupiter integration
+- ✅ **Historical price support** with specific timestamp
+- ✅ **Utility functions** to fetch token and pair prices
+- ✅ **Helius API configuration** for real-time prices
+- ✅ **Completely updated documentation** with detailed examples
+- ✅ **Improved API structure** with detailed descriptions and parameters
+- ✅ **Usage examples** for all main routes
 
 ### v1.6.0
-- ✅ **Rota brokk-analytics refatorada** para remover dependência de provedor de preços
-- ✅ **Arquivo BrokkFinancePools.ts renomeado** para brokkfinancepools.ts (minúsculo)
-- ✅ **Simplificação da rota brokk-analytics** removendo rpcUrl e deixando provedor para brokkfinancepools
-- ✅ **Uso consistente do orca.ts** em todas as rotas de análise
-- ✅ **Documentação atualizada** refletindo mudanças na rota brokk-analytics
+- ✅ **Refactored brokk-analytics route** to remove price provider dependency
+- ✅ **Renamed BrokkFinancePools.ts file** to brokkfinancepools.ts (lowercase)
+- ✅ **Simplified brokk-analytics route** removing rpcUrl and leaving provider to brokkfinancepools
+- ✅ **Consistent use of orca.ts** in all analysis routes
+- ✅ **Updated documentation** reflecting changes in brokk-analytics route
 
 ### v1.5.0
-- ✅ **Rota wallet refatorada** para usar getLiquidityOverview e retornar formato padronizado
-- ✅ **Consistência total** entre todas as rotas de posição: `/wallet`, `/liquidity`, `/position`, `/top-positions`
-- ✅ **Simplificação da rota wallet** de 116 para 76 linhas com lógica centralizada
-- ✅ **Documentação atualizada** com exemplo de resposta da rota wallet
-- ✅ **Tratamento de erros melhorado** com mensagens específicas para carteiras
+- ✅ **Refactored wallet route** to use getLiquidityOverview and return standardized format
+- ✅ **Total consistency** between all position routes: `/wallet`, `/liquidity`, `/position`, `/top-positions`
+- ✅ **Simplified wallet route** from 116 to 76 lines with centralized logic
+- ✅ **Updated documentation** with wallet route response example
+- ✅ **Improved error handling** with specific messages for wallets
 
 ### v1.4.0
-- ✅ **Rota top-positions refatorada** com toda lógica de negócio migrada para orca.ts
-- ✅ **Consistência de dados** entre rotas `/top-positions`, `/position/:nftMint` e `/liquidity/:owner`
-- ✅ **Função getTopPositionsData** criada para centralizar lógica de busca de top positions
-- ✅ **Processamento padronizado** usando processPositionDataFromRaw para mesmo formato
-- ✅ **Documentação atualizada** com nova rota top-positions e exemplos de uso
-- ✅ **Otimização de performance** com processamento em lotes para grandes volumes
+- ✅ **Refactored top-positions route** with all business logic migrated to orca.ts
+- ✅ **Data consistency** between routes `/top-positions`, `/position/:nftMint` and `/liquidity/:owner`
+- ✅ **Created getTopPositionsData function** to centralize top positions search logic
+- ✅ **Standardized processing** using processPositionDataFromRaw for same format
+- ✅ **Updated documentation** with new top-positions route and usage examples
+- ✅ **Performance optimization** with batch processing for large volumes
 
 ### v1.3.0
-- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
-- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
-- ✅ **Função processPositionData** criada para padronizar o processamento de posições
-- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
-- ✅ **Exemplos de resposta** adicionados na documentação
-- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
+- ✅ **Refactored position route** to return exactly the same format as liquidity route
+- ✅ **Data consistency** between routes `/position/:nftMint` and `/liquidity/:owner`
+- ✅ **Created processPositionData function** to standardize position processing
+- ✅ **Updated documentation** with complete details of returned fields
+- ✅ **Response examples** added to documentation
+- ✅ **Improved error handling** with specific messages for different scenarios
 
 ### v1.2.0
-- ✅ **README atualizado** com informações básicas e referência à documentação da API
-- ✅ **Instruções de instalação melhoradas** com comandos atualizados
-- ✅ **Dependências atualizadas** com versões específicas
-- ✅ **Configuração de ambiente** mais detalhada
-- ✅ **Verificação de instalação** com comandos de teste
+- ✅ **Updated README** with basic information and API documentation reference
+- ✅ **Improved installation instructions** with updated commands
+- ✅ **Updated dependencies** with specific versions
+- ✅ **More detailed environment configuration**
+- ✅ **Installation verification** with test commands
 
 ### v1.1.0
-- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
-- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
-- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
-- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
-- ✅ **Mensagens traduzidas para inglês** em todas as rotas
-- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
-- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
-- ✅ **Melhor tratamento de erros e logging** estruturado
-- ✅ **Dados de `tickComparison`** para visualizações frontend
-- ✅ **Documentação completa da API** com exemplos práticos
+- ✅ **Complete refactoring of `/liquidity` route** with official Orca SDK
+- ✅ **Reusable `createRpcConnection()` function** for RPC connections
+- ✅ **Moved `convertBigIntToString()` utility function** to `orca.ts`
+- ✅ **Precise in-range/out-of-range calculation** with tick comparison data
+- ✅ **Translated messages to English** in all routes
+- ✅ **Removed `positions-by-owner` route** (eliminated duplication)
+- ✅ **Fixed PostgreSQL configuration** to avoid SASL/SCRAM errors
+- ✅ **Better error handling and structured logging**
+- ✅ **`tickComparison` data** for frontend visualizations
+- ✅ **Complete API documentation** with practical examples
 
 ### v1.0.0
-- ✅ Integração completa com @orca-so/whirlpools-sdk
-- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
-- ✅ Dados detalhados para visualizações de range
-- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
-- ✅ Cálculo de preços ajustados para diferentes tokens
-- ✅ Estatísticas de liquidez e concentração
-- ✅ Sistema de logging e monitoramento
-- ✅ Rate limiting e segurança
-- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
+- ✅ Complete integration with @orca-so/whirlpools-sdk
+- ✅ `/poolsdetails/:poolid` route with tick analysis
+- ✅ Detailed data for range visualizations
+- ✅ `showpositions` and `topPositions` parameters for performance control
+- ✅ Adjusted price calculation for different tokens
+- ✅ Liquidity and concentration statistics
+- ✅ Logging and monitoring system
+- ✅ Rate limiting and security
+- ✅ Routes: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
 
-#### 💰 Brokk Analytics (Análise Financeira Completa)
+#### 💰 Brokk Analytics (Complete Financial Analysis)
 ```bash
 GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
 ```
-**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
+**Description:** Complete financial analysis of LP performance in Orca Whirlpools (Revert Finance style).
 
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do owner
-- `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
-- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
-- `showHistory` (opcional): Incluir histórico detalhado de transações
+**Parameters:**
+- `poolId` (required): Whirlpool pool address
+- `owner` (required): Owner wallet address
+- `positionId` (optional): Specific position identifier (NFT mint)
+- `startUtc` (optional): Start date for historical analysis (ISO 8601)
+- `endUtc` (optional): End date for historical analysis (ISO 8601)
+- `showHistory` (optional): Include detailed transaction history
 
-**Funcionalidades:**
-- **ROI e APR** calculados com precisão via Helius API
-- **Análise de fees** coletadas e pendentes
-- **Cálculo de PnL** (Profit and Loss) detalhado
-- **Análise de impermanent loss**
-- **Rastreamento de custos de gas**
-- **Métricas agregadas** entre múltiplas posições
-- **Análise histórica** com valorização USD adequada
+**Features:**
+- **ROI and APR** calculated with precision via Helius API
+- **Fee analysis** collected and pending
+- **Detailed PnL calculation** (Profit and Loss)
+- **Impermanent loss analysis**
+- **Gas cost tracking**
+- **Aggregated metrics** across multiple positions
+- **Historical analysis** with proper USD valuation
 
-**Exemplos:**
+**Examples:**
 ```bash
-# Análise ROI completa para todas as posições do owner na pool
+# Complete ROI analysis for all owner positions in the pool
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
 
-# Análise ROI para uma posição específica
+# ROI analysis for a specific position
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
 
-# Análise ROI com período específico e histórico
+# ROI analysis with specific period and history
 curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
 ```
 
-**Dados retornados:**
-- `positions[]`: Array de análise financeira por posição
-- `range`: Faixa de preço (min/max/atual) para a posição
-- `investment`: Valores de investimento inicial e valores USD na época do depósito
-- `current`: Quantidades atuais de tokens e valores USD
-- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
-- `rewards`: Rewards não reivindicados e reivindicados em USD
-- `withdrawn`: Saques de principal em USD
-- `gas`: Custos de gas em SOL e USD
-- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
-- `roiPct`: Percentual de Retorno sobre Investimento
-- `aprPct`: Taxa Percentual Anualizada
-- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
-- `aggregated`: Soma de todas as métricas das posições
+**Returned data:**
+- `positions[]`: Array of financial analysis by position
+- `range`: Price range (min/max/current) for the position
+- `investment`: Initial investment values and USD values at deposit time
+- `current`: Current token quantities and USD values
+- `fees`: Collected, uncollected, reinvested, and total fees in USD
+- `rewards`: Unclaimed and claimed rewards in USD
+- `withdrawn`: Principal withdrawals in USD
+- `gas`: Gas costs in SOL and USD
+- `pnlExcludingGasUSDT`: Profit/Loss excluding gas costs
+- `roiPct`: Return on Investment percentage
+- `aprPct`: Annualized Percentage Rate
+- `divergenceLossUSDT`: Impermanent Loss (LP value vs HODL value)
+- `aggregated`: Sum of all position metrics
 
-**Notas importantes:**
-- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
-- Usa provedor de preços básico para testes (configurável para produção)
-- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
-- Suporte para análise de posição única ou agregação de múltiplas posições
-- Análise histórica com valorização USD adequada por timestamp
-
-
-### v1.3.0
-- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
-- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
-- ✅ **Função processPositionData** criada para padronizar o processamento de posições
-- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
-- ✅ **Exemplos de resposta** adicionados na documentação
-- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
-
-### v1.2.0
-- ✅ **README atualizado** com informações básicas e referência à documentação da API
-- ✅ **Instruções de instalação melhoradas** com comandos atualizados
-- ✅ **Dependências atualizadas** com versões específicas
-- ✅ **Configuração de ambiente** mais detalhada
-- ✅ **Verificação de instalação** com comandos de teste
-
-### v1.1.0
-- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
-- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
-- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
-- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
-- ✅ **Mensagens traduzidas para inglês** em todas as rotas
-- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
-- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
-- ✅ **Melhor tratamento de erros e logging** estruturado
-- ✅ **Dados de `tickComparison`** para visualizações frontend
-- ✅ **Documentação completa da API** com exemplos práticos
-
-### v1.0.0
-- ✅ Integração completa com @orca-so/whirlpools-sdk
-- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
-- ✅ Dados detalhados para visualizações de range
-- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
-- ✅ Cálculo de preços ajustados para diferentes tokens
-- ✅ Estatísticas de liquidez e concentração
-- ✅ Sistema de logging e monitoramento
-- ✅ Rate limiting e segurança
-- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
-
-#### 💰 Brokk Analytics (Análise Financeira Completa)
-```bash
-GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
-```
-**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
-
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do owner
-- `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
-- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
-- `showHistory` (opcional): Incluir histórico detalhado de transações
-
-**Funcionalidades:**
-- **ROI e APR** calculados com precisão via Helius API
-- **Análise de fees** coletadas e pendentes
-- **Cálculo de PnL** (Profit and Loss) detalhado
-- **Análise de impermanent loss**
-- **Rastreamento de custos de gas**
-- **Métricas agregadas** entre múltiplas posições
-- **Análise histórica** com valorização USD adequada
-
-**Exemplos:**
-```bash
-# Análise ROI completa para todas as posições do owner na pool
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
-
-# Análise ROI para uma posição específica
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
-
-# Análise ROI com período específico e histórico
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
-```
-
-**Dados retornados:**
-- `positions[]`: Array de análise financeira por posição
-- `range`: Faixa de preço (min/max/atual) para a posição
-- `investment`: Valores de investimento inicial e valores USD na época do depósito
-- `current`: Quantidades atuais de tokens e valores USD
-- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
-- `rewards`: Rewards não reivindicados e reivindicados em USD
-- `withdrawn`: Saques de principal em USD
-- `gas`: Custos de gas em SOL e USD
-- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
-- `roiPct`: Percentual de Retorno sobre Investimento
-- `aprPct`: Taxa Percentual Anualizada
-- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
-- `aggregated`: Soma de todas as métricas das posições
-
-**Notas importantes:**
-- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
-- Usa provedor de preços básico para testes (configurável para produção)
-- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
-- Suporte para análise de posição única ou agregação de múltiplas posições
-- Análise histórica com valorização USD adequada por timestamp
-
-
-### v1.3.0
-- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
-- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
-- ✅ **Função processPositionData** criada para padronizar o processamento de posições
-- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
-- ✅ **Exemplos de resposta** adicionados na documentação
-- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
-
-### v1.2.0
-- ✅ **README atualizado** com informações básicas e referência à documentação da API
-- ✅ **Instruções de instalação melhoradas** com comandos atualizados
-- ✅ **Dependências atualizadas** com versões específicas
-- ✅ **Configuração de ambiente** mais detalhada
-- ✅ **Verificação de instalação** com comandos de teste
-
-### v1.1.0
-- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
-- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
-- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
-- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
-- ✅ **Mensagens traduzidas para inglês** em todas as rotas
-- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
-- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
-- ✅ **Melhor tratamento de erros e logging** estruturado
-- ✅ **Dados de `tickComparison`** para visualizações frontend
-- ✅ **Documentação completa da API** com exemplos práticos
-
-### v1.0.0
-- ✅ Integração completa com @orca-so/whirlpools-sdk
-- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
-- ✅ Dados detalhados para visualizações de range
-- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
-- ✅ Cálculo de preços ajustados para diferentes tokens
-- ✅ Estatísticas de liquidez e concentração
-- ✅ Sistema de logging e monitoramento
-- ✅ Rate limiting e segurança
-- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
-
-#### 💰 Brokk Analytics (Análise Financeira Completa)
-```bash
-GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
-```
-**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
-
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do owner
-- `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
-- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
-- `showHistory` (opcional): Incluir histórico detalhado de transações
-
-**Funcionalidades:**
-- **ROI e APR** calculados com precisão via Helius API
-- **Análise de fees** coletadas e pendentes
-- **Cálculo de PnL** (Profit and Loss) detalhado
-- **Análise de impermanent loss**
-- **Rastreamento de custos de gas**
-- **Métricas agregadas** entre múltiplas posições
-- **Análise histórica** com valorização USD adequada
-
-**Exemplos:**
-```bash
-# Análise ROI completa para todas as posições do owner na pool
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
-
-# Análise ROI para uma posição específica
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
-
-# Análise ROI com período específico e histórico
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
-```
-
-**Dados retornados:**
-- `positions[]`: Array de análise financeira por posição
-- `range`: Faixa de preço (min/max/atual) para a posição
-- `investment`: Valores de investimento inicial e valores USD na época do depósito
-- `current`: Quantidades atuais de tokens e valores USD
-- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
-- `rewards`: Rewards não reivindicados e reivindicados em USD
-- `withdrawn`: Saques de principal em USD
-- `gas`: Custos de gas em SOL e USD
-- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
-- `roiPct`: Percentual de Retorno sobre Investimento
-- `aprPct`: Taxa Percentual Anualizada
-- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
-- `aggregated`: Soma de todas as métricas das posições
-
-**Notas importantes:**
-- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
-- Usa provedor de preços básico para testes (configurável para produção)
-- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
-- Suporte para análise de posição única ou agregação de múltiplas posições
-- Análise histórica com valorização USD adequada por timestamp
-
-
-### v1.3.0
-- ✅ **Rota position refatorada** para retornar exatamente o mesmo formato da rota de liquidez
-- ✅ **Consistência de dados** entre rotas `/position/:nftMint` e `/liquidity/:owner`
-- ✅ **Função processPositionData** criada para padronizar o processamento de posições
-- ✅ **Documentação atualizada** com detalhes completos dos campos retornados
-- ✅ **Exemplos de resposta** adicionados na documentação
-- ✅ **Tratamento de erros melhorado** com mensagens específicas para diferentes cenários
-
-### v1.2.0
-- ✅ **README atualizado** com informações básicas e referência à documentação da API
-- ✅ **Instruções de instalação melhoradas** com comandos atualizados
-- ✅ **Dependências atualizadas** com versões específicas
-- ✅ **Configuração de ambiente** mais detalhada
-- ✅ **Verificação de instalação** com comandos de teste
-
-### v1.1.0
-- ✅ **Refatoração completa da rota `/liquidity`** com SDK oficial do Orca
-- ✅ **Função `createRpcConnection()` reutilizável** para conexões RPC
-- ✅ **Função `convertBigIntToString()` utilitária** movida para `orca.ts`
-- ✅ **Cálculo preciso de in-range/out-of-range** com dados de tick comparison
-- ✅ **Mensagens traduzidas para inglês** em todas as rotas
-- ✅ **Rota `positions-by-owner` removida** (duplicação eliminada)
-- ✅ **Configuração PostgreSQL corrigida** para evitar erros SASL/SCRAM
-- ✅ **Melhor tratamento de erros e logging** estruturado
-- ✅ **Dados de `tickComparison`** para visualizações frontend
-- ✅ **Documentação completa da API** com exemplos práticos
-
-### v1.0.0
-- ✅ Integração completa com @orca-so/whirlpools-sdk
-- ✅ Rota `/poolsdetails/:poolid` com análise de ticks
-- ✅ Dados detalhados para visualizações de range
-- ✅ Parâmetro `showpositions` e `topPositions` para controle de performance
-- ✅ Cálculo de preços ajustados para diferentes tokens
-- ✅ Estatísticas de liquidez e concentração
-- ✅ Sistema de logging e monitoramento
-- ✅ Rate limiting e segurança
-- ✅ Rotas: `/wallet`, `/position`, `/liquidity`, `/pools`, `/poolsdetails`, `/top-positions`, `/webhook`, `/fees`, `/brokk-analytics`
-
-#### 💰 Brokk Analytics (Análise Financeira Completa)
-```bash
-GET /brokk-analytics/:poolId/:owner?positionId=xxx&startUtc=2024-01-01T00:00:00Z&endUtc=2024-01-31T23:59:59Z&showHistory=true
-```
-**Descrição:** Análise financeira completa do desempenho de LP na Orca Whirlpools (estilo Revert Finance).
-
-**Parâmetros:**
-- `poolId` (obrigatório): Endereço da pool Whirlpool
-- `owner` (obrigatório): Endereço da carteira do owner
-- `positionId` (opcional): Identificador da posição específica (NFT mint)
-- `startUtc` (opcional): Data de início para análise histórica (ISO 8601)
-- `endUtc` (opcional): Data de fim para análise histórica (ISO 8601)
-- `showHistory` (opcional): Incluir histórico detalhado de transações
-
-**Funcionalidades:**
-- **ROI e APR** calculados com precisão via Helius API
-- **Análise de fees** coletadas e pendentes
-- **Cálculo de PnL** (Profit and Loss) detalhado
-- **Análise de impermanent loss**
-- **Rastreamento de custos de gas**
-- **Métricas agregadas** entre múltiplas posições
-- **Análise histórica** com valorização USD adequada
-
-**Exemplos:**
-```bash
-# Análise ROI completa para todas as posições do owner na pool
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc"
-
-# Análise ROI para uma posição específica
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?positionId=6TKDPz14cZZ6yGAEzqB7GodX8R32zf5NcnnZeRovCbQH"
-
-# Análise ROI com período específico e histórico
-curl "http://localhost:3001/brokk-analytics/Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE/2mu3kyTmEvdjPUeb9CPHMqDWT7jZEWqiyqtrJyMHHhuc?startUtc=2025-10-01T00:00:00Z&endUtc=2025-10-12T23:59:59Z&showHistory=true"
-```
-
-**Dados retornados:**
-- `positions[]`: Array de análise financeira por posição
-- `range`: Faixa de preço (min/max/atual) para a posição
-- `investment`: Valores de investimento inicial e valores USD na época do depósito
-- `current`: Quantidades atuais de tokens e valores USD
-- `fees`: Fees coletadas, não coletadas, reinvestidas e totais em USD
-- `rewards`: Rewards não reivindicados e reivindicados em USD
-- `withdrawn`: Saques de principal em USD
-- `gas`: Custos de gas em SOL e USD
-- `pnlExcludingGasUSDT`: Lucro/Perda excluindo custos de gas
-- `roiPct`: Percentual de Retorno sobre Investimento
-- `aprPct`: Taxa Percentual Anualizada
-- `divergenceLossUSDT`: Perda Impermanente (valor LP vs valor HODL)
-- `aggregated`: Soma de todas as métricas das posições
-
-**Notas importantes:**
-- Integra com funções existentes do orca.ts (getOutstandingFeesForPosition, feesCollectedInRange)
-- Usa provedor de preços básico para testes (configurável para produção)
-- Calcula métricas financeiras completas incluindo PnL, ROI, APR e IL
-- Suporte para análise de posição única ou agregação de múltiplas posições
-- Análise histórica com valorização USD adequada por timestamp
+**Important notes:**
+- Integrates with existing orca.ts functions (getOutstandingFeesForPosition, feesCollectedInRange)
+- Uses basic price provider for testing (configurable for production)
+- Calculates complete financial metrics including PnL, ROI, APR and IL
+- Support for single position analysis or multiple position aggregation
+- Historical analysis with proper USD valuation by timestamp
