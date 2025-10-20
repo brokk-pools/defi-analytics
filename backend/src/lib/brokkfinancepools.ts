@@ -144,6 +144,10 @@ export async function calculateAnalytics(
         B_USD: Number(outstandingFees.totals.B_USD)
       };
 
+      const feeRate= poolData.feeRate;
+      const feeTier = feeRate / 1_000_000 ; 
+      const feeTier_percent = feeTier * 100 ; // 0.05%, 0.3%, 1%
+
       // Ja esta pegando em Solana (Convertido para 9 decimais)
       const gas = await GetGasInPosition(positionId, false);
 
@@ -416,6 +420,14 @@ export async function calculateAnalytics(
             ROI: {
               value: ROI,
               description: "Return on Investment (percentage)"
+            },
+            feeTier: {
+              value: feeTier,
+              description: "defines the trading fee level of the pool (in Value of Pool)."
+            },
+            feeTier_percent: {
+              value: feeTier_percent,
+              description: "Fee tier percentage (0.05%, 0.3%, 1%)"
             },
             ROI_exGas: {
               value: ROI_exGas,
