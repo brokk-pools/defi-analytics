@@ -117,10 +117,25 @@ export const securityMiddleware = helmet({
 });
 
 export const corsMiddleware = cors({
-  origin: process.env.CORS_ORIGIN === '*' ? true : 
-    (process.env.CORS_ORIGIN ? 
-      process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
-      ['http://localhost', 'http://localhost:3000', 'http://localhost:5173']),
+  origin: (origin, callback) => {
+    if (process.env.CORS_ORIGIN === '*') {
+      callback(null, true);
+    } else if (process.env.CORS_ORIGIN) {
+      const allowedOrigins = process.env.CORS_ORIGIN.split(',').map(o => o.trim());
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    } else {
+      const defaultOrigins = ['http://localhost', 'http://localhost:3000', 'http://localhost:5173'];
+      if (defaultOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    }
+  },
   credentials: process.env.CORS_CREDENTIALS === 'true',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
