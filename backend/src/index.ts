@@ -100,7 +100,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'orca-whirlpools-backend',
-    version: '1.0.0',
+    version: '1.0.1',
     environment: process.env.NODE_ENV || 'development',
     uptime: Math.floor(process.uptime()),
     memory: {
